@@ -4,11 +4,12 @@
 
 | Component | Version | Notes |
 |-----------|---------|-------|
-| Paper | 26.3 | Current supported Paper line |
-| Paper API | `26.3.build.+` | Compile-only dependency |
-| Java | 25 | Required by Paper 26.1+ |
+| Paper | 1.21.11 | Target Minecraft version |
+| Paper API | `1.21.11-R0.1-SNAPSHOT` | Compile-only dependency |
+| Java | 21+ | Required by Paper 1.21.11 |
 | Gradle | Wrapper (9.8.0) | No system Gradle required |
 | Plugin package | `com.larpsmp.moneyevent` | Minimal foundation only |
+| Auth | Offline (`online-mode=false`) | Allows cracked clients |
 
 ## Everyday workflow
 
@@ -23,15 +24,12 @@ Or just run the script; it builds first.
 
 `scripts/dev-server.sh` picks Java in this order:
 
-1. `$JAVA_HOME` (if it points at a Java 25 install)
-2. `/usr/lib/jvm/java-25-openjdk`
-3. `tools/jdk-25` (project-local, gitignored)
+1. `$JAVA_HOME` (if present)
+2. `/usr/lib/jvm/java-21-openjdk`
+3. `/usr/lib/jvm/java-25-openjdk`
+4. `tools/jdk-25` (project-local, gitignored)
 
-Install the system package when possible:
-
-```bash
-sudo pacman -S --needed jdk25-openjdk
-```
+Any Java **21 or newer** is accepted.
 
 ## Project layout
 
@@ -53,7 +51,7 @@ Do not kill the process unless the server is hung; a clean stop flushes worlds a
 
 ## Connecting
 
-With the server running, join from a matching Minecraft Java client:
+With the server running, join from a **1.21.11** Minecraft Java client (official or cracked):
 
 - Address: `localhost`
 - Port: `25565` (default)

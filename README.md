@@ -6,9 +6,9 @@ This repository currently contains only the **Paper plugin + local development s
 
 ## Prerequisites
 
-- **Java 25** (required by Paper 26.3)
-  - Preferred on Arch/CachyOS: `sudo pacman -S --needed jdk25-openjdk`
-  - Or use a JDK 25 under `tools/jdk-25` (gitignored; used automatically by `scripts/dev-server.sh`)
+- **Java 21+** (required by Paper 1.21.11; Java 25 works)
+  - Preferred on Arch/CachyOS: `sudo pacman -S --needed jdk21-openjdk`
+  - Or use a JDK under `tools/jdk-25` (gitignored; used automatically by `scripts/dev-server.sh`)
 - Git
 - curl / python3 (used by the dev-server bootstrap script)
 
@@ -28,19 +28,22 @@ The plugin JAR is written to `build/libs/` (for example `money-event-0.1.0.jar`)
 
 This script:
 
-1. Resolves Java 25
+1. Resolves Java 21+
 2. Builds the plugin with Gradle
-3. Downloads the Paper 26.3 server JAR into `dev-server/` if needed
+3. Downloads the Paper 1.21.11 server JAR into `dev-server/` if needed
 4. Accepts the Minecraft EULA for local development
-5. Copies the plugin JAR into `dev-server/plugins/`
-6. Starts Paper (`localhost:25565`)
+5. Ensures offline mode (`online-mode=false`) for cracked/offline clients
+6. Copies the plugin JAR into `dev-server/plugins/`
+7. Starts Paper (`localhost:25565`)
 
 Stop the server by typing `stop` in the console.
 
 ## Connect with Minecraft
 
-1. Start a Minecraft Java Edition client matching Paper 26.3 / the current Minecraft release line.
+1. Start a **Minecraft Java Edition 1.21.11** client (official or cracked launcher).
 2. Multiplayer → Direct Connection → `localhost` (or `127.0.0.1`).
+
+Offline mode is enabled, so cracked/unauthenticated clients can join.
 
 ## Local server files
 

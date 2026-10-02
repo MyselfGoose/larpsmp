@@ -2,7 +2,10 @@
 motd=LarpSMP Money Event Dev
 gamemode=survival
 difficulty=easy
-online-mode=true
+online-mode=false
+enforce-secure-profile=false
+white-list=false
+enforce-whitelist=false
 max-players=20
 spawn-protection=0
 view-distance=10

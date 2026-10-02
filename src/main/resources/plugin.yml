@@ -1,6 +1,6 @@
 name: MoneyEvent
 version: '${version}'
 main: com.larpsmp.moneyevent.MoneyEventPlugin
-api-version: '26.2'
+api-version: '1.21'
 description: Local development foundation for the LarpSMP money event.
 author: LarpSMP
