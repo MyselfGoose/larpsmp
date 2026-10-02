@@ -1,0 +1,13 @@
+# Minimal local development defaults. Copied to server.properties on first run.
+motd=LarpSMP Money Event Dev
+gamemode=survival
+difficulty=easy
+online-mode=true
+max-players=20
+spawn-protection=0
+view-distance=10
+simulation-distance=8
+enable-command-block=true
+pvp=true
+level-name=world
+server-port=25565

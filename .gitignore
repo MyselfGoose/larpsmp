@@ -1,0 +1,70 @@
+# Gradle
+.gradle/
+build/
+!gradle/wrapper/gradle-wrapper.jar
+
+# IDE
+.idea/
+*.iml
+*.ipr
+*.iws
+.vscode/
+*.swp
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Secrets / credentials
+.env
+.env.*
+*.pem
+*.key
+credentials.*
+secrets.*
+
+# Temporary files
+*.tmp
+*.temp
+*.log
+*.bak
+
+# Project-local JDK (optional; prefer system jdk25-openjdk)
+tools/jdk-25/
+tools/*.tar.gz
+
+# Local development server runtime
+dev-server/world/
+dev-server/world_nether/
+dev-server/world_the_end/
+dev-server/logs/
+dev-server/cache/
+dev-server/libraries/
+dev-server/versions/
+dev-server/plugins/
+dev-server/config/
+dev-server/.paper/
+dev-server/*.jar
+dev-server/eula.txt
+dev-server/server.properties
+dev-server/ops.json
+dev-server/banned-players.json
+dev-server/banned-ips.json
+dev-server/whitelist.json
+dev-server/usercache.json
+dev-server/usernamecache.json
+dev-server/session.lock
+dev-server/paper.yml
+dev-server/paper-global.yml
+dev-server/paper-world-defaults.yml
+dev-server/spigot.yml
+dev-server/bukkit.yml
+dev-server/commands.yml
+dev-server/help.yml
+dev-server/permissions.yml
+dev-server/pufferfish.yml
+dev-server/version_history.json
+dev-server/.console_history
+dev-server/crash-reports/
