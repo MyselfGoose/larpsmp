@@ -8,18 +8,20 @@
 | Paper API | `1.21.11-R0.1-SNAPSHOT` | Compile-only dependency |
 | Java | 21+ | Required by Paper 1.21.11 |
 | Gradle | Wrapper (9.8.0) | No system Gradle required |
-| Plugin package | `com.larpsmp.moneyevent` | Minimal foundation only |
+| PostgreSQL | 16+ | Local via Docker Compose |
+| Plugin package | `com.larpsmp.moneyevent` | Auth + foundation |
 | Server auth | Offline (`online-mode=false`) | Allows cracked clients to reach the plugin gate |
-| Plugin auth | Pre-join Paper Dialogs | Blocks world join until test login succeeds |
+| Plugin auth | Pre-join Paper Dialogs + Postgres | Blocks world join until signup/login succeeds |
 
 ## Everyday workflow
 
 ```bash
+docker compose -f docker/docker-compose.yml up -d
 ./gradlew build
 ./scripts/dev-server.sh
 ```
 
-Or just run the script; it builds first.
+Or just run the script after the DB stack is up; it builds first.
 
 ## Java resolution order
 
@@ -35,10 +37,26 @@ Any Java **21 or newer** is accepted.
 ## Project layout
 
 - Plugin source: `src/main/java/com/larpsmp/moneyevent/`
+- Auth package: `com.larpsmp.moneyevent.auth`
+- DB helpers: `com.larpsmp.moneyevent.db`
+- Migrations: `src/main/resources/db/migrations/`
 - Plugin metadata: `src/main/resources/plugin.yml`
 - Build: `build.gradle.kts`, Gradle Wrapper
 - Local Paper server: `dev-server/`
+- Docker stack: `docker/docker-compose.yml`
 - Bootstrap script: `scripts/dev-server.sh`
+
+## Authentication
+
+See [AUTH_AND_DATABASE.md](AUTH_AND_DATABASE.md) for:
+
+- Starting Postgres + pgAdmin
+- Plugin JDBC configuration
+- In-game signup/login testing
+- Inspecting accounts in pgAdmin
+- Resetting volumes and troubleshooting
+
+Runtime libraries (PostgreSQL JDBC, HikariCP, BouncyCastle) are declared in `plugin.yml` `libraries:` so Paper downloads them at startup.
 
 ## Clean shutdown
 
@@ -52,20 +70,15 @@ Do not kill the process unless the server is hung; a clean stop flushes worlds a
 
 ## Connecting
 
-With the server running, join from a **1.21.11** Minecraft Java client (official or cracked):
+With Postgres and the server running, join from a **1.21.11** Minecraft Java client:
 
 - Address: `localhost`
 - Port: `25565` (default)
 
-You will see a Login dialog before entering the world. Test credentials:
-
-- Username: `test` (or email `test@larpsmp.local`)
-- Password: `test123`
+Use **Sign up** to create the first account (no seeded users). Use **Log in** on later connects.
 
 Auth settings: `dev-server/plugins/MoneyEvent/config.yml` after first run (source defaults in `src/main/resources/config.yml`).
 
-Package layout for auth: `com.larpsmp.moneyevent.auth` (config, validator, sessions, dialogs, connection listener).
+## Intentionally out of scope (this phase)
 
-## Intentionally out of scope
-
-No economy, teams, capture points, auctions, admin commands, databases, Docker, or other game mechanics beyond the UI-first auth gate in this step. Real account registration / password hashing is deferred.
+No economy, teams, capture points, auctions, admin commands, email verification, password-reset emails, OAuth, or separate auth microservice.

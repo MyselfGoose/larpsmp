@@ -118,26 +118,6 @@ public final class AuthDialogFactory {
                         .build()));
     }
 
-    public Dialog signupUnavailableDialog() {
-        return Dialog.create(factory -> factory.empty()
-                .base(DialogBase.builder(Component.text(messages.signupUnavailableTitle(), ACCENT))
-                        .canCloseWithEscape(false)
-                        .afterAction(DialogBase.DialogAfterAction.WAIT_FOR_RESPONSE)
-                        .body(List.of(
-                                DialogBody.plainMessage(Component.text(messages.signupUnavailableBody(), NamedTextColor.GRAY))
-                        ))
-                        .build())
-                .type(DialogType.multiAction(List.of(
-                                ActionButton.builder(Component.text(messages.signupUnavailableAck(), CONFIRM))
-                                        .width(BUTTON_WIDTH)
-                                        .action(DialogAction.customClick(AuthDialogKeys.OPEN_LOGIN, null))
-                                        .build()
-                        ))
-                        .columns(1)
-                        .exitAction(backToMenuButton())
-                        .build()));
-    }
-
     private ActionButton backToMenuButton() {
         return ActionButton.builder(Component.text(messages.backToMenu(), EXIT))
                 .width(BUTTON_WIDTH)

@@ -6,6 +6,8 @@ import io.papermc.paper.dialog.DialogResponseView;
 import io.papermc.paper.event.connection.configuration.AsyncPlayerConnectionConfigureEvent;
 import io.papermc.paper.event.player.PlayerCustomClickEvent;
 import java.util.UUID;
+import java.util.concurrent.ExecutorService;
+import java.util.logging.Level;
 import java.util.logging.Logger;
 import net.kyori.adventure.audience.Audience;
 import net.kyori.adventure.key.Key;
@@ -21,22 +23,28 @@ import org.jetbrains.annotations.Nullable;
 public final class AuthConnectionListener implements Listener {
 
     private final AuthConfig config;
-    private final AuthCredentialsValidator validator;
+    private final @Nullable AuthService authService;
     private final AuthSessionManager sessionManager;
     private final AuthDialogFactory dialogFactory;
+    private final ExecutorService authExecutor;
     private final Logger logger;
+    private final boolean databaseReady;
 
     public AuthConnectionListener(
             AuthConfig config,
-            AuthCredentialsValidator validator,
+            @Nullable AuthService authService,
             AuthSessionManager sessionManager,
             AuthDialogFactory dialogFactory,
+            ExecutorService authExecutor,
+            boolean databaseReady,
             Logger logger
     ) {
         this.config = config;
-        this.validator = validator;
+        this.authService = authService;
         this.sessionManager = sessionManager;
         this.dialogFactory = dialogFactory;
+        this.authExecutor = authExecutor;
+        this.databaseReady = databaseReady;
         this.logger = logger;
     }
 
@@ -50,6 +58,14 @@ public final class AuthConnectionListener implements Listener {
         UUID profileId = connection.getProfile().getId();
         if (profileId == null) {
             connection.disconnect(Component.text(config.messages().disconnectMissingProfile(), NamedTextColor.RED));
+            return;
+        }
+
+        if (!databaseReady || authService == null) {
+            connection.disconnect(Component.text(
+                    config.messages().disconnectDatabaseUnavailable(),
+                    NamedTextColor.RED
+            ));
             return;
         }
 
@@ -104,17 +120,22 @@ public final class AuthConnectionListener implements Listener {
         Key identifier = event.getIdentifier();
         Audience audience = connection.getAudience();
         DialogResponseView view = event.getDialogResponseView();
+        String minecraftName = connection.getProfile().getName();
 
         if (identifier.equals(AuthDialogKeys.LOGIN)) {
-            handleLogin(profileId, audience, view);
+            handleLogin(session, profileId, minecraftName, audience, view);
             return;
         }
         if (identifier.equals(AuthDialogKeys.OPEN_SIGNUP)) {
+            if (!config.signup().enabled()) {
+                audience.showDialog(dialogFactory.loginDialog(config.messages().signupDisabled()));
+                return;
+            }
             audience.showDialog(dialogFactory.signupDialog(null));
             return;
         }
         if (identifier.equals(AuthDialogKeys.SIGNUP)) {
-            handleSignup(audience, view);
+            handleSignup(session, profileId, minecraftName, audience, view);
             return;
         }
         if (identifier.equals(AuthDialogKeys.OPEN_LOGIN)) {
@@ -141,42 +162,140 @@ public final class AuthConnectionListener implements Listener {
         sessionManager.cancel(event.getPlayerUniqueId());
     }
 
-    private void handleLogin(UUID profileId, Audience audience, @Nullable DialogResponseView view) {
+    private void handleLogin(
+            AuthSession session,
+            UUID profileId,
+            @Nullable String minecraftName,
+            Audience audience,
+            @Nullable DialogResponseView view
+    ) {
+        AuthService service = authService;
+        if (service == null || !databaseReady) {
+            audience.showDialog(dialogFactory.loginDialog(config.messages().loginInternalError()));
+            return;
+        }
+
         String identifier = textOrEmpty(view, AuthDialogKeys.INPUT_IDENTIFIER);
         String password = textOrEmpty(view, AuthDialogKeys.INPUT_PASSWORD);
 
-        if (validator.hasEmptyLoginFields(identifier, password)) {
+        if (service.hasEmptyLoginFields(identifier, password)) {
             audience.showDialog(dialogFactory.loginDialog(config.messages().loginEmptyFields()));
             return;
         }
 
-        if (!validator.authenticate(identifier, password)) {
-            audience.showDialog(dialogFactory.loginDialog(config.messages().loginInvalidCredentials()));
+        if (!session.tryStartProcessing()) {
             return;
         }
 
-        sessionManager.complete(profileId, AuthResult.ALLOWED);
-        audience.closeDialog();
+        authExecutor.execute(() -> {
+            try {
+                LoginResult result = service.login(identifier, password, profileId, minecraftName);
+                applyLoginResult(session, profileId, audience, result);
+            } catch (Exception exception) {
+                logger.log(Level.SEVERE, "Unexpected login error for profile " + profileId, exception);
+                if (session.isPending()) {
+                    audience.showDialog(dialogFactory.loginDialog(config.messages().loginInternalError()));
+                }
+            } finally {
+                session.finishProcessing();
+            }
+        });
     }
 
-    private void handleSignup(Audience audience, @Nullable DialogResponseView view) {
+    private void handleSignup(
+            AuthSession session,
+            UUID profileId,
+            @Nullable String minecraftName,
+            Audience audience,
+            @Nullable DialogResponseView view
+    ) {
+        if (!config.signup().enabled()) {
+            audience.showDialog(dialogFactory.loginDialog(config.messages().signupDisabled()));
+            return;
+        }
+
+        AuthService service = authService;
+        if (service == null || !databaseReady) {
+            audience.showDialog(dialogFactory.signupDialog(config.messages().signupInternalError()));
+            return;
+        }
+
         String username = textOrEmpty(view, AuthDialogKeys.INPUT_USERNAME);
         String email = textOrEmpty(view, AuthDialogKeys.INPUT_EMAIL);
         String password = textOrEmpty(view, AuthDialogKeys.INPUT_PASSWORD);
 
-        var validationError = validator.validateSignupFields(
-                username,
-                email,
-                password,
-                config.messages().signupEmptyFields()
-        );
+        var validationError = service.validateSignupFields(username, email, password);
         if (validationError.isPresent()) {
             audience.showDialog(dialogFactory.signupDialog(validationError.get()));
             return;
         }
 
-        // UI-only phase: do not create accounts or grant world access from signup.
-        audience.showDialog(dialogFactory.signupUnavailableDialog());
+        if (!session.tryStartProcessing()) {
+            return;
+        }
+
+        authExecutor.execute(() -> {
+            try {
+                SignupResult result = service.signup(username, email, password, profileId, minecraftName);
+                applySignupResult(session, profileId, audience, result);
+            } catch (Exception exception) {
+                logger.log(Level.SEVERE, "Unexpected signup error for profile " + profileId, exception);
+                if (session.isPending()) {
+                    audience.showDialog(dialogFactory.signupDialog(config.messages().signupInternalError()));
+                }
+            } finally {
+                session.finishProcessing();
+            }
+        });
+    }
+
+    private void applyLoginResult(AuthSession session, UUID profileId, Audience audience, LoginResult result) {
+        if (!session.isPending()) {
+            return;
+        }
+
+        switch (result) {
+            case LoginResult.Success ignored -> {
+                if (sessionManager.complete(profileId, AuthResult.ALLOWED)) {
+                    audience.closeDialog();
+                }
+            }
+            case LoginResult.InvalidCredentials ignored ->
+                    audience.showDialog(dialogFactory.loginDialog(config.messages().loginInvalidCredentials()));
+            case LoginResult.UuidBoundToOtherAccount ignored ->
+                    audience.showDialog(dialogFactory.loginDialog(config.messages().loginUuidBoundOther()));
+            case LoginResult.AccountBoundToOtherUuid ignored ->
+                    audience.showDialog(dialogFactory.loginDialog(config.messages().loginAccountBoundOther()));
+            case LoginResult.RateLimited ignored ->
+                    audience.showDialog(dialogFactory.loginDialog(config.messages().loginRateLimited()));
+            case LoginResult.InternalError ignored ->
+                    audience.showDialog(dialogFactory.loginDialog(config.messages().loginInternalError()));
+        }
+    }
+
+    private void applySignupResult(AuthSession session, UUID profileId, Audience audience, SignupResult result) {
+        if (!session.isPending()) {
+            return;
+        }
+
+        switch (result) {
+            case SignupResult.Success ignored -> {
+                // Auto-login after successful signup for better UX.
+                if (sessionManager.complete(profileId, AuthResult.ALLOWED)) {
+                    audience.closeDialog();
+                }
+            }
+            case SignupResult.ValidationError validationError ->
+                    audience.showDialog(dialogFactory.signupDialog(validationError.message()));
+            case SignupResult.UsernameTaken ignored ->
+                    audience.showDialog(dialogFactory.signupDialog(config.messages().signupUsernameTaken()));
+            case SignupResult.EmailTaken ignored ->
+                    audience.showDialog(dialogFactory.signupDialog(config.messages().signupEmailTaken()));
+            case SignupResult.RateLimited ignored ->
+                    audience.showDialog(dialogFactory.signupDialog(config.messages().signupRateLimited()));
+            case SignupResult.InternalError ignored ->
+                    audience.showDialog(dialogFactory.signupDialog(config.messages().signupInternalError()));
+        }
     }
 
     private static String textOrEmpty(@Nullable DialogResponseView view, String key) {

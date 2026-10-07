@@ -8,9 +8,35 @@ import org.bukkit.configuration.file.FileConfiguration;
 public record AuthConfig(
         boolean enabled,
         int timeoutSeconds,
-        TestAccount testAccount,
+        boolean autoLoginBoundUuid,
+        DatabaseConfig database,
+        SignupConfig signup,
+        RateLimitConfig rateLimit,
         Messages messages
 ) {
+
+    public record DatabaseConfig(
+            String jdbcUrl,
+            String username,
+            String password,
+            int poolSize
+    ) {
+    }
+
+    public record SignupConfig(
+            boolean enabled,
+            int minPasswordLength,
+            int maxPasswordLength,
+            int minUsernameLength,
+            int maxUsernameLength
+    ) {
+    }
+
+    public record RateLimitConfig(
+            int maxAttempts,
+            int windowSeconds
+    ) {
+    }
 
     public record Messages(
             String loginTitle,
@@ -21,6 +47,10 @@ public record AuthConfig(
             String loginOpenSignup,
             String loginInvalidCredentials,
             String loginEmptyFields,
+            String loginUuidBoundOther,
+            String loginAccountBoundOther,
+            String loginRateLimited,
+            String loginInternalError,
             String signupTitle,
             String signupBody,
             String signupUsernameLabel,
@@ -29,24 +59,47 @@ public record AuthConfig(
             String signupSubmit,
             String signupBack,
             String signupEmptyFields,
-            String signupUnavailableTitle,
-            String signupUnavailableBody,
-            String signupUnavailableAck,
+            String signupInvalidUsername,
+            String signupInvalidEmail,
+            String signupInvalidPassword,
+            String signupUsernameTaken,
+            String signupEmailTaken,
+            String signupDisabled,
+            String signupRateLimited,
+            String signupInternalError,
+            String uuidAlreadyBound,
             String backToMenu,
             String disconnectCancelled,
             String disconnectTimeout,
             String disconnectDenied,
-            String disconnectMissingProfile
+            String disconnectMissingProfile,
+            String disconnectDatabaseUnavailable
     ) {
     }
 
     public static AuthConfig from(FileConfiguration config) {
         int timeoutSeconds = Math.max(5, config.getInt("auth.timeout-seconds", 120));
-        TestAccount testAccount = new TestAccount(
-                config.getString("auth.test-account.username", "test"),
-                config.getString("auth.test-account.email", "test@larpsmp.local"),
-                config.getString("auth.test-account.password", "test123")
+
+        DatabaseConfig database = new DatabaseConfig(
+                config.getString("auth.database.jdbc-url", "jdbc:postgresql://127.0.0.1:5433/larpsmp"),
+                config.getString("auth.database.username", "larpsmp"),
+                config.getString("auth.database.password", "larpsmp"),
+                Math.max(1, config.getInt("auth.database.pool-size", 5))
         );
+
+        SignupConfig signup = new SignupConfig(
+                config.getBoolean("auth.signup.enabled", true),
+                Math.max(1, config.getInt("auth.signup.min-password-length", 8)),
+                Math.max(1, config.getInt("auth.signup.max-password-length", 64)),
+                Math.max(1, config.getInt("auth.signup.min-username-length", 3)),
+                Math.max(1, config.getInt("auth.signup.max-username-length", 16))
+        );
+
+        RateLimitConfig rateLimit = new RateLimitConfig(
+                Math.max(1, config.getInt("auth.rate-limit.max-attempts", 5)),
+                Math.max(1, config.getInt("auth.rate-limit.window-seconds", 300))
+        );
+
         Messages messages = new Messages(
                 config.getString("auth.messages.login-title", "Login"),
                 config.getString("auth.messages.login-body", "Sign in to join LarpSMP."),
@@ -56,6 +109,14 @@ public record AuthConfig(
                 config.getString("auth.messages.login-open-signup", "Sign up"),
                 config.getString("auth.messages.login-invalid-credentials", "Invalid username/email or password."),
                 config.getString("auth.messages.login-empty-fields", "Enter your username/email and password."),
+                config.getString("auth.messages.login-uuid-bound-other",
+                        "This Minecraft profile is already linked to another account."),
+                config.getString("auth.messages.login-account-bound-other",
+                        "This account is linked to a different Minecraft profile."),
+                config.getString("auth.messages.login-rate-limited",
+                        "Too many failed attempts. Please wait and try again."),
+                config.getString("auth.messages.login-internal-error",
+                        "Authentication is temporarily unavailable. Please try again later."),
                 config.getString("auth.messages.signup-title", "Sign up"),
                 config.getString("auth.messages.signup-body", "Create an account. All fields are required."),
                 config.getString("auth.messages.signup-username-label", "Username"),
@@ -64,19 +125,38 @@ public record AuthConfig(
                 config.getString("auth.messages.signup-submit", "Create account"),
                 config.getString("auth.messages.signup-back", "Back to login"),
                 config.getString("auth.messages.signup-empty-fields", "Username, email, and password are all required."),
-                config.getString("auth.messages.signup-unavailable-title", "Registration unavailable"),
-                config.getString("auth.messages.signup-unavailable-body", "Account creation is not enabled yet. Use the test login credentials to join."),
-                config.getString("auth.messages.signup-unavailable-ack", "Back to login"),
+                config.getString("auth.messages.signup-invalid-username",
+                        "Username must be 3-16 characters: letters, numbers, or underscore."),
+                config.getString("auth.messages.signup-invalid-email", "Enter a valid email address."),
+                config.getString("auth.messages.signup-invalid-password",
+                        "Password must be between 8 and 64 characters."),
+                config.getString("auth.messages.signup-username-taken", "That username is already taken."),
+                config.getString("auth.messages.signup-email-taken", "That email is already registered."),
+                config.getString("auth.messages.signup-disabled", "Account creation is currently disabled."),
+                config.getString("auth.messages.signup-rate-limited",
+                        "Too many failed attempts. Please wait and try again."),
+                config.getString("auth.messages.signup-internal-error",
+                        "Account creation is temporarily unavailable. Please try again later."),
+                config.getString("auth.messages.uuid-already-bound",
+                        "This Minecraft profile is already linked to an account. Please log in instead."),
                 config.getString("auth.messages.back-to-menu", "Back to main menu"),
                 config.getString("auth.messages.disconnect-cancelled", "Returned to the main menu."),
-                config.getString("auth.messages.disconnect-timeout", "Authentication timed out. Please reconnect and try again."),
+                config.getString("auth.messages.disconnect-timeout",
+                        "Authentication timed out. Please reconnect and try again."),
                 config.getString("auth.messages.disconnect-denied", "Authentication required to join this server."),
-                config.getString("auth.messages.disconnect-missing-profile", "Unable to authenticate: missing player profile.")
+                config.getString("auth.messages.disconnect-missing-profile",
+                        "Unable to authenticate: missing player profile."),
+                config.getString("auth.messages.disconnect-database-unavailable",
+                        "Authentication is unavailable. Please try again later.")
         );
+
         return new AuthConfig(
                 config.getBoolean("auth.enabled", true),
                 timeoutSeconds,
-                testAccount,
+                config.getBoolean("auth.auto-login-bound-uuid", false),
+                database,
+                signup,
+                rateLimit,
                 messages
         );
     }

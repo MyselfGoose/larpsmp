@@ -12,10 +12,22 @@ repositories {
     }
 }
 
+val postgresqlVersion = "42.7.4"
+val hikariCpVersion = "6.2.1"
+val bouncyCastleVersion = "1.79"
+
 dependencies {
     compileOnly("io.papermc.paper:paper-api:1.21.11-R0.1-SNAPSHOT")
+
+    compileOnly("org.postgresql:postgresql:$postgresqlVersion")
+    compileOnly("com.zaxxer:HikariCP:$hikariCpVersion")
+    compileOnly("org.bouncycastle:bcprov-jdk18on:$bouncyCastleVersion")
+
     testImplementation(platform("org.junit:junit-bom:5.11.4"))
     testImplementation("org.junit.jupiter:junit-jupiter")
+    testImplementation("org.postgresql:postgresql:$postgresqlVersion")
+    testImplementation("com.zaxxer:HikariCP:$hikariCpVersion")
+    testImplementation("org.bouncycastle:bcprov-jdk18on:$bouncyCastleVersion")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
 
