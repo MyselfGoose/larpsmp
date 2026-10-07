@@ -22,6 +22,7 @@ public final class AuthDialogFactory {
     private static final TextColor ACCENT = TextColor.color(0xD4A017);
     private static final TextColor CONFIRM = TextColor.color(0x5FAF5F);
     private static final TextColor SECONDARY = TextColor.color(0xA0A0A0);
+    private static final TextColor EXIT = TextColor.color(0xC07070);
     private static final int FIELD_WIDTH = 300;
     private static final int BUTTON_WIDTH = 150;
     private static final int MAX_IDENTIFIER_LENGTH = 64;
@@ -56,18 +57,21 @@ public final class AuthDialogFactory {
                                         .build()
                         ))
                         .build())
-                .type(DialogType.confirmation(
-                        ActionButton.builder(Component.text(messages.loginSubmit(), CONFIRM))
-                                .width(BUTTON_WIDTH)
-                                .tooltip(Component.text("Authenticate with your account"))
-                                .action(DialogAction.customClick(AuthDialogKeys.LOGIN, null))
-                                .build(),
-                        ActionButton.builder(Component.text(messages.loginOpenSignup(), SECONDARY))
-                                .width(BUTTON_WIDTH)
-                                .tooltip(Component.text("Open the sign up form"))
-                                .action(DialogAction.customClick(AuthDialogKeys.OPEN_SIGNUP, null))
-                                .build()
-                )));
+                .type(DialogType.multiAction(List.of(
+                                ActionButton.builder(Component.text(messages.loginSubmit(), CONFIRM))
+                                        .width(BUTTON_WIDTH)
+                                        .tooltip(Component.text("Authenticate with your account"))
+                                        .action(DialogAction.customClick(AuthDialogKeys.LOGIN, null))
+                                        .build(),
+                                ActionButton.builder(Component.text(messages.loginOpenSignup(), SECONDARY))
+                                        .width(BUTTON_WIDTH)
+                                        .tooltip(Component.text("Open the sign up form"))
+                                        .action(DialogAction.customClick(AuthDialogKeys.OPEN_SIGNUP, null))
+                                        .build()
+                        ))
+                        .columns(2)
+                        .exitAction(backToMenuButton())
+                        .build()));
     }
 
     public Dialog signupDialog(@Nullable String errorMessage) {
@@ -97,18 +101,21 @@ public final class AuthDialogFactory {
                                         .build()
                         ))
                         .build())
-                .type(DialogType.confirmation(
-                        ActionButton.builder(Component.text(messages.signupSubmit(), CONFIRM))
-                                .width(BUTTON_WIDTH)
-                                .tooltip(Component.text("Submit the sign up form"))
-                                .action(DialogAction.customClick(AuthDialogKeys.SIGNUP, null))
-                                .build(),
-                        ActionButton.builder(Component.text(messages.signupBack(), SECONDARY))
-                                .width(BUTTON_WIDTH)
-                                .tooltip(Component.text("Return to login"))
-                                .action(DialogAction.customClick(AuthDialogKeys.OPEN_LOGIN, null))
-                                .build()
-                )));
+                .type(DialogType.multiAction(List.of(
+                                ActionButton.builder(Component.text(messages.signupSubmit(), CONFIRM))
+                                        .width(BUTTON_WIDTH)
+                                        .tooltip(Component.text("Submit the sign up form"))
+                                        .action(DialogAction.customClick(AuthDialogKeys.SIGNUP, null))
+                                        .build(),
+                                ActionButton.builder(Component.text(messages.signupBack(), SECONDARY))
+                                        .width(BUTTON_WIDTH)
+                                        .tooltip(Component.text("Return to login"))
+                                        .action(DialogAction.customClick(AuthDialogKeys.OPEN_LOGIN, null))
+                                        .build()
+                        ))
+                        .columns(2)
+                        .exitAction(backToMenuButton())
+                        .build()));
     }
 
     public Dialog signupUnavailableDialog() {
@@ -120,11 +127,22 @@ public final class AuthDialogFactory {
                                 DialogBody.plainMessage(Component.text(messages.signupUnavailableBody(), NamedTextColor.GRAY))
                         ))
                         .build())
-                .type(DialogType.notice(
-                        ActionButton.builder(Component.text(messages.signupUnavailableAck(), CONFIRM))
-                                .width(BUTTON_WIDTH)
-                                .action(DialogAction.customClick(AuthDialogKeys.OPEN_LOGIN, null))
-                                .build()
-                )));
+                .type(DialogType.multiAction(List.of(
+                                ActionButton.builder(Component.text(messages.signupUnavailableAck(), CONFIRM))
+                                        .width(BUTTON_WIDTH)
+                                        .action(DialogAction.customClick(AuthDialogKeys.OPEN_LOGIN, null))
+                                        .build()
+                        ))
+                        .columns(1)
+                        .exitAction(backToMenuButton())
+                        .build()));
+    }
+
+    private ActionButton backToMenuButton() {
+        return ActionButton.builder(Component.text(messages.backToMenu(), EXIT))
+                .width(BUTTON_WIDTH)
+                .tooltip(Component.text("Disconnect and return to the Minecraft main menu"))
+                .action(DialogAction.customClick(AuthDialogKeys.BACK_TO_MENU, null))
+                .build();
     }
 }

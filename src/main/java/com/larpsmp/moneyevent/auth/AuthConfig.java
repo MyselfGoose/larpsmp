@@ -32,6 +32,8 @@ public record AuthConfig(
             String signupUnavailableTitle,
             String signupUnavailableBody,
             String signupUnavailableAck,
+            String backToMenu,
+            String disconnectCancelled,
             String disconnectTimeout,
             String disconnectDenied,
             String disconnectMissingProfile
@@ -65,6 +67,8 @@ public record AuthConfig(
                 config.getString("auth.messages.signup-unavailable-title", "Registration unavailable"),
                 config.getString("auth.messages.signup-unavailable-body", "Account creation is not enabled yet. Use the test login credentials to join."),
                 config.getString("auth.messages.signup-unavailable-ack", "Back to login"),
+                config.getString("auth.messages.back-to-menu", "Back to main menu"),
+                config.getString("auth.messages.disconnect-cancelled", "Returned to the main menu."),
                 config.getString("auth.messages.disconnect-timeout", "Authentication timed out. Please reconnect and try again."),
                 config.getString("auth.messages.disconnect-denied", "Authentication required to join this server."),
                 config.getString("auth.messages.disconnect-missing-profile", "Unable to authenticate: missing player profile.")

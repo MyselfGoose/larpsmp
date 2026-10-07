@@ -57,24 +57,31 @@ public final class AuthConnectionListener implements Listener {
         Audience audience = connection.getAudience();
         audience.showDialog(dialogFactory.loginDialog(null));
 
-        boolean allowed;
+        AuthResult outcome;
         try {
-            allowed = Boolean.TRUE.equals(session.result().join());
+            outcome = session.result().join();
         } catch (Exception exception) {
             logger.warning("Authentication wait failed for profile " + profileId + ": " + exception.getMessage());
-            allowed = false;
+            outcome = AuthResult.REJECTED;
         } finally {
             sessionManager.remove(profileId);
         }
 
-        if (allowed) {
-            audience.closeDialog();
-            return;
+        if (outcome == null) {
+            outcome = AuthResult.REJECTED;
         }
 
-        audience.closeDialog();
-        if (connection.isConnected()) {
-            connection.disconnect(Component.text(config.messages().disconnectTimeout(), NamedTextColor.RED));
+        switch (outcome) {
+            case ALLOWED -> audience.closeDialog();
+            case CANCELLED -> {
+                // Player already disconnected via Back to main menu.
+            }
+            case REJECTED -> {
+                audience.closeDialog();
+                if (connection.isConnected()) {
+                    connection.disconnect(Component.text(config.messages().disconnectTimeout(), NamedTextColor.RED));
+                }
+            }
         }
     }
 
@@ -112,6 +119,20 @@ public final class AuthConnectionListener implements Listener {
         }
         if (identifier.equals(AuthDialogKeys.OPEN_LOGIN)) {
             audience.showDialog(dialogFactory.loginDialog(null));
+            return;
+        }
+        if (identifier.equals(AuthDialogKeys.BACK_TO_MENU)) {
+            handleBackToMenu(profileId, connection, audience);
+        }
+    }
+
+    private void handleBackToMenu(UUID profileId, PlayerConfigurationConnection connection, Audience audience) {
+        if (!sessionManager.complete(profileId, AuthResult.CANCELLED)) {
+            return;
+        }
+        audience.closeDialog();
+        if (connection.isConnected()) {
+            connection.disconnect(Component.text(config.messages().disconnectCancelled(), NamedTextColor.GRAY));
         }
     }
 
@@ -134,7 +155,7 @@ public final class AuthConnectionListener implements Listener {
             return;
         }
 
-        sessionManager.complete(profileId, true);
+        sessionManager.complete(profileId, AuthResult.ALLOWED);
         audience.closeDialog();
     }
 

@@ -11,9 +11,9 @@ public final class AuthSession {
 
     private final UUID profileId;
     private final PlayerConfigurationConnection connection;
-    private final CompletableFuture<Boolean> result;
+    private final CompletableFuture<AuthResult> result;
 
-    public AuthSession(UUID profileId, PlayerConfigurationConnection connection, CompletableFuture<Boolean> result) {
+    public AuthSession(UUID profileId, PlayerConfigurationConnection connection, CompletableFuture<AuthResult> result) {
         this.profileId = profileId;
         this.connection = connection;
         this.result = result;
@@ -27,7 +27,7 @@ public final class AuthSession {
         return connection;
     }
 
-    public CompletableFuture<Boolean> result() {
+    public CompletableFuture<AuthResult> result() {
         return result;
     }
 

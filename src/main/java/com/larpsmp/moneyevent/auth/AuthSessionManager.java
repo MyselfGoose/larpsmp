@@ -16,13 +16,13 @@ public final class AuthSessionManager {
     private final Map<UUID, AuthSession> sessions = new ConcurrentHashMap<>();
 
     public AuthSession begin(PlayerConfigurationConnection connection, UUID profileId, int timeoutSeconds) {
-        CompletableFuture<Boolean> result = new CompletableFuture<>();
-        result.completeOnTimeout(Boolean.FALSE, timeoutSeconds, TimeUnit.SECONDS);
+        CompletableFuture<AuthResult> result = new CompletableFuture<>();
+        result.completeOnTimeout(AuthResult.REJECTED, timeoutSeconds, TimeUnit.SECONDS);
 
         AuthSession session = new AuthSession(profileId, connection, result);
         AuthSession previous = sessions.put(profileId, session);
         if (previous != null && previous.isPending()) {
-            previous.result().complete(Boolean.FALSE);
+            previous.result().complete(AuthResult.REJECTED);
         }
         return session;
     }
@@ -31,12 +31,12 @@ public final class AuthSessionManager {
         return Optional.ofNullable(sessions.get(profileId));
     }
 
-    public boolean complete(UUID profileId, boolean allowed) {
+    public boolean complete(UUID profileId, AuthResult outcome) {
         AuthSession session = sessions.get(profileId);
         if (session == null) {
             return false;
         }
-        return session.result().complete(allowed);
+        return session.result().complete(outcome);
     }
 
     public void remove(UUID profileId) {
@@ -46,7 +46,7 @@ public final class AuthSessionManager {
     public void cancel(UUID profileId) {
         AuthSession session = sessions.remove(profileId);
         if (session != null && session.isPending()) {
-            session.result().complete(Boolean.FALSE);
+            session.result().complete(AuthResult.REJECTED);
         }
     }
 

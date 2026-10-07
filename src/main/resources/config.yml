@@ -25,6 +25,8 @@ auth:
     signup-unavailable-title: "Registration unavailable"
     signup-unavailable-body: "Account creation is not enabled yet. Use the test login credentials to join."
     signup-unavailable-ack: "Back to login"
+    back-to-menu: "Back to main menu"
+    disconnect-cancelled: "Returned to the main menu."
     disconnect-timeout: "Authentication timed out. Please reconnect and try again."
     disconnect-denied: "Authentication required to join this server."
     disconnect-missing-profile: "Unable to authenticate: missing player profile."

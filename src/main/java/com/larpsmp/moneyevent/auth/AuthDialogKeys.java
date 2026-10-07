@@ -11,6 +11,7 @@ public final class AuthDialogKeys {
     public static final Key OPEN_SIGNUP = Key.key("larpsmp", "auth/open-signup");
     public static final Key SIGNUP = Key.key("larpsmp", "auth/signup");
     public static final Key OPEN_LOGIN = Key.key("larpsmp", "auth/open-login");
+    public static final Key BACK_TO_MENU = Key.key("larpsmp", "auth/back-to-menu");
 
     public static final String INPUT_IDENTIFIER = "identifier";
     public static final String INPUT_USERNAME = "username";
