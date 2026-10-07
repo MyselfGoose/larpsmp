@@ -4,16 +4,46 @@ Private Minecraft Java Edition event project foundation.
 
 This repository currently contains the **Paper plugin + local development server** infrastructure with **PostgreSQL-backed pre-join authentication**. Game mechanics beyond auth are intentionally not implemented yet.
 
-## Prerequisites
+## One-command setup (CachyOS / Arch)
 
-- **Java 21+** (required by Paper 1.21.11; Java 25 works)
-  - Preferred on Arch/CachyOS: `sudo pacman -S --needed jdk21-openjdk`
-  - Or use a JDK under `tools/jdk-25` (gitignored; used automatically by `scripts/dev-server.sh`)
-- **Docker Engine + Compose** (Postgres + pgAdmin for accounts)
-- Git
-- curl / python3 (used by the dev-server bootstrap script)
+On a fresh machine (or after pulling this branch):
 
-## Build the plugin
+```bash
+./scripts/dev-server.sh
+```
+
+That script:
+
+1. Audits the machine (Java, Docker, curl, python, git, ports, Compose files)
+2. Installs missing packages via `pacman` (may prompt for `sudo`)
+3. Starts Postgres + pgAdmin with Docker Compose
+4. Syncs `dev-server/plugins/MoneyEvent/config.yml` to Docker JDBC defaults
+5. Runs `./gradlew build` (compile + tests)
+6. Downloads Paper 1.21.11 if needed and starts the server on `localhost:25565`
+
+When it finishes the readiness report, join Minecraft and use **Sign up** (no seeded users).
+
+| Service | Address | Credentials |
+|---------|---------|-------------|
+| Paper | `localhost:25565` | Sign up / Log in in-game |
+| Postgres | `127.0.0.1:5433` | `larpsmp` / `larpsmp` |
+| pgAdmin | http://localhost:5050 | `admin@larpsmp.dev` / `admin` |
+
+Stop Paper by typing `stop` in the server console. Docker Postgres + pgAdmin keep running.
+
+Full auth / pgAdmin guide: [docs/AUTH_AND_DATABASE.md](docs/AUTH_AND_DATABASE.md).
+
+## Prerequisites (installed automatically on CachyOS/Arch)
+
+The bootstrap script installs these if missing:
+
+- **Java 21+** (`jdk21-openjdk`)
+- **Docker Engine + Compose** (`docker`, `docker-compose`)
+- **git**, **curl**, **python**
+
+You still need a **Minecraft Java Edition 1.21.11** client (not installed by the script).
+
+## Manual build only
 
 ```bash
 ./gradlew build
@@ -21,51 +51,14 @@ This repository currently contains the **Paper plugin + local development server
 
 The plugin JAR is written to `build/libs/` (for example `money-event-0.1.0.jar`).
 
-## Start local database
-
-```bash
-docker compose -f docker/docker-compose.yml up -d
-```
-
-- Postgres: `127.0.0.1:5433` (db/user/password: `larpsmp`)
-- pgAdmin: http://localhost:5050 (`admin@larpsmp.dev` / `admin`)
-
-Full setup, pgAdmin walkthrough, and troubleshooting: [docs/AUTH_AND_DATABASE.md](docs/AUTH_AND_DATABASE.md).
-
-## Start the development server
-
-```bash
-./scripts/dev-server.sh
-```
-
-This script:
-
-1. Resolves Java 21+
-2. Builds the plugin with Gradle
-3. Downloads the Paper 1.21.11 server JAR into `dev-server/` if needed
-4. Accepts the Minecraft EULA for local development
-5. Ensures offline mode (`online-mode=false`) for cracked/offline clients
-6. Copies the plugin JAR into `dev-server/plugins/`
-7. Starts Paper (`localhost:25565`)
-
-Stop the server by typing `stop` in the console.
-
 ## Connect with Minecraft
 
-1. Start Postgres + pgAdmin (see above).
-2. Start a **Minecraft Java Edition 1.21.11** client (official or cracked launcher).
-3. Multiplayer → Direct Connection → `localhost` (or `127.0.0.1`).
-4. Before you enter the world, a **Login** dialog appears (configuration phase).
+1. Run `./scripts/dev-server.sh` and wait for the ready report.
+2. Start a **Minecraft Java Edition 1.21.11** client.
+3. Multiplayer → Direct Connection → `localhost`.
+4. Use **Sign up**, then later **Log in** on reconnect.
 
-### Creating an account
-
-There are **no seeded test users**. Use **Sign up** in the dialog with a username, email, and password. On success you are auto-logged in and enter the world. On reconnect, use **Log in** with the same credentials.
-
-Account rows (Argon2id hashes + Minecraft UUID bindings) can be inspected in pgAdmin — see [docs/AUTH_AND_DATABASE.md](docs/AUTH_AND_DATABASE.md).
-
-Auth settings: `plugins/MoneyEvent/config.yml` after first run (defaults in `src/main/resources/config.yml`).
-
-Offline mode is enabled so cracked clients can reach the auth dialog; the plugin gate still requires a real database-backed login or signup.
+Offline mode is enabled so cracked clients can reach the auth dialog; the plugin still requires a real database-backed account.
 
 ## Local server files
 
@@ -80,4 +73,4 @@ Generated worlds, logs, caches, Paper JARs, and plugin JARs are **not** tracked 
 
 Gradle output (`.gradle/`, `build/`), IDE metadata, OS junk, secrets, and development-server runtime data (worlds, logs, cache, libraries, plugins, Paper JAR, generated configs).
 
-See [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) for a short developer workflow and [docs/AUTH_AND_DATABASE.md](docs/AUTH_AND_DATABASE.md) for authentication/database setup.
+See [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) for developer details and [docs/AUTH_AND_DATABASE.md](docs/AUTH_AND_DATABASE.md) for authentication/database setup.
