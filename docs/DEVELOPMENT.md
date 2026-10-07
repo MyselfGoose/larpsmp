@@ -9,7 +9,8 @@
 | Java | 21+ | Required by Paper 1.21.11 |
 | Gradle | Wrapper (9.8.0) | No system Gradle required |
 | Plugin package | `com.larpsmp.moneyevent` | Minimal foundation only |
-| Auth | Offline (`online-mode=false`) | Allows cracked clients |
+| Server auth | Offline (`online-mode=false`) | Allows cracked clients to reach the plugin gate |
+| Plugin auth | Pre-join Paper Dialogs | Blocks world join until test login succeeds |
 
 ## Everyday workflow
 
@@ -56,6 +57,15 @@ With the server running, join from a **1.21.11** Minecraft Java client (official
 - Address: `localhost`
 - Port: `25565` (default)
 
+You will see a Login dialog before entering the world. Test credentials:
+
+- Username: `test` (or email `test@larpsmp.local`)
+- Password: `test123`
+
+Auth settings: `dev-server/plugins/MoneyEvent/config.yml` after first run (source defaults in `src/main/resources/config.yml`).
+
+Package layout for auth: `com.larpsmp.moneyevent.auth` (config, validator, sessions, dialogs, connection listener).
+
 ## Intentionally out of scope
 
-No economy, teams, capture points, auctions, admin commands, databases, Docker, or other game mechanics in this foundation step.
+No economy, teams, capture points, auctions, admin commands, databases, Docker, or other game mechanics beyond the UI-first auth gate in this step. Real account registration / password hashing is deferred.
