@@ -4,3 +4,7 @@ main: com.larpsmp.moneyevent.MoneyEventPlugin
 api-version: '1.21'
 description: Local development foundation for the LarpSMP money event.
 author: LarpSMP
+libraries:
+  - org.postgresql:postgresql:42.7.4
+  - com.zaxxer:HikariCP:6.2.1
+  - org.bouncycastle:bcprov-jdk18on:1.79

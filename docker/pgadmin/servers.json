@@ -1,0 +1,14 @@
+{
+  "Servers": {
+    "1": {
+      "Name": "larpsmp",
+      "Group": "Servers",
+      "Host": "postgres",
+      "Port": 5432,
+      "MaintenanceDB": "larpsmp",
+      "Username": "larpsmp",
+      "SSLMode": "prefer",
+      "PassFile": "/pgpass"
+    }
+  }
+}
