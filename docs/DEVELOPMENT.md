@@ -15,13 +15,30 @@
 
 ## Everyday workflow
 
+On **CachyOS / Arch**, one command is enough:
+
 ```bash
-docker compose -f docker/docker-compose.yml up -d
-./gradlew build
 ./scripts/dev-server.sh
 ```
 
-Or just run the script after the DB stack is up; it builds first.
+The bootstrap script (idempotent):
+
+1. **Preflight** — verifies repo layout and `pacman`
+2. **Audit** — reports missing packages, Java, Docker, ports, Compose files
+3. **Remediate** — `sudo pacman -S --needed …`, starts Docker, fixes `pgpass` mode, docker group via `sg` so re-login is not required
+4. **Compose** — `docker compose -f docker/docker-compose.yml up -d`, waits for Postgres health
+5. **Config** — seeds/repairs `dev-server/plugins/MoneyEvent/config.yml` for JDBC `127.0.0.1:5433`
+6. **Build** — `./gradlew build` (fails the script if tests fail)
+7. **Paper** — downloads Paper if needed, enforces offline-mode, deploys the plugin JAR, starts the server
+
+Re-running on an already-setup machine skips installs and only ensures the stack is healthy before build + start.
+
+### Manual pieces (debugging)
+
+```bash
+docker compose -f docker/docker-compose.yml up -d
+./gradlew build
+```
 
 ## Java resolution order
 
@@ -32,7 +49,14 @@ Or just run the script after the DB stack is up; it builds first.
 3. `/usr/lib/jvm/java-25-openjdk`
 4. `tools/jdk-25` (project-local, gitignored)
 
-Any Java **21 or newer** is accepted.
+Any Java **21 or newer** is accepted. If none exist, the script installs `jdk21-openjdk` via pacman.
+
+## Docker notes
+
+- Prefers an **already working** Docker (including rootless with `DOCKER_HOST`).
+- On a fresh machine, installs system Docker and adds the user to the `docker` group.
+- Same-session access uses `sg docker` so you do not need to log out immediately after group membership changes.
+- Postgres is published on host port **5433** (avoids conflicts with a system Postgres on 5432).
 
 ## Project layout
 
@@ -48,13 +72,7 @@ Any Java **21 or newer** is accepted.
 
 ## Authentication
 
-See [AUTH_AND_DATABASE.md](AUTH_AND_DATABASE.md) for:
-
-- Starting Postgres + pgAdmin
-- Plugin JDBC configuration
-- In-game signup/login testing
-- Inspecting accounts in pgAdmin
-- Resetting volumes and troubleshooting
+See [AUTH_AND_DATABASE.md](AUTH_AND_DATABASE.md). The startup script starts Compose automatically; that doc covers pgAdmin browsing and troubleshooting.
 
 Runtime libraries (PostgreSQL JDBC, HikariCP, BouncyCastle) are declared in `plugin.yml` `libraries:` so Paper downloads them at startup.
 
@@ -66,18 +84,16 @@ In the Paper console:
 stop
 ```
 
-Do not kill the process unless the server is hung; a clean stop flushes worlds and configs.
+Do not kill the process unless the server is hung; a clean stop flushes worlds and configs. Docker services remain up until you run `docker compose -f docker/docker-compose.yml down`.
 
 ## Connecting
 
-With Postgres and the server running, join from a **1.21.11** Minecraft Java client:
+With the bootstrap finished, join from a **1.21.11** Minecraft Java client:
 
 - Address: `localhost`
 - Port: `25565` (default)
 
 Use **Sign up** to create the first account (no seeded users). Use **Log in** on later connects.
-
-Auth settings: `dev-server/plugins/MoneyEvent/config.yml` after first run (source defaults in `src/main/resources/config.yml`).
 
 ## Intentionally out of scope (this phase)
 

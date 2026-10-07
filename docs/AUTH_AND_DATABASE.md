@@ -11,18 +11,23 @@ This plugin gates world join with Paper Dialogs during the configuration phase. 
 
 ## Prerequisites
 
-- Docker Engine + Docker Compose (required for the documented local stack)
-- Java 21+
-- Existing plugin workflow: `./scripts/dev-server.sh`
-- Minecraft Java Edition **1.21.11** client
+On **CachyOS / Arch**, run the one-command bootstrap (installs Java/Docker if needed, starts Compose, builds, launches Paper):
 
-If Docker is not available, any PostgreSQL 16+ instance works: create a database/user matching
+```bash
+./scripts/dev-server.sh
+```
+
+You still need a Minecraft Java Edition **1.21.11** client.
+
+If Docker is not available and you cannot use the bootstrap, any PostgreSQL 16+ instance works: create a database/user matching
 `auth.database` in `config.yml` (or point the JDBC URL at your instance). The Compose file under
 `docker/` remains the supported zero-setup path.
 
 ## 1. Start Postgres + pgAdmin
 
-From the repository root:
+**Normal path:** `./scripts/dev-server.sh` starts the Compose stack automatically.
+
+**Manual / debugging** from the repository root:
 
 ```bash
 docker compose -f docker/docker-compose.yml up -d
@@ -81,22 +86,23 @@ If Postgres is unreachable, the plugin **does not** allow unauthenticated joins.
 
 ## 3. Start the Paper server and test auth in-game
 
-1. Ensure Docker services are up (section 1).
-2. Start the server:
+1. From the repo root run:
 
    ```bash
    ./scripts/dev-server.sh
    ```
 
-3. Confirm the console shows something like:
+   This starts Docker services (if needed), builds/tests, and launches Paper.
+
+2. Confirm the console shows something like:
 
    ```text
    PostgreSQL authentication ready (jdbc:postgresql://127.0.0.1:5433/larpsmp).
    Pre-join authentication enabled (database-backed).
    ```
 
-4. Join with a **1.21.11** Minecraft client at `localhost:25565`.
-5. You should see the **Login** dialog (configuration phase — you are not in the world yet).
+3. Join with a **1.21.11** Minecraft client at `localhost:25565`.
+4. You should see the **Login** dialog (configuration phase — you are not in the world yet).
 
 ### Sign up (creates the first account)
 
