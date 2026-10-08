@@ -9,6 +9,12 @@ public interface WalletRepository extends AutoCloseable {
 
     void save(Wallet wallet) throws IOException;
 
+    default void saveAll(Iterable<Wallet> wallets) throws IOException {
+        for (Wallet wallet : wallets) {
+            save(wallet);
+        }
+    }
+
     @Override
     void close() throws IOException;
 }

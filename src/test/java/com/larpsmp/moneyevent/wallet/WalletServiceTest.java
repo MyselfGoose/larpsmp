@@ -32,29 +32,16 @@ class WalletServiceTest {
     }
 
     @Test
-    void explicitlyEligibleCompetitorGetsStartingBalanceExactlyOnce() throws Exception {
-        UUID ownerId = UUID.randomUUID();
-        try (WalletService service = service()) {
-            Wallet first = service.initializeEligibleCompetitor(ownerId, "competitor");
-            Wallet second = service.initializeEligibleCompetitor(ownerId, "competitor");
-
-            assertEquals(WalletService.STARTING_BALANCE, first.balance());
-            assertTrue(first.startingBalanceGranted());
-            assertEquals(200, second.balance());
-            assertSame(first, second);
-        }
-    }
-
-    @Test
     void zeroBalanceSurvivesReloadAndDoesNotReinitialize() throws Exception {
         UUID ownerId = UUID.randomUUID();
         try (WalletService service = service()) {
-            service.initializeEligibleCompetitor(ownerId, "competitor");
+            Wallet wallet = service.getOrCreate(ownerId, "competitor");
+            wallet.grantStartingBalance(MoneyService.STARTING_BALANCE);
             service.setBalance(ownerId, 0);
         }
 
         try (WalletService reopened = service()) {
-            Wallet wallet = reopened.initializeEligibleCompetitor(ownerId, "competitor");
+            Wallet wallet = reopened.find(ownerId).orElseThrow();
             assertEquals(0, wallet.balance());
             assertTrue(wallet.startingBalanceGranted());
         }
@@ -91,7 +78,8 @@ class WalletServiceTest {
     void persistenceSurvivesClosingAndReopeningStorage() throws Exception {
         UUID ownerId = UUID.randomUUID();
         try (WalletService service = service()) {
-            service.initializeEligibleCompetitor(ownerId, "competitor");
+            Wallet wallet = service.getOrCreate(ownerId, "competitor");
+            wallet.grantStartingBalance(MoneyService.STARTING_BALANCE);
             service.setBalance(ownerId, 75);
         }
 
@@ -140,7 +128,7 @@ class WalletServiceTest {
 
         try (WalletService service = service()) {
             assertThrows(WalletStorageException.class,
-                    () -> service.initializeEligibleCompetitor(ownerId, "competitor"));
+                    () -> service.find(ownerId));
         }
     }
 

@@ -8,8 +8,6 @@ import java.util.Optional;
 import java.util.UUID;
 
 public final class WalletService implements AutoCloseable {
-    public static final long STARTING_BALANCE = 200;
-
     private final WalletRepository repository;
     private final Map<UUID, Wallet> wallets = new HashMap<>();
     private boolean closed;
@@ -53,27 +51,7 @@ public final class WalletService implements AutoCloseable {
         return wallet;
     }
 
-    /**
-     * Integration point for the future authentication/roster system. Call this only after that
-     * system has confirmed that the UUID belongs to an eligible competitor.
-     */
-    public synchronized Wallet initializeEligibleCompetitor(UUID ownerId, String lastKnownUsername)
-            throws IOException {
-        Wallet wallet = getOrCreate(ownerId, lastKnownUsername);
-        if (!wallet.startingBalanceGranted()) {
-            long previousBalance = wallet.balance();
-            wallet.grantStartingBalance(STARTING_BALANCE);
-            try {
-                repository.save(wallet);
-            } catch (IOException exception) {
-                wallet.restore(previousBalance, wallet.lastKnownUsername(), false);
-                throw exception;
-            }
-        }
-        return wallet;
-    }
-
-    public synchronized void setBalance(UUID ownerId, long balance) throws IOException {
+    synchronized void setBalance(UUID ownerId, long balance) throws IOException {
         Wallet wallet = find(ownerId)
                 .orElseThrow(() -> new IllegalArgumentException("No wallet exists for " + ownerId));
         long previous = wallet.balance();
@@ -84,6 +62,10 @@ public final class WalletService implements AutoCloseable {
             wallet.setBalance(previous);
             throw exception;
         }
+    }
+
+    synchronized Wallet require(UUID ownerId) throws IOException {
+        return find(ownerId).orElse(null);
     }
 
     @Override

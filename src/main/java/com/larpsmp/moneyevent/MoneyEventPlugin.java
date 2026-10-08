@@ -17,6 +17,8 @@ import com.larpsmp.moneyevent.db.MigrationRunner;
 import com.larpsmp.moneyevent.email.EmailSender;
 import com.larpsmp.moneyevent.email.ResendClient;
 import com.larpsmp.moneyevent.wallet.FileWalletRepository;
+import com.larpsmp.moneyevent.wallet.FileTransactionStore;
+import com.larpsmp.moneyevent.wallet.MoneyService;
 import com.larpsmp.moneyevent.wallet.WalletService;
 import com.zaxxer.hikari.HikariDataSource;
 import java.io.IOException;
@@ -30,6 +32,7 @@ import org.bukkit.plugin.java.JavaPlugin;
 public final class MoneyEventPlugin extends JavaPlugin {
 
     private WalletService walletService;
+    private MoneyService moneyService;
     private AuthSessionManager authSessionManager;
     private HikariDataSource dataSource;
     private ExecutorService authExecutor;
@@ -174,8 +177,12 @@ public final class MoneyEventPlugin extends JavaPlugin {
         }
 
         try {
-            walletService = new WalletService(
-                    new FileWalletRepository(getDataFolder().toPath().resolve("wallets")));
+            FileWalletRepository walletRepository =
+                    new FileWalletRepository(getDataFolder().toPath().resolve("wallets"));
+            FileTransactionStore transactionStore =
+                    new FileTransactionStore(walletRepository, getDataFolder().toPath().resolve("transactions"));
+            walletService = new WalletService(walletRepository);
+            moneyService = new MoneyService(walletService, transactionStore, message -> getLogger().severe(message));
         } catch (IOException exception) {
             getLogger().severe("Could not initialize wallet storage: " + exception.getMessage());
             getServer().getPluginManager().disablePlugin(this);
@@ -187,12 +194,13 @@ public final class MoneyEventPlugin extends JavaPlugin {
 
     @Override
     public void onDisable() {
-        if (walletService != null) {
+        if (moneyService != null) {
             try {
-                walletService.close();
+                moneyService.close();
             } catch (IOException exception) {
-                getLogger().severe("Could not close wallet storage cleanly: " + exception.getMessage());
+                getLogger().severe("Could not close money storage cleanly: " + exception.getMessage());
             } finally {
+                moneyService = null;
                 walletService = null;
             }
         }
@@ -208,11 +216,11 @@ public final class MoneyEventPlugin extends JavaPlugin {
         getLogger().info("Money Event plugin disabled.");
     }
 
-    public WalletService getWalletService() {
-        if (walletService == null) {
-            throw new IllegalStateException("Wallet service is not available");
+    public MoneyService getMoneyService() {
+        if (moneyService == null) {
+            throw new IllegalStateException("Money service is not available");
         }
-        return walletService;
+        return moneyService;
     }
 
     private void closeDataSourceQuietly() {
