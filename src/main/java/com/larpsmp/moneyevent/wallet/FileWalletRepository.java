@@ -8,6 +8,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.util.Optional;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Properties;
 import java.util.UUID;
 
@@ -73,6 +75,25 @@ public final class FileWalletRepository implements WalletRepository {
         } catch (IllegalArgumentException | NullPointerException exception) {
             throw corrupt(file, "invalid wallet fields", exception);
         }
+    }
+
+    @Override
+    public synchronized List<Wallet> loadAll() throws IOException {
+        ensureOpen();
+        List<Wallet> wallets = new ArrayList<>();
+        try (var paths = Files.list(directory)) {
+            for (Path path : paths.filter(file -> file.getFileName().toString().endsWith(".properties")).toList()) {
+                String filename = path.getFileName().toString();
+                UUID ownerId;
+                try {
+                    ownerId = UUID.fromString(filename.substring(0, filename.length() - ".properties".length()));
+                } catch (IllegalArgumentException exception) {
+                    throw corrupt(path, "invalid wallet filename", exception);
+                }
+                wallets.add(load(ownerId).orElseThrow());
+            }
+        }
+        return List.copyOf(wallets);
     }
 
     @Override

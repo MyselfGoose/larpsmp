@@ -8,10 +8,12 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
 import java.nio.file.Path;
+import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import java.time.Instant;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import org.junit.jupiter.api.Test;
@@ -23,6 +25,28 @@ import org.junit.jupiter.params.provider.MethodSource;
 class MoneyServiceTest {
     @TempDir
     Path temporaryDirectory;
+
+    @Test
+    void oldTransactionWithoutOptionalAuditMetadataStillLoads() throws Exception {
+        UUID transactionId = UUID.randomUUID();
+        Path records = temporaryDirectory.resolve("transactions/records");
+        Files.createDirectories(records);
+        Files.writeString(records.resolve(transactionId + ".properties"),
+                "schemaVersion=1\n"
+                        + "transaction.id=" + transactionId + "\n"
+                        + "transaction.timestamp=" + Instant.parse("2026-01-01T00:00:00Z") + "\n"
+                        + "transaction.type=ADD\ntransaction.status=SUCCESS\ntransaction.amount=10\n"
+                        + "transaction.reason=legacy\ntransaction.failureReason=\n");
+        try (FileWalletRepository repository = new FileWalletRepository(temporaryDirectory.resolve("wallets"));
+                FileTransactionStore store = new FileTransactionStore(
+                        repository, temporaryDirectory.resolve("transactions"))) {
+            TransactionRecord record = store.load(transactionId).orElseThrow();
+            assertEquals("", record.authorizationAction());
+            assertEquals("", record.command());
+            assertEquals("", record.actorUsername());
+            assertEquals("", record.senderType());
+        }
+    }
 
     @Test
     void startingBalanceIsRecordedOnceAndZeroRemainsInitializedAfterRestart() throws Exception {
@@ -387,6 +411,11 @@ class MoneyServiceTest {
         @Override
         public Optional<Wallet> load(UUID ownerId) throws IOException {
             return delegate.load(ownerId);
+        }
+
+        @Override
+        public List<Wallet> loadAll() throws IOException {
+            return delegate.loadAll();
         }
 
         @Override

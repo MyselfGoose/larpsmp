@@ -5,6 +5,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.List;
 import java.util.UUID;
 
 public final class WalletService implements AutoCloseable {
@@ -66,6 +67,30 @@ public final class WalletService implements AutoCloseable {
 
     synchronized Wallet require(UUID ownerId) throws IOException {
         return find(ownerId).orElse(null);
+    }
+
+    synchronized List<Wallet> all() throws IOException {
+        ensureOpen();
+        for (Wallet loaded : repository.loadAll()) {
+            wallets.putIfAbsent(loaded.ownerId(), loaded);
+        }
+        return List.copyOf(wallets.values());
+    }
+
+    synchronized Wallet updateUsernameIfPresent(UUID ownerId, String username) throws IOException {
+        Wallet wallet = require(ownerId);
+        if (wallet == null || wallet.lastKnownUsername().equals(username)) {
+            return wallet;
+        }
+        String previous = wallet.lastKnownUsername();
+        wallet.setLastKnownUsername(username);
+        try {
+            repository.save(wallet);
+        } catch (IOException exception) {
+            wallet.setLastKnownUsername(previous);
+            throw exception;
+        }
+        return wallet;
     }
 
     @Override

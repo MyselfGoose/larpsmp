@@ -4,8 +4,10 @@ import java.io.IOException;
 import java.time.Instant;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Consumer;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 public final class MoneyService implements AutoCloseable {
     public static final long STARTING_BALANCE = 200;
@@ -14,6 +16,7 @@ public final class MoneyService implements AutoCloseable {
     private final WalletService wallets;
     private final FileTransactionStore transactions;
     private final Consumer<String> storageErrorLogger;
+    private final List<BalanceChangeListener> balanceListeners = new CopyOnWriteArrayList<>();
 
     public MoneyService(
             WalletService wallets,
@@ -36,8 +39,51 @@ public final class MoneyService implements AutoCloseable {
         }
     }
 
+    public synchronized Optional<WalletAccount> account(UUID walletId) throws IOException {
+        Wallet wallet = wallets.require(walletId);
+        return wallet == null ? Optional.empty() : Optional.of(WalletAccount.from(wallet));
+    }
+
+    public synchronized List<WalletAccount> registeredAccounts() throws IOException {
+        return wallets.all().stream().map(WalletAccount::from).toList();
+    }
+
+    public synchronized Optional<WalletAccount> updateUsernameIfRegistered(UUID walletId, String username)
+            throws IOException {
+        Wallet wallet = wallets.updateUsernameIfPresent(walletId, username);
+        return wallet == null ? Optional.empty() : Optional.of(WalletAccount.from(wallet));
+    }
+
+    public synchronized Optional<TransactionRecord> transaction(UUID transactionId) throws IOException {
+        return transactions.load(transactionId);
+    }
+
     public synchronized TransactionResult add(UUID walletId, long amount, String reason, UUID actorId) {
-        return changeOne(TransactionType.ADD, walletId, amount, reason, actorId);
+        return add(walletId, amount, reason, actorId, MoneyAuditContext.EMPTY);
+    }
+
+    public synchronized TransactionResult add(
+            UUID walletId, long amount, String reason, UUID actorId, MoneyAuditContext context) {
+        return changeOne(TransactionType.ADD, walletId, amount, reason, actorId, context);
+    }
+
+    public void addBalanceChangeListener(BalanceChangeListener listener) {
+        balanceListeners.add(Objects.requireNonNull(listener));
+    }
+
+    public synchronized AccountCreationResult createAccount(UUID playerId, String username) {
+        try {
+            Optional<WalletAccount> existing = account(playerId);
+            if (existing.isPresent()) {
+                return new AccountCreationResult(AccountCreationResult.Status.ALREADY_EXISTS, existing.orElseThrow());
+            }
+            Wallet wallet = wallets.getOrCreate(playerId, username);
+            return new AccountCreationResult(AccountCreationResult.Status.CREATED, WalletAccount.from(wallet));
+        } catch (IOException | IllegalArgumentException exception) {
+            storageErrorLogger.accept("Wallet storage failure during account creation for " + playerId
+                    + ": " + exception.getMessage());
+            return new AccountCreationResult(AccountCreationResult.Status.STORAGE_FAILURE, null);
+        }
     }
 
     /**
@@ -83,6 +129,7 @@ public final class MoneyService implements AutoCloseable {
                 playerId, null, balanceBefore, wallet.balance(), null, null, "");
         try {
             transactions.commit(success, List.of(before), List.of(wallet));
+            notifyBalanceChanged(playerId, wallet.balance());
             return TransactionResult.from(success);
         } catch (IOException exception) {
             before.restore(wallet);
@@ -93,11 +140,21 @@ public final class MoneyService implements AutoCloseable {
     }
 
     public synchronized TransactionResult remove(UUID walletId, long amount, String reason, UUID actorId) {
-        return changeOne(TransactionType.REMOVE, walletId, amount, reason, actorId);
+        return remove(walletId, amount, reason, actorId, MoneyAuditContext.EMPTY);
+    }
+
+    public synchronized TransactionResult remove(
+            UUID walletId, long amount, String reason, UUID actorId, MoneyAuditContext context) {
+        return changeOne(TransactionType.REMOVE, walletId, amount, reason, actorId, context);
     }
 
     public synchronized TransactionResult set(UUID walletId, long balance, String reason, UUID actorId) {
-        return changeOne(TransactionType.SET, walletId, balance, reason, actorId);
+        return set(walletId, balance, reason, actorId, MoneyAuditContext.EMPTY);
+    }
+
+    public synchronized TransactionResult set(
+            UUID walletId, long balance, String reason, UUID actorId, MoneyAuditContext context) {
+        return changeOne(TransactionType.SET, walletId, balance, reason, actorId, context);
     }
 
     public synchronized TransactionResult transfer(
@@ -156,6 +213,8 @@ public final class MoneyService implements AutoCloseable {
                 sourceBefore, sourceAfter, destinationBefore, destinationAfter, "");
         try {
             transactions.commit(success, before, List.of(source, destination));
+            notifyBalanceChanged(sourceId, sourceAfter);
+            notifyBalanceChanged(destinationId, destinationAfter);
             return TransactionResult.from(success);
         } catch (IOException exception) {
             before.get(0).restore(source);
@@ -166,11 +225,12 @@ public final class MoneyService implements AutoCloseable {
     }
 
     private TransactionResult changeOne(
-            TransactionType type, UUID walletId, long amount, String reason, UUID actorId) {
+            TransactionType type, UUID walletId, long amount, String reason, UUID actorId,
+            MoneyAuditContext context) {
         UUID transactionId = UUID.randomUUID();
         Instant timestamp = Instant.now();
         TransactionResult validation = validate(transactionId, timestamp, type, amount, reason,
-                actorId, walletId, null, type == TransactionType.SET);
+                actorId, walletId, null, type == TransactionType.SET, context);
         if (validation != null) {
             return validation;
         }
@@ -180,11 +240,11 @@ public final class MoneyService implements AutoCloseable {
             wallet = wallets.require(walletId);
         } catch (IOException exception) {
             return storageFailure(transactionId, timestamp, type, amount, reason,
-                    actorId, walletId, null, null, null, exception);
+                    actorId, walletId, null, null, null, exception, context);
         }
         if (wallet == null) {
             return failure(transactionId, timestamp, type, amount, reason, actorId,
-                    walletId, null, null, null, TransactionStatus.WALLET_NOT_FOUND, "Wallet not found");
+                    walletId, null, null, null, TransactionStatus.WALLET_NOT_FOUND, "Wallet not found", context);
         }
 
         long beforeBalance = wallet.balance();
@@ -193,7 +253,7 @@ public final class MoneyService implements AutoCloseable {
             if (beforeBalance < amount) {
                 return failure(transactionId, timestamp, type, amount, reason, actorId,
                         walletId, null, beforeBalance, null,
-                        TransactionStatus.INSUFFICIENT_FUNDS, "Wallet has insufficient funds");
+                        TransactionStatus.INSUFFICIENT_FUNDS, "Wallet has insufficient funds", context);
             }
             afterBalance = beforeBalance - amount;
         } else if (type == TransactionType.ADD) {
@@ -202,7 +262,7 @@ public final class MoneyService implements AutoCloseable {
             } catch (ArithmeticException exception) {
                 return failure(transactionId, timestamp, type, amount, reason, actorId,
                         walletId, null, beforeBalance, null,
-                        TransactionStatus.INVALID_AMOUNT, "Amount would overflow wallet balance");
+                        TransactionStatus.INVALID_AMOUNT, "Amount would overflow wallet balance", context);
             }
         } else {
             afterBalance = amount;
@@ -212,15 +272,32 @@ public final class MoneyService implements AutoCloseable {
         wallet.setBalance(afterBalance);
         TransactionRecord success = record(transactionId, timestamp, type, TransactionStatus.SUCCESS,
                 amount, reason, actorId, walletId, null, beforeBalance, afterBalance,
-                null, null, "");
+                null, null, "", context);
         try {
             transactions.commit(success, List.of(before), List.of(wallet));
+            notifyBalanceChanged(walletId, afterBalance);
             return TransactionResult.from(success);
         } catch (IOException exception) {
             before.restore(wallet);
             return storageFailure(transactionId, timestamp, type, amount, reason,
-                    actorId, walletId, null, beforeBalance, null, exception);
+                    actorId, walletId, null, beforeBalance, null, exception, context);
         }
+    }
+
+    private TransactionResult validate(
+            UUID transactionId, Instant timestamp, TransactionType type, long amount, String reason,
+            UUID actorId, UUID sourceId, UUID destinationId, boolean zeroAllowed, MoneyAuditContext context) {
+        if (amount < 0 || (!zeroAllowed && amount == 0)) {
+            return failure(transactionId, timestamp, type, amount, reason, actorId,
+                    sourceId, destinationId, null, null, TransactionStatus.INVALID_AMOUNT,
+                    zeroAllowed ? "Balance cannot be negative" : "Amount must be positive", context);
+        }
+        if (reason == null || reason.isBlank()) {
+            return failure(transactionId, timestamp, type, amount, reason, actorId,
+                    sourceId, destinationId, null, null, TransactionStatus.INVALID_REASON,
+                    "Reason cannot be blank", context);
+        }
+        return null;
     }
 
     private TransactionResult validate(
@@ -259,6 +336,25 @@ public final class MoneyService implements AutoCloseable {
         }
     }
 
+    private TransactionResult failure(
+            UUID transactionId, Instant timestamp, TransactionType type, long amount, String reason,
+            UUID actorId, UUID sourceId, UUID destinationId, Long sourceBefore, Long destinationBefore,
+            TransactionStatus status, String failureReason, MoneyAuditContext context) {
+        TransactionRecord failure = record(transactionId, timestamp, type, status, amount, reason,
+                actorId, sourceId, destinationId, sourceBefore, sourceBefore,
+                destinationBefore, destinationBefore, failureReason, context);
+        try {
+            transactions.record(failure);
+            return TransactionResult.from(failure);
+        } catch (IOException exception) {
+            logStorageFailure("record failed " + type + " transaction " + transactionId, exception);
+            return TransactionResult.from(record(transactionId, timestamp, type,
+                    TransactionStatus.STORAGE_FAILURE, amount, reason, actorId, sourceId, destinationId,
+                    sourceBefore, sourceBefore, destinationBefore, destinationBefore,
+                    "Could not persist transaction record: " + exception.getMessage(), context));
+        }
+    }
+
     private TransactionResult storageFailure(
             UUID transactionId, Instant timestamp, TransactionType type, long amount, String reason,
             UUID actorId, UUID sourceId, UUID destinationId, Long sourceBefore, Long destinationBefore,
@@ -266,6 +362,15 @@ public final class MoneyService implements AutoCloseable {
         logStorageFailure(type + " transaction " + transactionId, exception);
         return failure(transactionId, timestamp, type, amount, reason, actorId, sourceId, destinationId,
                 sourceBefore, destinationBefore, TransactionStatus.STORAGE_FAILURE, exception.getMessage());
+    }
+
+    private TransactionResult storageFailure(
+            UUID transactionId, Instant timestamp, TransactionType type, long amount, String reason,
+            UUID actorId, UUID sourceId, UUID destinationId, Long sourceBefore, Long destinationBefore,
+            IOException exception, MoneyAuditContext context) {
+        logStorageFailure(type + " transaction " + transactionId, exception);
+        return failure(transactionId, timestamp, type, amount, reason, actorId, sourceId, destinationId,
+                sourceBefore, destinationBefore, TransactionStatus.STORAGE_FAILURE, exception.getMessage(), context);
     }
 
     private static TransactionRecord record(
@@ -276,6 +381,23 @@ public final class MoneyService implements AutoCloseable {
         return new TransactionRecord(transactionId, timestamp, type, status, amount, reason,
                 actorId, sourceId, destinationId, sourceBefore, sourceAfter,
                 destinationBefore, destinationAfter, failureReason);
+    }
+
+    private static TransactionRecord record(
+            UUID transactionId, Instant timestamp, TransactionType type, TransactionStatus status,
+            long amount, String reason, UUID actorId, UUID sourceId, UUID destinationId,
+            Long sourceBefore, Long sourceAfter, Long destinationBefore, Long destinationAfter,
+            String failureReason, MoneyAuditContext context) {
+        return new TransactionRecord(transactionId, timestamp, type, status, amount, reason,
+                actorId, sourceId, destinationId, sourceBefore, sourceAfter,
+                destinationBefore, destinationAfter, failureReason,
+                context.authorizationAction(), context.command(), context.actorUsername(), context.senderType());
+    }
+
+    private void notifyBalanceChanged(UUID walletId, long balance) {
+        for (BalanceChangeListener listener : balanceListeners) {
+            listener.balanceChanged(walletId, balance);
+        }
     }
 
     private void logStorageFailure(String context, IOException exception) {

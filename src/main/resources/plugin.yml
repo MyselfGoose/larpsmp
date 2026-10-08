@@ -8,3 +8,13 @@ libraries:
   - org.postgresql:postgresql:42.7.4
   - com.zaxxer:HikariCP:6.2.1
   - org.bouncycastle:bcprov-jdk18on:1.79
+commands:
+  balance:
+    description: Shows your own or another registered player's balance.
+    usage: /balance [player]
+  pay:
+    description: Pays a registered player from your wallet.
+    usage: /pay <player> <amount>
+  larp:
+    description: Protected LarpSMP money administration commands.
+    usage: /larp money <account|initialize|give|take|set|display>

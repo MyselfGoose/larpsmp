@@ -99,6 +99,14 @@ public final class FileTransactionStore implements AutoCloseable {
         return List.copyOf(records);
     }
 
+    public synchronized java.util.Optional<TransactionRecord> load(UUID transactionId) throws IOException {
+        ensureOpen();
+        Path file = recordsDirectory.resolve(transactionId + ".properties");
+        return Files.exists(file)
+                ? java.util.Optional.of(readRecord(load(file), "transaction", file))
+                : java.util.Optional.empty();
+    }
+
     private void recover() throws IOException {
         if (!Files.exists(journalFile)) {
             return;
@@ -120,7 +128,8 @@ public final class FileTransactionStore implements AutoCloseable {
                     record.sourceWalletId(), record.destinationWalletId(),
                     record.sourceBalanceBefore(), record.sourceBalanceBefore(),
                     record.destinationBalanceBefore(), record.destinationBalanceBefore(),
-                    "Recovered and rolled back an incomplete transaction");
+                    "Recovered and rolled back an incomplete transaction",
+                    record.authorizationAction(), record.command(), record.actorUsername(), record.senderType());
             writeRecord(recoveredFailure);
         } else {
             throw new WalletStorageException("Malformed transaction journal: invalid state " + state);
@@ -216,6 +225,10 @@ public final class FileTransactionStore implements AutoCloseable {
         put(values, prefix + ".destinationBalanceBefore", record.destinationBalanceBefore());
         put(values, prefix + ".destinationBalanceAfter", record.destinationBalanceAfter());
         values.setProperty(prefix + ".failureReason", record.failureReason());
+        put(values, prefix + ".authorizationAction", record.authorizationAction());
+        put(values, prefix + ".command", record.command());
+        put(values, prefix + ".actorUsername", record.actorUsername());
+        put(values, prefix + ".senderType", record.senderType());
     }
 
     private static TransactionRecord readRecord(Properties values, String prefix, Path file)
@@ -235,7 +248,11 @@ public final class FileTransactionStore implements AutoCloseable {
                     number(values, prefix + ".sourceBalanceAfter"),
                     number(values, prefix + ".destinationBalanceBefore"),
                     number(values, prefix + ".destinationBalanceAfter"),
-                    values.getProperty(prefix + ".failureReason", ""));
+                    values.getProperty(prefix + ".failureReason", ""),
+                    values.getProperty(prefix + ".authorizationAction", ""),
+                    values.getProperty(prefix + ".command", ""),
+                    values.getProperty(prefix + ".actorUsername", ""),
+                    values.getProperty(prefix + ".senderType", ""));
         } catch (IllegalArgumentException exception) {
             throw new WalletStorageException("Malformed transaction record in " + file, exception);
         }
