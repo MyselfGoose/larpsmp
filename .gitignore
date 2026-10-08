@@ -1,6 +1,8 @@
 # Gradle
 .gradle/
+.gradle-local/
 build/
+bin/
 !gradle/wrapper/gradle-wrapper.jar
 
 # IDE
@@ -40,6 +42,9 @@ tools/*.tar.gz
 dev-server/world/
 dev-server/world_nether/
 dev-server/world_the_end/
+dev-server/amira-world/
+dev-server/amira-world_nether/
+dev-server/amira-world_the_end/
 dev-server/logs/
 dev-server/cache/
 dev-server/libraries/
