@@ -16,7 +16,10 @@ import com.larpsmp.moneyevent.db.DataSourceFactory;
 import com.larpsmp.moneyevent.db.MigrationRunner;
 import com.larpsmp.moneyevent.email.EmailSender;
 import com.larpsmp.moneyevent.email.ResendClient;
+import com.larpsmp.moneyevent.wallet.FileWalletRepository;
+import com.larpsmp.moneyevent.wallet.WalletService;
 import com.zaxxer.hikari.HikariDataSource;
+import java.io.IOException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -26,6 +29,7 @@ import org.bukkit.plugin.java.JavaPlugin;
 
 public final class MoneyEventPlugin extends JavaPlugin {
 
+    private WalletService walletService;
     private AuthSessionManager authSessionManager;
     private HikariDataSource dataSource;
     private ExecutorService authExecutor;
@@ -168,11 +172,30 @@ public final class MoneyEventPlugin extends JavaPlugin {
         if (authConfig.enabled() && databaseReady) {
             getLogger().info("Pre-join authentication enabled (database-backed).");
         }
+
+        try {
+            walletService = new WalletService(
+                    new FileWalletRepository(getDataFolder().toPath().resolve("wallets")));
+        } catch (IOException exception) {
+            getLogger().severe("Could not initialize wallet storage: " + exception.getMessage());
+            getServer().getPluginManager().disablePlugin(this);
+            return;
+        }
+
         getLogger().info("Money Event plugin enabled.");
     }
 
     @Override
     public void onDisable() {
+        if (walletService != null) {
+            try {
+                walletService.close();
+            } catch (IOException exception) {
+                getLogger().severe("Could not close wallet storage cleanly: " + exception.getMessage());
+            } finally {
+                walletService = null;
+            }
+        }
         if (authSessionManager != null) {
             authSessionManager.cancelAll();
             authSessionManager = null;
@@ -183,6 +206,13 @@ public final class MoneyEventPlugin extends JavaPlugin {
         rateLimitCleanupExecutor = null;
         closeDataSourceQuietly();
         getLogger().info("Money Event plugin disabled.");
+    }
+
+    public WalletService getWalletService() {
+        if (walletService == null) {
+            throw new IllegalStateException("Wallet service is not available");
+        }
+        return walletService;
     }
 
     private void closeDataSourceQuietly() {
