@@ -8,6 +8,7 @@ import com.larpsmp.moneyevent.auth.AuthRateLimiter;
 import com.larpsmp.moneyevent.auth.AuthService;
 import com.larpsmp.moneyevent.auth.AuthSessionManager;
 import com.larpsmp.moneyevent.auth.PasswordHasher;
+import com.larpsmp.moneyevent.config.EnvSettings;
 import com.larpsmp.moneyevent.db.DataSourceFactory;
 import com.larpsmp.moneyevent.db.MigrationRunner;
 import com.zaxxer.hikari.HikariDataSource;
@@ -29,7 +30,12 @@ public final class MoneyEventPlugin extends JavaPlugin {
     @Override
     public void onEnable() {
         saveDefaultConfig();
-        AuthConfig authConfig = AuthConfig.from(getConfig());
+        EnvSettings env = EnvSettings.load();
+        env.loadedFrom().ifPresentOrElse(
+                path -> getLogger().info("Loaded secrets from " + path.toAbsolutePath() + "."),
+                () -> getLogger().info("No project .env found; using process env / config.yml fallbacks.")
+        );
+        AuthConfig authConfig = AuthConfig.from(getConfig(), env);
         authSessionManager = new AuthSessionManager();
         AuthDialogFactory dialogFactory = new AuthDialogFactory(authConfig.messages());
 
@@ -81,6 +87,12 @@ public final class MoneyEventPlugin extends JavaPlugin {
                 databaseReady = true;
                 getLogger().info("PostgreSQL authentication ready ("
                         + authConfig.database().jdbcUrl() + ").");
+                if (authConfig.integrations().resendConfigured()) {
+                    getLogger().info("Resend API key present in environment.");
+                }
+                if (authConfig.integrations().storageConfigured()) {
+                    getLogger().info("Remote storage credentials present in environment.");
+                }
             } catch (Exception exception) {
                 getLogger().log(
                         java.util.logging.Level.SEVERE,

@@ -1,9 +1,12 @@
 package com.larpsmp.moneyevent.auth;
 
+import com.larpsmp.moneyevent.config.EnvSettings;
+import com.larpsmp.moneyevent.config.IntegrationsConfig;
 import org.bukkit.configuration.file.FileConfiguration;
 
 /**
- * Typed authentication settings loaded from {@code config.yml}.
+ * Typed authentication settings loaded from {@code config.yml}, with secrets
+ * overridden by project-root {@code .env} / process environment when present.
  */
 public record AuthConfig(
         boolean enabled,
@@ -12,7 +15,8 @@ public record AuthConfig(
         DatabaseConfig database,
         SignupConfig signup,
         RateLimitConfig rateLimit,
-        Messages messages
+        Messages messages,
+        IntegrationsConfig integrations
 ) {
 
     public record DatabaseConfig(
@@ -78,13 +82,29 @@ public record AuthConfig(
     }
 
     public static AuthConfig from(FileConfiguration config) {
+        return from(config, EnvSettings.load());
+    }
+
+    public static AuthConfig from(FileConfiguration config, EnvSettings env) {
         int timeoutSeconds = Math.max(5, config.getInt("auth.timeout-seconds", 120));
 
         DatabaseConfig database = new DatabaseConfig(
-                config.getString("auth.database.jdbc-url", "jdbc:postgresql://127.0.0.1:5433/larpsmp"),
-                config.getString("auth.database.username", "larpsmp"),
-                config.getString("auth.database.password", "larpsmp"),
-                Math.max(1, config.getInt("auth.database.pool-size", 5))
+                env.get(
+                        EnvSettings.JDBC_URL,
+                        config.getString("auth.database.jdbc-url", "jdbc:postgresql://127.0.0.1:5433/larpsmp")
+                ),
+                env.get(
+                        EnvSettings.DB_USER,
+                        config.getString("auth.database.username", "larpsmp")
+                ),
+                env.get(
+                        EnvSettings.DB_PASSWORD,
+                        config.getString("auth.database.password", "larpsmp")
+                ),
+                Math.max(1, env.getInt(
+                        EnvSettings.DB_POOL_SIZE,
+                        config.getInt("auth.database.pool-size", 5)
+                ))
         );
 
         SignupConfig signup = new SignupConfig(
@@ -157,7 +177,8 @@ public record AuthConfig(
                 database,
                 signup,
                 rateLimit,
-                messages
+                messages,
+                IntegrationsConfig.from(env)
         );
     }
 }

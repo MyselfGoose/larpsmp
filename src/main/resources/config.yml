@@ -1,3 +1,5 @@
+# Secrets (DB passwords, Resend, storage API keys) live in project-root .env.
+# See .env.example. Values below are local-dev fallbacks only; .env wins at runtime.
 auth:
   enabled: true
   timeout-seconds: 120
