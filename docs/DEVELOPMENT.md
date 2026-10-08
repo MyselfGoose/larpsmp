@@ -109,8 +109,8 @@ With the bootstrap finished, join from a **1.21.11** Minecraft Java client:
 - Address: `localhost`
 - Port: `25565` (default)
 
-Use **Sign up** to create the first account (no seeded users). Use **Log in** on later connects.
+Use **Sign up** to create the first account (no seeded users). Complete the email verification code before joining. Use **Log in** on later connects. **Forgot password** supports password reset and username recovery via email codes (Resend).
 
 ## Intentionally out of scope (this phase)
 
-No economy, teams, capture points, auctions, admin commands, email verification, password-reset emails, OAuth, or separate auth microservice.
+No economy, teams, capture points, auctions, admin commands, OAuth, or separate auth microservice.

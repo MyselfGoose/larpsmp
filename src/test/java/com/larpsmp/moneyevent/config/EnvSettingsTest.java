@@ -30,13 +30,17 @@ final class EnvSettingsTest {
 
     @Test
     void integrationsDetectConfiguredFlags() {
-        IntegrationsConfig unset = new IntegrationsConfig("", "", "", "");
+        IntegrationsConfig unset = new IntegrationsConfig("", "", "", "", "");
         assertFalse(unset.resendConfigured());
         assertFalse(unset.storageConfigured());
 
-        IntegrationsConfig set = new IntegrationsConfig("re_test", "a@b.co", "https://store.example", "key");
+        IntegrationsConfig keyOnly = new IntegrationsConfig("re_test", "", "", "", "");
+        assertFalse(keyOnly.resendConfigured());
+
+        IntegrationsConfig set = new IntegrationsConfig("re_test", "a@b.co", "pepper", "https://store.example", "key");
         assertTrue(set.resendConfigured());
         assertTrue(set.storageConfigured());
+        assertEquals("pepper", set.resolveEmailCodePepper());
     }
 
     @Test

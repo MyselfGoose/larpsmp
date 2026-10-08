@@ -17,6 +17,11 @@ import org.jetbrains.annotations.Nullable;
  */
 public final class AccountRepository {
 
+    private static final String ACCOUNT_COLUMNS = """
+            id, username, email, password_hash, email_verified, email_verified_at,
+            created_at, updated_at, last_login_at
+            """;
+
     private final DataSource dataSource;
 
     public AccountRepository(DataSource dataSource) {
@@ -24,11 +29,7 @@ public final class AccountRepository {
     }
 
     public Optional<Account> findByUsername(String username) throws SQLException {
-        String sql = """
-                SELECT id, username, email, password_hash, created_at, updated_at, last_login_at
-                FROM accounts
-                WHERE username = ?
-                """;
+        String sql = "SELECT " + ACCOUNT_COLUMNS + " FROM accounts WHERE username = ?";
         try (Connection connection = dataSource.getConnection();
              PreparedStatement statement = connection.prepareStatement(sql)) {
             statement.setString(1, username);
@@ -42,11 +43,7 @@ public final class AccountRepository {
     }
 
     public Optional<Account> findByEmail(String email) throws SQLException {
-        String sql = """
-                SELECT id, username, email, password_hash, created_at, updated_at, last_login_at
-                FROM accounts
-                WHERE email = ?
-                """;
+        String sql = "SELECT " + ACCOUNT_COLUMNS + " FROM accounts WHERE email = ?";
         try (Connection connection = dataSource.getConnection();
              PreparedStatement statement = connection.prepareStatement(sql)) {
             statement.setString(1, email);
@@ -60,15 +57,25 @@ public final class AccountRepository {
     }
 
     public Optional<Account> findByUsernameOrEmail(String identifier) throws SQLException {
-        String sql = """
-                SELECT id, username, email, password_hash, created_at, updated_at, last_login_at
-                FROM accounts
-                WHERE username = ? OR email = ?
-                """;
+        String sql = "SELECT " + ACCOUNT_COLUMNS + " FROM accounts WHERE username = ? OR email = ?";
         try (Connection connection = dataSource.getConnection();
              PreparedStatement statement = connection.prepareStatement(sql)) {
             statement.setString(1, identifier);
             statement.setString(2, identifier);
+            try (ResultSet resultSet = statement.executeQuery()) {
+                if (!resultSet.next()) {
+                    return Optional.empty();
+                }
+                return Optional.of(mapAccount(resultSet));
+            }
+        }
+    }
+
+    public Optional<Account> findById(UUID accountId) throws SQLException {
+        String sql = "SELECT " + ACCOUNT_COLUMNS + " FROM accounts WHERE id = ?";
+        try (Connection connection = dataSource.getConnection();
+             PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setObject(1, accountId);
             try (ResultSet resultSet = statement.executeQuery()) {
                 if (!resultSet.next()) {
                     return Optional.empty();
@@ -116,7 +123,7 @@ public final class AccountRepository {
     }
 
     /**
-     * Creates an account and binds the connecting Minecraft UUID in one transaction.
+     * Creates an unverified account and binds the connecting Minecraft UUID in one transaction.
      */
     public Account createAccountWithIdentity(
             String username,
@@ -130,8 +137,11 @@ public final class AccountRepository {
         UUID identityId = UUID.randomUUID();
 
         String insertAccount = """
-                INSERT INTO accounts (id, username, email, password_hash, created_at, updated_at, last_login_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO accounts (
+                    id, username, email, password_hash, email_verified, email_verified_at,
+                    created_at, updated_at, last_login_at
+                )
+                VALUES (?, ?, ?, ?, FALSE, NULL, ?, ?, NULL)
                 """;
         String insertIdentity = """
                 INSERT INTO account_minecraft_identities
@@ -150,7 +160,6 @@ public final class AccountRepository {
                     accountStatement.setString(4, passwordHash);
                     accountStatement.setTimestamp(5, Timestamp.from(now));
                     accountStatement.setTimestamp(6, Timestamp.from(now));
-                    accountStatement.setTimestamp(7, Timestamp.from(now));
                     accountStatement.executeUpdate();
                 }
                 try (PreparedStatement identityStatement = connection.prepareStatement(insertIdentity)) {
@@ -167,7 +176,7 @@ public final class AccountRepository {
                     identityStatement.executeUpdate();
                 }
                 connection.commit();
-                return new Account(accountId, username, email, passwordHash, now, now, now);
+                return new Account(accountId, username, email, passwordHash, false, null, now, now, null);
             } catch (SQLException exception) {
                 connection.rollback();
                 throw exception;
@@ -196,6 +205,42 @@ public final class AccountRepository {
             }
             statement.setTimestamp(5, Timestamp.from(now));
             statement.setTimestamp(6, Timestamp.from(now));
+            statement.executeUpdate();
+        }
+    }
+
+    public void markEmailVerified(UUID accountId) throws SQLException {
+        Instant now = Instant.now();
+        String sql = """
+                UPDATE accounts
+                SET email_verified = TRUE,
+                    email_verified_at = ?,
+                    updated_at = ?,
+                    last_login_at = ?
+                WHERE id = ?
+                """;
+        try (Connection connection = dataSource.getConnection();
+             PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setTimestamp(1, Timestamp.from(now));
+            statement.setTimestamp(2, Timestamp.from(now));
+            statement.setTimestamp(3, Timestamp.from(now));
+            statement.setObject(4, accountId);
+            statement.executeUpdate();
+        }
+    }
+
+    public void updatePasswordHash(UUID accountId, String passwordHash) throws SQLException {
+        Instant now = Instant.now();
+        String sql = """
+                UPDATE accounts
+                SET password_hash = ?, updated_at = ?
+                WHERE id = ?
+                """;
+        try (Connection connection = dataSource.getConnection();
+             PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setString(1, passwordHash);
+            statement.setTimestamp(2, Timestamp.from(now));
+            statement.setObject(3, accountId);
             statement.executeUpdate();
         }
     }
@@ -242,6 +287,8 @@ public final class AccountRepository {
                 resultSet.getString("username"),
                 resultSet.getString("email"),
                 resultSet.getString("password_hash"),
+                resultSet.getBoolean("email_verified"),
+                optionalInstant(resultSet.getTimestamp("email_verified_at")),
                 resultSet.getTimestamp("created_at").toInstant(),
                 resultSet.getTimestamp("updated_at").toInstant(),
                 optionalInstant(resultSet.getTimestamp("last_login_at"))

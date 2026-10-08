@@ -7,10 +7,15 @@ import com.larpsmp.moneyevent.auth.AuthDialogFactory;
 import com.larpsmp.moneyevent.auth.AuthRateLimiter;
 import com.larpsmp.moneyevent.auth.AuthService;
 import com.larpsmp.moneyevent.auth.AuthSessionManager;
+import com.larpsmp.moneyevent.auth.EmailChallengeRepository;
+import com.larpsmp.moneyevent.auth.EmailChallengeService;
 import com.larpsmp.moneyevent.auth.PasswordHasher;
+import com.larpsmp.moneyevent.auth.VerificationCodeHasher;
 import com.larpsmp.moneyevent.config.EnvSettings;
 import com.larpsmp.moneyevent.db.DataSourceFactory;
 import com.larpsmp.moneyevent.db.MigrationRunner;
+import com.larpsmp.moneyevent.email.EmailSender;
+import com.larpsmp.moneyevent.email.ResendClient;
 import com.zaxxer.hikari.HikariDataSource;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -52,11 +57,43 @@ public final class MoneyEventPlugin extends JavaPlugin {
 
                 PasswordHasher passwordHasher = new PasswordHasher();
                 AccountRepository accountRepository = new AccountRepository(dataSource);
+                EmailChallengeRepository challengeRepository = new EmailChallengeRepository(dataSource);
                 AuthRateLimiter rateLimiter = new AuthRateLimiter(authConfig.rateLimit());
+
+                EmailSender emailSender = null;
+                boolean emailConfigured = authConfig.integrations().resendConfigured();
+                if (emailConfigured) {
+                    emailSender = new ResendClient(
+                            authConfig.integrations().resendApiKey(),
+                            authConfig.integrations().resendFromEmail(),
+                            getLogger()
+                    );
+                    getLogger().info("Resend email delivery configured (from "
+                            + authConfig.integrations().resendFromEmail() + ").");
+                } else {
+                    getLogger().warning("Resend is not fully configured (need LARPSMP_RESEND_API_KEY and "
+                            + "LARPSMP_RESEND_FROM_EMAIL). Email verification and recovery will be unavailable.");
+                }
+
+                VerificationCodeHasher codeHasher = new VerificationCodeHasher(
+                        authConfig.integrations().resolveEmailCodePepper(),
+                        authConfig.email().codeLength()
+                );
+                EmailChallengeService emailChallengeService = new EmailChallengeService(
+                        challengeRepository,
+                        accountRepository,
+                        emailSender,
+                        codeHasher,
+                        authConfig.email(),
+                        emailConfigured,
+                        getLogger()
+                );
+
                 authService = new AuthService(
                         accountRepository,
                         passwordHasher,
                         rateLimiter,
+                        emailChallengeService,
                         authConfig.signup(),
                         authConfig.messages(),
                         getLogger()
@@ -87,9 +124,6 @@ public final class MoneyEventPlugin extends JavaPlugin {
                 databaseReady = true;
                 getLogger().info("PostgreSQL authentication ready ("
                         + authConfig.database().jdbcUrl() + ").");
-                if (authConfig.integrations().resendConfigured()) {
-                    getLogger().info("Resend API key present in environment.");
-                }
                 if (authConfig.integrations().storageConfigured()) {
                     getLogger().info("Remote storage credentials present in environment.");
                 }

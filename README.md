@@ -28,7 +28,7 @@ That script:
 cp .env.example .env
 ```
 
-When it finishes the readiness report, join Minecraft and use **Sign up** (no seeded users).
+When it finishes the readiness report, join Minecraft and use **Sign up** (no seeded users). Set `LARPSMP_RESEND_API_KEY` and `LARPSMP_RESEND_FROM_EMAIL` in `.env` so the verification email can be delivered.
 
 | Service | Address | Credentials (from `.env` defaults) |
 |---------|---------|-------------|
@@ -63,7 +63,7 @@ The plugin JAR is written to `build/libs/` (for example `money-event-0.1.0.jar`)
 1. Run `./scripts/dev-server.sh` and wait for the ready report.
 2. Start a **Minecraft Java Edition 1.21.11** client.
 3. Multiplayer → Direct Connection → `localhost`.
-4. Use **Sign up**, then later **Log in** on reconnect.
+4. Use **Sign up**, enter the email verification code, then later **Log in** on reconnect.
 
 Offline mode is enabled so cracked clients can reach the auth dialog; the plugin still requires a real database-backed account.
 

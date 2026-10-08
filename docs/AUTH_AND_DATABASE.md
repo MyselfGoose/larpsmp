@@ -4,10 +4,14 @@ This plugin gates world join with Paper Dialogs during the configuration phase. 
 
 **v1 defaults**
 
-- Sign up creates an account, binds the connecting UUID, and **auto-logs the player in** (immediate world join).
+- Sign up creates an **unverified** account, binds the connecting UUID, and emails a verification code (Resend).
+- The player must enter that code in the auth dialog before they can join the world.
 - Every reconnect still requires an explicit **Log in** (`auth.auto-login-bound-uuid: false`).
+- Logging in with a correct password on an unverified account re-opens the verify-email dialog (with resend).
+- **Forgot password** on the login dialog supports password reset and username recovery via email codes.
 - One Minecraft UUID ↔ one account. Mismatches are rejected.
 - No seeded/demo users. Create the first account in-game via Sign up.
+- Requires `LARPSMP_RESEND_API_KEY` and `LARPSMP_RESEND_FROM_EMAIL` in `.env`.
 
 ## Prerequisites
 
@@ -36,7 +40,8 @@ cp .env.example .env   # coworker first-time setup, then paste shared values
 |----------|---------|
 | `LARPSMP_POSTGRES_*` / `LARPSMP_JDBC_URL` / `LARPSMP_DB_*` | Docker Postgres + plugin JDBC |
 | `LARPSMP_PGADMIN_*` | pgAdmin login UI |
-| `LARPSMP_RESEND_*` | Future email (Resend) |
+| `LARPSMP_RESEND_API_KEY` / `LARPSMP_RESEND_FROM_EMAIL` | Resend transactional email (signup verify + recovery) |
+| `LARPSMP_EMAIL_CODE_PEPPER` | Optional pepper for hashing email codes |
 | `LARPSMP_STORAGE_*` | Future remote storage API |
 
 Resolution order in the plugin: process environment → `.env` file → `config.yml` fallbacks.
@@ -127,18 +132,28 @@ If Postgres is unreachable, the plugin **does not** allow unauthenticated joins.
 
 ### Sign up (creates the first account)
 
-1. Click **Sign up**.
-2. Enter a new username, email, and password (password ≥ 8 characters).
-3. Click **Create account**.
-4. Confirm you enter the world (auto-login after signup).
-5. There are **no pre-created DB users** — this signup is how the first account is created.
+1. Ensure `.env` has a valid `LARPSMP_RESEND_API_KEY` and `LARPSMP_RESEND_FROM_EMAIL`.
+2. Click **Sign up**.
+3. Enter a new username, email, and password (password ≥ 8 characters).
+4. Click **Create account**.
+5. Check the inbox for a LarpSMP verification email and enter the 6-digit code.
+6. Confirm you enter the world after a successful verify.
+7. There are **no pre-created DB users** — this signup is how the first account is created.
 
 ### Log in after reconnect
 
 1. Disconnect from the server.
 2. Reconnect with the **same** Minecraft profile.
 3. Use **Log in** with the same username **or** email + password.
-4. Confirm world join succeeds.
+4. Confirm world join succeeds (verified accounts only).
+
+### Forgot password / username
+
+1. On the login dialog click **Forgot password**.
+2. Choose **Change password** or **Find username**.
+3. Enter the account email → a code is sent when the email matches an account (UI always shows a generic “if an account exists…” message).
+4. Enter the code.
+5. Change password: set a new password, then log in. Find username: dialog shows the username.
 
 ### Expected rejections
 
@@ -146,7 +161,10 @@ If Postgres is unreachable, the plugin **does not** allow unauthenticated joins.
 |--------|-----------------|
 | Sign up with an existing username | Dialog error: username taken |
 | Sign up with an existing email | Dialog error: email taken |
+| Sign up / recovery with Resend unset | Dialog error: email unavailable |
 | Log in with wrong password | Dialog error: invalid credentials |
+| Log in to unverified account | Verify-email dialog (not world join) |
+| Wrong / expired verification code | Dialog error; resend available |
 | **Back to main menu** | Disconnect with “Returned to the main menu.” |
 | Log in to an account from a **different** Minecraft UUID than the one bound at signup | Rejected (account linked to another profile) |
 
@@ -170,11 +188,14 @@ The Compose stack pre-registers the `larpsmp` Postgres server inside pgAdmin
 
 4. Right-click **accounts** → **View/Edit Data** → **All Rows**.
 
-   After a successful signup you should see a row with:
+   After a successful signup (before verify) you should see a row with:
 
    - `username` / `email` (lowercase-normalized)
    - `password_hash` starting with `$argon2id$…` (**never** plaintext)
-   - `created_at` / `updated_at` / `last_login_at` populated
+   - `email_verified = false` and `email_verified_at` null until the code succeeds
+   - `created_at` / `updated_at` populated; `last_login_at` set when email is verified / on later logins
+
+   Also inspect **auth_email_challenges** for active/consumed code hashes (never plaintext codes).
 
 5. Right-click **account_minecraft_identities** → **View/Edit Data** → **All Rows**.
 
@@ -184,7 +205,7 @@ The Compose stack pre-registers the `larpsmp` Postgres server inside pgAdmin
    - `minecraft_name` is the last seen name (cosmetic)
    - `account_id` references the row in `accounts`
 
-Also inspect **schema_migrations** — you should see version `001` after the first plugin start.
+Also inspect **schema_migrations** — you should see versions `001` and `002` after the first plugin start with this feature.
 
 ### If the `larpsmp` server is missing
 
@@ -238,13 +259,17 @@ Common JDBC SSL options: `sslmode=require`, `sslmode=verify-full` (with trust st
 
 | Table | Purpose |
 |-------|---------|
-| `accounts` | Username, email, Argon2id hash, timestamps |
+| `accounts` | Username, email, Argon2id hash, email verification flags, timestamps |
 | `account_minecraft_identities` | UUID binding (unique Minecraft UUID → one account) |
+| `auth_email_challenges` | Hashed one-time email codes (signup / password reset / username recovery) |
 | `schema_migrations` | Applied migration versions |
 
 ## Security notes
 
 - Passwords are never logged or stored in plaintext.
+- Email verification codes are hashed at rest; plaintext codes exist only in the outbound email.
+- Forgot-password email submit always shows a generic response (no account enumeration).
 - All SQL uses parameterized statements.
-- Failed login/signup attempts are rate-limited in memory per connecting profile UUID.
+- Failed login/signup/verify attempts are rate-limited in memory per connecting profile UUID.
+- Email resend is cooldown-limited; challenges expire and have max attempts.
 - Unique constraints are enforced in PostgreSQL, not only in Java.

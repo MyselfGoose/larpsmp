@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import com.larpsmp.moneyevent.db.DataSourceFactory;
 import com.larpsmp.moneyevent.db.MigrationRunner;
+import com.larpsmp.moneyevent.email.CapturingEmailSender;
 import com.zaxxer.hikari.HikariDataSource;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
@@ -22,15 +23,13 @@ import org.junit.jupiter.api.TestMethodOrder;
 
 /**
  * Optional integration tests against a live Postgres instance.
- *
- * <p>Uses env vars when set, otherwise tries local Docker defaults
- * ({@code larpsmp/larpsmp}), then a local fallback ({@code goose/larpsmp}).
  */
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
 final class AuthServiceIntegrationTest {
 
     private static HikariDataSource dataSource;
     private static AuthService authService;
+    private static CapturingEmailSender emailSender;
     private static final UUID PROFILE_A = UUID.fromString("11111111-1111-1111-1111-111111111111");
     private static final UUID PROFILE_B = UUID.fromString("22222222-2222-2222-2222-222222222222");
     private static final String USERNAME = "integ_user_" + System.currentTimeMillis() % 100_000;
@@ -45,15 +44,28 @@ final class AuthServiceIntegrationTest {
         dataSource = DataSourceFactory.create(database);
         new MigrationRunner(dataSource, Logger.getLogger("AuthServiceIntegrationTest")).migrate();
 
+        emailSender = new CapturingEmailSender();
+        AccountRepository accountRepository = new AccountRepository(dataSource);
+        EmailChallengeRepository challengeRepository = new EmailChallengeRepository(dataSource);
+        EmailChallengeService emailChallengeService = new EmailChallengeService(
+                challengeRepository,
+                accountRepository,
+                emailSender,
+                new VerificationCodeHasher("integration-pepper", 6),
+                new AuthConfig.EmailConfig(6, 600, 0, 5),
+                true,
+                Logger.getLogger("AuthServiceIntegrationTest")
+        );
+
         AuthConfig.SignupConfig signupConfig = new AuthConfig.SignupConfig(true, 8, 64, 3, 16);
-        AuthConfig.Messages messages = sampleMessages();
         AuthRateLimiter rateLimiter = new AuthRateLimiter(new AuthConfig.RateLimitConfig(20, 300));
         authService = new AuthService(
-                new AccountRepository(dataSource),
+                accountRepository,
                 new PasswordHasher(),
                 rateLimiter,
+                emailChallengeService,
                 signupConfig,
-                messages,
+                TestAuthFixtures.sampleMessages(),
                 Logger.getLogger("AuthServiceIntegrationTest")
         );
     }
@@ -81,28 +93,39 @@ final class AuthServiceIntegrationTest {
 
     @Test
     @Order(1)
-    void signupCreatesAccountAndHash() throws Exception {
+    void signupCreatesUnverifiedAccountAndSendsCode() throws Exception {
         SignupResult result = authService.signup(USERNAME, EMAIL, PASSWORD, PROFILE_A, "PlayerA");
-        assertInstanceOf(SignupResult.Success.class, result);
+        assertInstanceOf(SignupResult.PendingVerification.class, result);
+        assertTrue(emailSender.lastCode().isPresent());
 
         try (Connection connection = dataSource.getConnection();
              PreparedStatement statement = connection.prepareStatement(
-                     "SELECT password_hash FROM accounts WHERE username = ?")) {
+                     "SELECT password_hash, email_verified, last_login_at FROM accounts WHERE username = ?")) {
             statement.setString(1, USERNAME);
             try (ResultSet resultSet = statement.executeQuery()) {
                 assertTrue(resultSet.next());
                 String hash = resultSet.getString("password_hash");
                 assertTrue(hash.startsWith("$argon2id$"));
                 assertFalse(hash.contains(PASSWORD));
+                assertFalse(resultSet.getBoolean("email_verified"));
+                assertTrue(resultSet.getTimestamp("last_login_at") == null);
             }
         }
     }
 
     @Test
     @Order(2)
-    void loginWithUsernameAndEmail() {
-        LoginResult byUsername = authService.login(USERNAME, PASSWORD, PROFILE_A, "PlayerA");
-        assertInstanceOf(LoginResult.Success.class, byUsername);
+    void loginBlockedUntilEmailVerified() {
+        LoginResult before = authService.login(USERNAME, PASSWORD, PROFILE_A, "PlayerA");
+        assertInstanceOf(LoginResult.EmailNotVerified.class, before);
+
+        String code = emailSender.lastCode().orElseThrow();
+        Account account = ((LoginResult.EmailNotVerified) before).account();
+        VerifyEmailResult verified = authService.verifySignupEmail(account.id(), code, PROFILE_A);
+        assertInstanceOf(VerifyEmailResult.Success.class, verified);
+
+        LoginResult after = authService.login(USERNAME, PASSWORD, PROFILE_A, "PlayerA");
+        assertInstanceOf(LoginResult.Success.class, after);
 
         LoginResult byEmail = authService.login(EMAIL.toUpperCase(), PASSWORD, PROFILE_A, "PlayerA");
         assertInstanceOf(LoginResult.Success.class, byEmail);
@@ -125,8 +148,72 @@ final class AuthServiceIntegrationTest {
         assertInstanceOf(LoginResult.AccountBoundToOtherUuid.class, mismatch);
     }
 
+    @Test
+    @Order(5)
+    void passwordResetAndUsernameRecovery() {
+        emailSender.clear();
+        ForgotPasswordResult resetStart = authService.beginRecovery(
+                EMAIL,
+                EmailChallengePurpose.PASSWORD_RESET,
+                PROFILE_A
+        );
+        assertInstanceOf(ForgotPasswordResult.Accepted.class, resetStart);
+        ForgotPasswordResult.Accepted accepted = (ForgotPasswordResult.Accepted) resetStart;
+        assertTrue(accepted.accountFound());
+        String resetCode = emailSender.lastCode().orElseThrow();
+
+        RecoverVerifyResult resetVerify = authService.verifyRecoveryCode(
+                accepted.accountIdOrNull(),
+                EmailChallengePurpose.PASSWORD_RESET,
+                resetCode,
+                PROFILE_A
+        );
+        assertInstanceOf(RecoverVerifyResult.PasswordResetAuthorized.class, resetVerify);
+
+        ResetPasswordResult reset = authService.resetPassword(
+                accepted.accountIdOrNull(),
+                "newpassword99",
+                "newpassword99"
+        );
+        assertInstanceOf(ResetPasswordResult.Success.class, reset);
+
+        LoginResult oldPassword = authService.login(USERNAME, PASSWORD, PROFILE_A, "PlayerA");
+        assertInstanceOf(LoginResult.InvalidCredentials.class, oldPassword);
+
+        LoginResult newPassword = authService.login(USERNAME, "newpassword99", PROFILE_A, "PlayerA");
+        assertInstanceOf(LoginResult.Success.class, newPassword);
+
+        emailSender.clear();
+        ForgotPasswordResult usernameStart = authService.beginRecovery(
+                EMAIL,
+                EmailChallengePurpose.USERNAME_RECOVERY,
+                PROFILE_A
+        );
+        assertInstanceOf(ForgotPasswordResult.Accepted.class, usernameStart);
+        String recoveryCode = emailSender.lastCode().orElseThrow();
+        RecoverVerifyResult usernameVerify = authService.verifyRecoveryCode(
+                ((ForgotPasswordResult.Accepted) usernameStart).accountIdOrNull(),
+                EmailChallengePurpose.USERNAME_RECOVERY,
+                recoveryCode,
+                PROFILE_A
+        );
+        assertInstanceOf(RecoverVerifyResult.UsernameRevealed.class, usernameVerify);
+        assertTrue(((RecoverVerifyResult.UsernameRevealed) usernameVerify).username().equals(USERNAME));
+    }
+
+    @Test
+    @Order(6)
+    void unknownRecoveryEmailDoesNotRevealAccount() {
+        ForgotPasswordResult result = authService.beginRecovery(
+                "missing_" + EMAIL,
+                EmailChallengePurpose.PASSWORD_RESET,
+                PROFILE_A
+        );
+        assertInstanceOf(ForgotPasswordResult.Accepted.class, result);
+        assertFalse(((ForgotPasswordResult.Accepted) result).accountFound());
+    }
+
     private static AuthConfig.DatabaseConfig resolveDatabaseConfig() {
-        // Prefer process env / project .env (Docker host port 5433 by default).
         com.larpsmp.moneyevent.config.EnvSettings env = com.larpsmp.moneyevent.config.EnvSettings.load();
         String jdbcUrl = env.get("LARPSMP_JDBC_URL", "jdbc:postgresql://127.0.0.1:5433/larpsmp");
         String[][] candidates = {
@@ -150,16 +237,5 @@ final class AuthServiceIntegrationTest {
             }
         }
         return null;
-    }
-
-    private static AuthConfig.Messages sampleMessages() {
-        return new AuthConfig.Messages(
-                "Login", "body", "id", "pw", "Log in", "Sign up",
-                "invalid", "empty login", "uuid other", "account other", "rate login", "internal login",
-                "Sign up", "signup body", "user", "email", "pw", "Create", "Back",
-                "empty signup", "bad user", "bad email", "bad password",
-                "user taken", "email taken", "disabled", "rate signup", "internal signup",
-                "uuid bound", "Back to menu", "cancelled", "timeout", "denied", "missing", "db down"
-        );
     }
 }

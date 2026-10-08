@@ -2,7 +2,8 @@
 # See .env.example. Values below are local-dev fallbacks only; .env wins at runtime.
 auth:
   enabled: true
-  timeout-seconds: 120
+  # Longer default so players can check email during the configuration-phase gate.
+  timeout-seconds: 600
   # v1 default: require explicit login every connection (bound UUID is still enforced).
   auto-login-bound-uuid: false
   database:
@@ -19,6 +20,11 @@ auth:
   rate-limit:
     max-attempts: 5
     window-seconds: 300
+  email:
+    code-length: 6
+    code-ttl-seconds: 600
+    resend-cooldown-seconds: 60
+    max-verify-attempts: 5
   messages:
     login-title: "Login"
     login-body: "Sign in to join LarpSMP."
@@ -26,14 +32,16 @@ auth:
     login-password-label: "Password"
     login-submit: "Log in"
     login-open-signup: "Sign up"
+    login-forgot-password: "Forgot password"
     login-invalid-credentials: "Invalid username/email or password."
     login-empty-fields: "Enter your username/email and password."
     login-uuid-bound-other: "This Minecraft profile is already linked to another account."
     login-account-bound-other: "This account is linked to a different Minecraft profile."
     login-rate-limited: "Too many failed attempts. Please wait and try again."
     login-internal-error: "Authentication is temporarily unavailable. Please try again later."
+    login-email-not-verified: "Verify your email before joining. Enter the code we sent you."
     signup-title: "Sign up"
-    signup-body: "Create an account. All fields are required."
+    signup-body: "Create an account. We will email a verification code before you can join."
     signup-username-label: "Username"
     signup-email-label: "Email"
     signup-password-label: "Password"
@@ -48,6 +56,45 @@ auth:
     signup-disabled: "Account creation is currently disabled."
     signup-rate-limited: "Too many failed attempts. Please wait and try again."
     signup-internal-error: "Account creation is temporarily unavailable. Please try again later."
+    signup-email-unavailable: "Email verification is unavailable. Please try again later."
+    verify-title: "Verify email"
+    verify-body: "Enter the 6-digit code sent to {email}."
+    verify-code-label: "Verification code"
+    verify-submit: "Verify"
+    verify-resend: "Resend code"
+    verify-back: "Back"
+    verify-invalid-code: "That code is incorrect. Try again."
+    verify-expired: "That code expired. Request a new one."
+    verify-attempts-exhausted: "Too many incorrect codes. Request a new one."
+    verify-empty-code: "Enter the verification code from your email."
+    verify-resent: "A new code was sent to {email}."
+    verify-cooldown: "Please wait {seconds}s before requesting another code."
+    verify-internal-error: "Verification is temporarily unavailable. Please try again later."
+    forgot-hub-title: "Account recovery"
+    forgot-hub-body: "Choose how you want to recover access. We will email a verification code."
+    forgot-change-password: "Change password"
+    forgot-recover-username: "Find username"
+    forgot-back: "Back to login"
+    forgot-email-title: "Recovery email"
+    forgot-email-body: "Enter the email on your account. If it matches, we will send a code."
+    forgot-email-label: "Email"
+    forgot-email-submit: "Send code"
+    forgot-email-sent: "If an account exists for that email, a code was sent."
+    forgot-email-invalid: "Enter a valid email address."
+    forgot-email-unavailable: "Email recovery is unavailable. Please try again later."
+    forgot-email-internal-error: "Recovery is temporarily unavailable. Please try again later."
+    reset-password-title: "New password"
+    reset-password-body: "Choose a new password for your account."
+    reset-password-label: "New password"
+    reset-password-confirm-label: "Confirm password"
+    reset-password-submit: "Update password"
+    reset-password-success: "Password updated. Log in with your new password."
+    reset-password-mismatch: "Passwords do not match."
+    reset-password-invalid: "Password must be between 8 and 64 characters."
+    reset-password-internal-error: "Password update failed. Please try again later."
+    username-reveal-title: "Your username"
+    username-reveal-body: "The username for this email is: {username}"
+    username-reveal-back: "Back to login"
     uuid-already-bound: "This Minecraft profile is already linked to an account. Please log in instead."
     back-to-menu: "Back to main menu"
     disconnect-cancelled: "Returned to the main menu."
