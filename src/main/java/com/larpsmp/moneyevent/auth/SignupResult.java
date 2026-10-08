@@ -5,7 +5,10 @@ package com.larpsmp.moneyevent.auth;
  */
 public sealed interface SignupResult {
 
-    record Success(Account account) implements SignupResult {
+    /**
+     * Account created; player must verify email before joining.
+     */
+    record PendingVerification(Account account, String maskedEmail) implements SignupResult {
     }
 
     record ValidationError(String message) implements SignupResult {
@@ -18,6 +21,9 @@ public sealed interface SignupResult {
     }
 
     record RateLimited() implements SignupResult {
+    }
+
+    record EmailUnavailable() implements SignupResult {
     }
 
     record InternalError() implements SignupResult {

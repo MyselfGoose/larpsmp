@@ -12,6 +12,8 @@ public record Account(
         String username,
         String email,
         String passwordHash,
+        boolean emailVerified,
+        @Nullable Instant emailVerifiedAt,
         Instant createdAt,
         Instant updatedAt,
         @Nullable Instant lastLoginAt

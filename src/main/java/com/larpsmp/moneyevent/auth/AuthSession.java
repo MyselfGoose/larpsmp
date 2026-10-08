@@ -14,6 +14,7 @@ public final class AuthSession {
     private final PlayerConfigurationConnection connection;
     private final CompletableFuture<AuthResult> result;
     private final AtomicBoolean processing = new AtomicBoolean(false);
+    private final AuthFlowContext flow = new AuthFlowContext();
 
     public AuthSession(UUID profileId, PlayerConfigurationConnection connection, CompletableFuture<AuthResult> result) {
         this.profileId = profileId;
@@ -31,6 +32,10 @@ public final class AuthSession {
 
     public CompletableFuture<AuthResult> result() {
         return result;
+    }
+
+    public AuthFlowContext flow() {
+        return flow;
     }
 
     public boolean isPending() {

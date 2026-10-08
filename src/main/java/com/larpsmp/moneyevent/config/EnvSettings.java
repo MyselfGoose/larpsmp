@@ -29,6 +29,7 @@ public final class EnvSettings {
     public static final String PGADMIN_PORT = "LARPSMP_PGADMIN_PORT";
     public static final String RESEND_API_KEY = "LARPSMP_RESEND_API_KEY";
     public static final String RESEND_FROM_EMAIL = "LARPSMP_RESEND_FROM_EMAIL";
+    public static final String EMAIL_CODE_PEPPER = "LARPSMP_EMAIL_CODE_PEPPER";
     public static final String STORAGE_BASE_URL = "LARPSMP_STORAGE_BASE_URL";
     public static final String STORAGE_API_KEY = "LARPSMP_STORAGE_API_KEY";
 
