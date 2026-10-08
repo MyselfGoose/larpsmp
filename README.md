@@ -14,16 +14,23 @@ On a fresh machine (or after pulling this branch):
 
 That script:
 
-1. Audits the machine (Java, Docker, curl, python, git, ports, Compose files)
-2. Installs missing packages via `pacman` (may prompt for `sudo`)
-3. Starts Postgres + pgAdmin with Docker Compose
-4. Syncs `dev-server/plugins/MoneyEvent/config.yml` to Docker JDBC defaults
-5. Runs `./gradlew build` (compile + tests)
-6. Downloads Paper 1.21.11 if needed and starts the server on `localhost:25565`
+1. Ensures project-root `.env` exists (copies from `.env.example` if needed)
+2. Audits the machine (Java, Docker, curl, python, git, ports, Compose files)
+3. Installs missing packages via `pacman` (may prompt for `sudo`)
+4. Starts Postgres + pgAdmin with Docker Compose using `.env`
+5. Syncs `dev-server/plugins/MoneyEvent/config.yml` from `.env`
+6. Runs `./gradlew build` (compile + tests)
+7. Downloads Paper 1.21.11 if needed and starts the server on `localhost:25565`
+
+**Secrets:** put DB passwords, Resend keys, storage URLs, etc. in `.env` (gitignored). Share that file with coworkers, or start from the committed template:
+
+```bash
+cp .env.example .env
+```
 
 When it finishes the readiness report, join Minecraft and use **Sign up** (no seeded users).
 
-| Service | Address | Credentials |
+| Service | Address | Credentials (from `.env` defaults) |
 |---------|---------|-------------|
 | Paper | `localhost:25565` | Sign up / Log in in-game |
 | Postgres | `127.0.0.1:5433` | `larpsmp` / `larpsmp` |

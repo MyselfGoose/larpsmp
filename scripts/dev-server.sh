@@ -7,6 +7,8 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 DEV_SERVER_DIR="${ROOT_DIR}/dev-server"
 COMPOSE_FILE="${ROOT_DIR}/docker/docker-compose.yml"
+ENV_FILE="${ROOT_DIR}/.env"
+ENV_EXAMPLE="${ROOT_DIR}/.env.example"
 SOURCE_CONFIG="${ROOT_DIR}/src/main/resources/config.yml"
 RUNTIME_CONFIG_DIR="${DEV_SERVER_DIR}/plugins/MoneyEvent"
 RUNTIME_CONFIG="${RUNTIME_CONFIG_DIR}/config.yml"
@@ -16,12 +18,16 @@ SERVERS_JSON="${ROOT_DIR}/docker/pgadmin/servers.json"
 PAPER_VERSION="1.21.11"
 MIN_JAVA_MAJOR=21
 PROJECT_JDK="${ROOT_DIR}/tools/jdk-25"
+PAPER_HOST_PORT=25565
+
+# Defaults — overridden by project-root .env after load_dotenv().
 POSTGRES_HOST_PORT=5433
 PGADMIN_HOST_PORT=5050
-PAPER_HOST_PORT=25565
 DB_NAME="larpsmp"
 DB_USER="larpsmp"
 DB_PASSWORD="larpsmp"
+PGADMIN_EMAIL="admin@larpsmp.dev"
+PGADMIN_PASSWORD="admin"
 JDBC_URL="jdbc:postgresql://127.0.0.1:${POSTGRES_HOST_PORT}/${DB_NAME}"
 
 CURRENT_PHASE="preflight"
@@ -36,6 +42,109 @@ export PATH="${HOME}/bin:${PATH:-/usr/bin:/bin}"
 if [[ -z "${DOCKER_HOST:-}" && -S "/run/user/$(id -u)/docker.sock" ]]; then
   export DOCKER_HOST="unix:///run/user/$(id -u)/docker.sock"
 fi
+
+# ---------------------------------------------------------------------------
+# .env (single secrets file for DB, pgAdmin, future API keys)
+# ---------------------------------------------------------------------------
+
+ensure_env_file() {
+  if [[ -f "${ENV_FILE}" ]]; then
+    return 0
+  fi
+  if [[ -f "${ENV_EXAMPLE}" ]]; then
+    cp "${ENV_EXAMPLE}" "${ENV_FILE}"
+    log_info "Created ${ENV_FILE} from .env.example — edit this file for shared secrets."
+    return 0
+  fi
+  die "Missing .env and .env.example. Add project-root secrets before continuing."
+}
+
+# Load KEY=VALUE from .env into the current shell (export). Does not override
+# variables already set in the process environment.
+load_dotenv() {
+  local file="${1:-${ENV_FILE}}"
+  [[ -f "${file}" ]] || return 0
+  local line key value
+  while IFS= read -r line || [[ -n "${line}" ]]; do
+    line="${line#"${line%%[![:space:]]*}"}"
+    line="${line%"${line##*[![:space:]]}"}"
+    [[ -z "${line}" || "${line}" == \#* ]] && continue
+    if [[ "${line}" == export\ * ]]; then
+      line="${line#export }"
+      line="${line#"${line%%[![:space:]]*}"}"
+    fi
+    [[ "${line}" == *=* ]] || continue
+    key="${line%%=*}"
+    value="${line#*=}"
+    key="${key#"${key%%[![:space:]]*}"}"
+    key="${key%"${key##*[![:space:]]}"}"
+    [[ "${key}" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]] || continue
+    if [[ -n "${!key+x}" ]]; then
+      continue
+    fi
+    # Strip matching single/double quotes.
+    if [[ "${value}" =~ ^\"(.*)\"$ ]]; then
+      value="${BASH_REMATCH[1]}"
+    elif [[ "${value}" =~ ^\'(.*)\'$ ]]; then
+      value="${BASH_REMATCH[1]}"
+    else
+      value="${value%%\#*}"
+      value="${value%"${value##*[![:space:]]}"}"
+      value="${value#"${value%%[![:space:]]*}"}"
+    fi
+    export "${key}=${value}"
+  done < "${file}"
+}
+
+apply_env_settings() {
+  DB_NAME="${LARPSMP_POSTGRES_DB:-${DB_NAME}}"
+  DB_USER="${LARPSMP_DB_USER:-${LARPSMP_POSTGRES_USER:-${DB_USER}}}"
+  DB_PASSWORD="${LARPSMP_DB_PASSWORD:-${LARPSMP_POSTGRES_PASSWORD:-${DB_PASSWORD}}}"
+  POSTGRES_HOST_PORT="${LARPSMP_POSTGRES_PORT:-${POSTGRES_HOST_PORT}}"
+  PGADMIN_HOST_PORT="${LARPSMP_PGADMIN_PORT:-${PGADMIN_HOST_PORT}}"
+  PGADMIN_EMAIL="${LARPSMP_PGADMIN_EMAIL:-${PGADMIN_EMAIL}}"
+  PGADMIN_PASSWORD="${LARPSMP_PGADMIN_PASSWORD:-${PGADMIN_PASSWORD}}"
+  JDBC_URL="${LARPSMP_JDBC_URL:-jdbc:postgresql://127.0.0.1:${POSTGRES_HOST_PORT}/${DB_NAME}}"
+
+  # Ensure Compose / plugin see a consistent exported set even if .env omitted some keys.
+  export LARPSMP_POSTGRES_DB="${DB_NAME}"
+  export LARPSMP_POSTGRES_USER="${LARPSMP_POSTGRES_USER:-${DB_USER}}"
+  export LARPSMP_POSTGRES_PASSWORD="${LARPSMP_POSTGRES_PASSWORD:-${DB_PASSWORD}}"
+  export LARPSMP_POSTGRES_PORT="${POSTGRES_HOST_PORT}"
+  export LARPSMP_DB_USER="${DB_USER}"
+  export LARPSMP_DB_PASSWORD="${DB_PASSWORD}"
+  export LARPSMP_JDBC_URL="${JDBC_URL}"
+  export LARPSMP_PGADMIN_EMAIL="${PGADMIN_EMAIL}"
+  export LARPSMP_PGADMIN_PASSWORD="${PGADMIN_PASSWORD}"
+  export LARPSMP_PGADMIN_PORT="${PGADMIN_HOST_PORT}"
+}
+
+sync_pgadmin_secrets() {
+  mkdir -p "$(dirname "${PGPASS_FILE}")"
+  # Format: hostname:port:database:username:password (Compose-internal host/port).
+  printf 'postgres:5432:%s:%s:%s\n' \
+    "${DB_NAME}" \
+    "${LARPSMP_POSTGRES_USER:-${DB_USER}}" \
+    "${LARPSMP_POSTGRES_PASSWORD:-${DB_PASSWORD}}" > "${PGPASS_FILE}"
+  chmod 600 "${PGPASS_FILE}" 2>/dev/null || true
+
+  cat > "${SERVERS_JSON}" <<EOF
+{
+  "Servers": {
+    "1": {
+      "Name": "larpsmp",
+      "Group": "Servers",
+      "Host": "postgres",
+      "Port": 5432,
+      "MaintenanceDB": "${DB_NAME}",
+      "Username": "${LARPSMP_POSTGRES_USER:-${DB_USER}}",
+      "SSLMode": "prefer",
+      "PassFile": "/pgpass"
+    }
+  }
+}
+EOF
+}
 
 # ---------------------------------------------------------------------------
 # Logging
@@ -201,15 +310,19 @@ docker_cmd() {
 
 compose_cmd() {
   local args=("$@")
+  local env_file_args=()
+  if [[ -f "${ENV_FILE}" ]]; then
+    env_file_args=(--env-file "${ENV_FILE}")
+  fi
   if [[ ${#COMPOSE_WRAPPER[@]} -gt 0 ]]; then
     local joined=""
     local a
-    for a in "${args[@]}"; do
+    for a in "${env_file_args[@]}" "${args[@]}"; do
       joined+=" $(printf '%q' "$a")"
     done
     sg docker -c "docker compose -f $(printf '%q' "${COMPOSE_FILE}")${joined}"
   else
-    docker compose -f "${COMPOSE_FILE}" "${args[@]}"
+    docker compose "${env_file_args[@]}" -f "${COMPOSE_FILE}" "${args[@]}"
   fi
 }
 
@@ -255,14 +368,20 @@ java_major_of() {
 phase_preflight() {
   log_phase "preflight"
 
+  ensure_env_file
+  load_dotenv "${ENV_FILE}"
+  apply_env_settings
+  sync_pgadmin_secrets
+  log_ok "Secrets loaded from ${ENV_FILE}"
+
   cat <<EOF
 LarpSMP development bootstrap
 ------------------------------
 This script will:
   1. Audit and install host packages (Java, Docker, curl, python, git)
   2. Stop any previous Paper / Postgres / pgAdmin from this project
-  3. Start Postgres + pgAdmin via Docker Compose
-  4. Sync plugin DB config to local Docker defaults
+  3. Start Postgres + pgAdmin via Docker Compose (credentials from .env)
+  4. Sync plugin DB config from .env
   5. Build + test the plugin
   6. Start Paper ${PAPER_VERSION} on localhost:${PAPER_HOST_PORT}
 
@@ -272,8 +391,10 @@ EOF
   [[ -f "${ROOT_DIR}/build.gradle.kts" ]] || die "Missing build.gradle.kts — run from a full git checkout."
   [[ -f "${COMPOSE_FILE}" ]] || die "Missing docker/docker-compose.yml."
   [[ -f "${SOURCE_CONFIG}" ]] || die "Missing src/main/resources/config.yml."
-  [[ -f "${SERVERS_JSON}" ]] || die "Missing docker/pgadmin/servers.json."
-  [[ -f "${PGPASS_FILE}" ]] || die "Missing docker/pgadmin/pgpass."
+  [[ -f "${ENV_EXAMPLE}" ]] || die "Missing .env.example."
+  [[ -f "${ENV_FILE}" ]] || die "Missing .env (should have been created from .env.example)."
+  [[ -f "${SERVERS_JSON}" ]] || die "Missing docker/pgadmin/servers.json after sync."
+  [[ -f "${PGPASS_FILE}" ]] || die "Missing docker/pgadmin/pgpass after sync."
   [[ -x "${ROOT_DIR}/gradlew" ]] || die "gradlew is missing or not executable."
 
   if ! have_cmd pacman; then
@@ -596,9 +717,12 @@ compose_up_with_retries() {
 phase_compose_stack() {
   log_phase "compose-stack"
 
+  sync_pgadmin_secrets
+  log_ok "Synced pgAdmin servers.json + pgpass from .env"
+
   if ! compose_up_with_retries; then
     die "Failed to start Postgres + pgAdmin after retries.
-Check Docker with: docker ps -a ; docker compose -f docker/docker-compose.yml logs"
+Check Docker with: docker compose --env-file .env -f docker/docker-compose.yml logs"
   fi
 
   log_info "Waiting for Postgres to become healthy..."
@@ -660,6 +784,43 @@ config_needs_repair() {
   return 1
 }
 
+apply_env_to_runtime_config() {
+  local file="$1"
+  python3 - "${file}" "${JDBC_URL}" "${DB_USER}" "${DB_PASSWORD}" <<'PY'
+import pathlib
+import re
+import sys
+
+path = pathlib.Path(sys.argv[1])
+jdbc, user, password = sys.argv[2], sys.argv[3], sys.argv[4]
+text = path.read_text(encoding="utf-8")
+
+def replace_key(block: str, key: str, value: str) -> str:
+    pattern = rf"(^[ \t]*{re.escape(key)}:[ \t]*).*$"
+    repl = rf'\1"{value}"'
+    updated, count = re.subn(pattern, repl, block, count=1, flags=re.M)
+    if count == 0:
+        raise SystemExit(f"Missing key {key} in {path}")
+    return updated
+
+# Limit replacements to the auth.database section when possible.
+db_match = re.search(r"(?ms)^([ \t]*database:\n(?:[ \t]+.+\n)*)", text)
+if db_match:
+    start, end = db_match.span(1)
+    section = db_match.group(1)
+    section = replace_key(section, "jdbc-url", jdbc)
+    section = replace_key(section, "username", user)
+    section = replace_key(section, "password", password)
+    text = text[:start] + section + text[end:]
+else:
+    text = replace_key(text, "jdbc-url", jdbc)
+    text = replace_key(text, "username", user)
+    text = replace_key(text, "password", password)
+
+path.write_text(text, encoding="utf-8")
+PY
+}
+
 phase_plugin_config() {
   log_phase "plugin-config"
 
@@ -668,19 +829,19 @@ phase_plugin_config() {
   if [[ ! -f "${RUNTIME_CONFIG}" ]]; then
     cp "${SOURCE_CONFIG}" "${RUNTIME_CONFIG}"
     log_ok "Seeded ${RUNTIME_CONFIG} from source defaults."
-    return 0
-  fi
-
-  if config_needs_repair "${RUNTIME_CONFIG}"; then
+  elif config_needs_repair "${RUNTIME_CONFIG}"; then
     if [[ ! -f "${RUNTIME_CONFIG}.bak" ]]; then
       cp "${RUNTIME_CONFIG}" "${RUNTIME_CONFIG}.bak"
       log_info "Backed up previous config to config.yml.bak"
     fi
     cp "${SOURCE_CONFIG}" "${RUNTIME_CONFIG}"
-    log_ok "Repaired runtime config to Docker JDBC defaults (${JDBC_URL})."
+    log_ok "Repaired runtime config from source template."
   else
-    log_ok "Runtime plugin config already targets Docker Postgres."
+    log_ok "Runtime plugin config present."
   fi
+
+  apply_env_to_runtime_config "${RUNTIME_CONFIG}"
+  log_ok "Applied .env DB settings to runtime config (${JDBC_URL})."
 }
 
 # ---------------------------------------------------------------------------
@@ -785,9 +946,10 @@ print_ready_report() {
 LarpSMP is ready
 ----------------
 Java:      ${JAVA_HOME} ($(java_major_of "${JAVA_HOME}"))
-Postgres:  127.0.0.1:${POSTGRES_HOST_PORT}  (user/db/password: ${DB_USER})
+Secrets:   ${ENV_FILE}
+Postgres:  127.0.0.1:${POSTGRES_HOST_PORT}  (user/db: ${DB_USER} / ${DB_NAME})
 pgAdmin:   http://localhost:${PGADMIN_HOST_PORT}
-           login: admin@larpsmp.dev / admin
+           login: ${PGADMIN_EMAIL} / ${PGADMIN_PASSWORD}
 Minecraft: localhost:${PAPER_HOST_PORT}  (Paper ${PAPER_VERSION}, offline-mode)
 JDBC:      ${JDBC_URL}
 
@@ -795,6 +957,7 @@ Join with a Minecraft ${PAPER_VERSION} client.
 Use Sign up to create the first account (no seeded users).
 Type 'stop' in the Paper console to shut down the game server.
 Docker Postgres + pgAdmin keep running in the background.
+Share/edit secrets in .env (template: .env.example).
 
 EOF
 }

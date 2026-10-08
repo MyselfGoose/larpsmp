@@ -19,9 +19,27 @@ On **CachyOS / Arch**, run the one-command bootstrap (installs Java/Docker if ne
 
 You still need a Minecraft Java Edition **1.21.11** client.
 
-If Docker is not available and you cannot use the bootstrap, any PostgreSQL 16+ instance works: create a database/user matching
-`auth.database` in `config.yml` (or point the JDBC URL at your instance). The Compose file under
-`docker/` remains the supported zero-setup path.
+If Docker is not available and you cannot use the bootstrap, any PostgreSQL 16+ instance works: set
+`LARPSMP_JDBC_URL` / `LARPSMP_DB_USER` / `LARPSMP_DB_PASSWORD` in `.env` (or matching `auth.database` in
+`config.yml`). The Compose file under `docker/` remains the supported zero-setup path.
+
+## Secrets (`.env`)
+
+All shared credentials live in the project-root **`.env`** file (gitignored). The committed template is
+[`.env.example`](../.env.example).
+
+```bash
+cp .env.example .env   # coworker first-time setup, then paste shared values
+```
+
+| Variable | Used by |
+|----------|---------|
+| `LARPSMP_POSTGRES_*` / `LARPSMP_JDBC_URL` / `LARPSMP_DB_*` | Docker Postgres + plugin JDBC |
+| `LARPSMP_PGADMIN_*` | pgAdmin login UI |
+| `LARPSMP_RESEND_*` | Future email (Resend) |
+| `LARPSMP_STORAGE_*` | Future remote storage API |
+
+Resolution order in the plugin: process environment → `.env` file → `config.yml` fallbacks.
 
 ## 1. Start Postgres + pgAdmin
 
@@ -30,17 +48,17 @@ If Docker is not available and you cannot use the bootstrap, any PostgreSQL 16+ 
 **Manual / debugging** from the repository root:
 
 ```bash
-docker compose -f docker/docker-compose.yml up -d
+docker compose --env-file .env -f docker/docker-compose.yml up -d
 ```
 
 Verify containers are healthy:
 
 ```bash
-docker compose -f docker/docker-compose.yml ps
-docker compose -f docker/docker-compose.yml exec postgres pg_isready -U larpsmp -d larpsmp
+docker compose --env-file .env -f docker/docker-compose.yml ps
+docker compose --env-file .env -f docker/docker-compose.yml exec postgres pg_isready -U larpsmp -d larpsmp
 ```
 
-Expected local ports:
+Expected local ports (defaults from `.env.example`):
 
 | Service  | URL / address              | Credentials                          |
 |----------|----------------------------|--------------------------------------|
@@ -54,15 +72,18 @@ These credentials are **dev-only**. Do not reuse them in production.
 
 ## 2. Configure the plugin
 
-Source defaults ship in [`src/main/resources/config.yml`](../src/main/resources/config.yml).
+Prefer editing **`.env`**. Non-secret dialog copy still lives in
+[`src/main/resources/config.yml`](../src/main/resources/config.yml).
 
-After the first server run, the live file is:
+After the first server run, the live YAML is:
 
 ```text
 dev-server/plugins/MoneyEvent/config.yml
 ```
 
-Local Docker defaults:
+(`./scripts/dev-server.sh` copies JDBC settings from `.env` into that file as well.)
+
+Local Docker fallbacks in YAML (overridden by `.env`):
 
 ```yaml
 auth:
@@ -182,36 +203,34 @@ Register it manually:
 Wipe Postgres + pgAdmin volumes and start clean:
 
 ```bash
-docker compose -f docker/docker-compose.yml down -v
-docker compose -f docker/docker-compose.yml up -d
+docker compose --env-file .env -f docker/docker-compose.yml down -v
+docker compose --env-file .env -f docker/docker-compose.yml up -d
 ```
 
 Then restart the Paper server so migrations run again. Sign up to create a fresh first account.
 
 ## 6. Pointing at a remote Postgres later
 
-No cloud provisioning is included. To use a remote database, change only plugin config (or inject secrets via your deploy process):
+No cloud provisioning is included. Change values in **`.env`**:
 
-```yaml
-auth:
-  database:
-    jdbc-url: "jdbc:postgresql://db.example.com:5432/larpsmp?sslmode=require"
-    username: "larpsmp_app"
-    password: "<secret>"
-    pool-size: 10
+```bash
+LARPSMP_JDBC_URL=jdbc:postgresql://db.example.com:5432/larpsmp?sslmode=require
+LARPSMP_DB_USER=larpsmp_app
+LARPSMP_DB_PASSWORD=<secret>
+LARPSMP_DB_POOL_SIZE=10
 ```
 
-Common JDBC SSL options: `sslmode=require`, `sslmode=verify-full` (with trust store configuration as needed). Keep production passwords out of git (`.env`, secrets files, and `credentials.*` are gitignored).
+Common JDBC SSL options: `sslmode=require`, `sslmode=verify-full` (with trust store configuration as needed). Keep production passwords out of git (`.env` is gitignored; commit only `.env.example`).
 
 ## 7. Troubleshooting
 
 | Symptom | What to check |
 |---------|----------------|
-| Plugin can’t connect to Postgres | `docker compose … ps`, `pg_isready`, firewall, wrong `jdbc-url` / credentials in `config.yml` |
+| Plugin can’t connect to Postgres | `docker compose … ps`, `pg_isready`, firewall, wrong `LARPSMP_JDBC_URL` / `LARPSMP_DB_*` in `.env` |
 | Migrations failed | Plugin logs for SQL errors; ensure the DB user can `CREATE TABLE`; wipe volumes if schema is half-applied during development |
 | pgAdmin can’t reach DB | Host must be `postgres` from inside Compose (not `127.0.0.1`). From the host machine, use `127.0.0.1:5433` with `psql` instead |
-| Port conflicts on 5433 / 5050 | Change the left-hand ports in `docker/docker-compose.yml` and update `jdbc-url` |
-| Port conflicts if you want host 5432 | Stop system Postgres (`sudo systemctl stop postgresql`), set Compose back to `5432:5432`, and update `jdbc-url` |
+| Port conflicts on 5433 / 5050 | Change `LARPSMP_POSTGRES_PORT` / `LARPSMP_PGADMIN_PORT` in `.env` and matching `LARPSMP_JDBC_URL` |
+| Port conflicts if you want host 5432 | Stop system Postgres (`sudo systemctl stop postgresql`), set `LARPSMP_POSTGRES_PORT=5432` and update `LARPSMP_JDBC_URL` |
 | Auth dialogs appear but signup fails | Check server logs (never plaintext passwords). Confirm migrations applied. Confirm unique username/email. Confirm password length ≥ 8 |
 | “Authentication is unavailable” | Database init failed at plugin enable — fix Postgres and restart the server |
 

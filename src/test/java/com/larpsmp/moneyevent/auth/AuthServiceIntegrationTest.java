@@ -126,9 +126,11 @@ final class AuthServiceIntegrationTest {
     }
 
     private static AuthConfig.DatabaseConfig resolveDatabaseConfig() {
-        String jdbcUrl = envOr("LARPSMP_JDBC_URL", "jdbc:postgresql://127.0.0.1:5432/larpsmp");
+        // Prefer process env / project .env (Docker host port 5433 by default).
+        com.larpsmp.moneyevent.config.EnvSettings env = com.larpsmp.moneyevent.config.EnvSettings.load();
+        String jdbcUrl = env.get("LARPSMP_JDBC_URL", "jdbc:postgresql://127.0.0.1:5433/larpsmp");
         String[][] candidates = {
-                {envOr("LARPSMP_DB_USER", "larpsmp"), envOr("LARPSMP_DB_PASSWORD", "larpsmp")},
+                {env.get("LARPSMP_DB_USER", "larpsmp"), env.get("LARPSMP_DB_PASSWORD", "larpsmp")},
                 {"goose", "larpsmp"}
         };
         for (String[] candidate : candidates) {
@@ -148,11 +150,6 @@ final class AuthServiceIntegrationTest {
             }
         }
         return null;
-    }
-
-    private static String envOr(String key, String defaultValue) {
-        String value = System.getenv(key);
-        return value == null || value.isBlank() ? defaultValue : value;
     }
 
     private static AuthConfig.Messages sampleMessages() {

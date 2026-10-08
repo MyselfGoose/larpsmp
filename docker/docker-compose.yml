@@ -1,12 +1,12 @@
 # Local development stack for LarpSMP account authentication.
-# Dev-only credentials — never use these values in production.
+# Secrets come from the project-root .env (see .env.example).
 #
-# Start:  docker compose -f docker/docker-compose.yml up -d
-# Stop:   docker compose -f docker/docker-compose.yml down
-# Wipe:   docker compose -f docker/docker-compose.yml down -v
+# Start:  docker compose --env-file .env -f docker/docker-compose.yml up -d
+# Stop:   docker compose --env-file .env -f docker/docker-compose.yml down
+# Wipe:   docker compose --env-file .env -f docker/docker-compose.yml down -v
 #
 # Requires Docker (rootless works). Compose plugin must be available.
-# Postgres is published on host port 5433 (avoids system Postgres on 5432).
+# Postgres is published on host port LARPSMP_POSTGRES_PORT (default 5433).
 
 services:
   postgres:
@@ -14,17 +14,17 @@ services:
     container_name: larpsmp-postgres
     restart: unless-stopped
     environment:
-      POSTGRES_DB: larpsmp
-      POSTGRES_USER: larpsmp
-      POSTGRES_PASSWORD: larpsmp
+      POSTGRES_DB: ${LARPSMP_POSTGRES_DB:-larpsmp}
+      POSTGRES_USER: ${LARPSMP_POSTGRES_USER:-larpsmp}
+      POSTGRES_PASSWORD: ${LARPSMP_POSTGRES_PASSWORD:-larpsmp}
     ports:
-      # Host 5433 avoids conflicts with a system Postgres already on 5432.
+      # Host port avoids conflicts with a system Postgres already on 5432.
       # Inside the Compose network the DB is still postgres:5432.
-      - "5433:5432"
+      - "${LARPSMP_POSTGRES_PORT:-5433}:5432"
     volumes:
       - larpsmp_pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U larpsmp -d larpsmp"]
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -36,8 +36,8 @@ services:
     container_name: larpsmp-pgadmin
     restart: unless-stopped
     environment:
-      PGADMIN_DEFAULT_EMAIL: admin@larpsmp.dev
-      PGADMIN_DEFAULT_PASSWORD: admin
+      PGADMIN_DEFAULT_EMAIL: ${LARPSMP_PGADMIN_EMAIL:-admin@larpsmp.dev}
+      PGADMIN_DEFAULT_PASSWORD: ${LARPSMP_PGADMIN_PASSWORD:-admin}
       # Allow .dev addresses if deliverability checks change in future images.
       PGADMIN_CONFIG_CHECK_EMAIL_DELIVERABILITY: "False"
       # True = normal browser login UI (False/desktop mode returns HTTP 401).
@@ -45,7 +45,7 @@ services:
       PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED: "False"
       PGADMIN_SERVER_JSON_FILE: /pgadmin4/servers.json
     ports:
-      - "5050:80"
+      - "${LARPSMP_PGADMIN_PORT:-5050}:80"
     volumes:
       - larpsmp_pgadmin:/var/lib/pgadmin
       - ./pgadmin/servers.json:/pgadmin4/servers.json:ro

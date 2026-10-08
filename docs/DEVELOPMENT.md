@@ -23,20 +23,36 @@ On **CachyOS / Arch**, one command is enough:
 
 The bootstrap script (idempotent):
 
-1. **Preflight** — verifies repo layout and `pacman`
+1. **Preflight** — loads project-root `.env` (creates from `.env.example` if missing), verifies repo layout and `pacman`
 2. **Audit** — reports missing packages, Java, Docker, ports, Compose files
-3. **Remediate** — `sudo pacman -S --needed …`, starts Docker, fixes `pgpass` mode, docker group via `sg` so re-login is not required
-4. **Compose** — `docker compose -f docker/docker-compose.yml up -d`, waits for Postgres health
-5. **Config** — seeds/repairs `dev-server/plugins/MoneyEvent/config.yml` for JDBC `127.0.0.1:5433`
+3. **Remediate** — `sudo pacman -S --needed …`, starts Docker, docker group via `sg` so re-login is not required
+4. **Compose** — `docker compose --env-file .env -f docker/docker-compose.yml up -d`, waits for Postgres health
+5. **Config** — seeds/repairs `dev-server/plugins/MoneyEvent/config.yml` from `.env` DB settings
 6. **Build** — `./gradlew build` (fails the script if tests fail)
-7. **Paper** — downloads Paper if needed, enforces offline-mode, deploys the plugin JAR, starts the server
+7. **Paper** — downloads Paper if needed, enforces offline-mode, deploys the plugin JAR, starts the server (inherits exported `.env`)
+
+### Secrets (`.env`)
+
+All important credentials live in **one file** at the repo root:
+
+| File | Git | Purpose |
+|------|-----|---------|
+| `.env.example` | Committed | Template with every key |
+| `.env` | Ignored | Real shared secrets (DB, pgAdmin, Resend, storage, …) |
+
+```bash
+cp .env.example .env   # first time / coworker onboarding
+# edit .env, then share the filled file privately if needed
+```
+
+The plugin reads `LARPSMP_*` from the process environment first, then `.env`, then `config.yml` fallbacks.
 
 Re-running on an already-setup machine skips installs and only ensures the stack is healthy before build + start.
 
 ### Manual pieces (debugging)
 
 ```bash
-docker compose -f docker/docker-compose.yml up -d
+docker compose --env-file .env -f docker/docker-compose.yml up -d
 ./gradlew build
 ```
 

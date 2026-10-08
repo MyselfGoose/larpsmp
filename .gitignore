@@ -20,6 +20,7 @@ desktop.ini
 # Secrets / credentials
 .env
 .env.*
+!.env.example
 *.pem
 *.key
 credentials.*
