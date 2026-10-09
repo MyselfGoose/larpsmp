@@ -48,8 +48,8 @@ class MoneyCommandControllerTest {
             context.online().remove(target.playerId().orElseThrow());
             FakeSource console = FakeSource.console(true);
 
-            context.controller().balance(console, new String[] {"playername"});
-            assertEquals("PlayerName's balance: $200", console.lastMessage());
+            context.controller().balance(console, new String[] {target.name().toLowerCase()});
+            assertEquals(target.name() + "'s balance: $200", console.lastMessage());
             int walletsBefore = context.money().registeredAccounts().size();
             context.controller().balance(console, new String[] {"unknown"});
             assertTrue(console.lastMessage().contains("does not have a registered wallet"));
@@ -65,10 +65,10 @@ class MoneyCommandControllerTest {
             UUID senderId = sender.playerId().orElseThrow();
             UUID recipientId = recipient.playerId().orElseThrow();
 
-            context.controller().pay(sender, new String[] {"PlayerName", "50"});
+            context.controller().pay(sender, new String[] {recipient.name(), "50"});
 
-            assertEquals("You sent PlayerName $50. Your balance is now $150.", sender.lastMessage());
-            assertEquals("SenderName sent you $50. Your balance is now $250.",
+            assertEquals("You sent " + recipient.name() + " $50. Your balance is now $150.", sender.lastMessage());
+            assertEquals(sender.name() + " sent you $50. Your balance is now $250.",
                     context.online().lastMessage(recipientId));
             assertEquals(150, context.money().balance(senderId).balance());
             assertEquals(250, context.money().balance(recipientId).balance());
@@ -90,14 +90,14 @@ class MoneyCommandControllerTest {
             UUID recipientId = recipient.playerId().orElseThrow();
             context.online().remove(recipientId);
 
-            context.controller().pay(sender, new String[] {"OfflineName", "25"});
+            context.controller().pay(sender, new String[] {recipient.name(), "25"});
             assertEquals(175, context.money().balance(sender.playerId().orElseThrow()).balance());
             assertEquals(225, context.money().balance(recipientId).balance());
 
             List<String> delivered = new ArrayList<>();
             context.notifications().deliver(recipientId, delivered::add);
             assertEquals(1, delivered.size());
-            assertTrue(delivered.getFirst().contains("SenderName sent you $25"));
+            assertTrue(delivered.getFirst().contains(sender.name() + " sent you $25"));
             assertTrue(delivered.getFirst().contains("$225"));
 
             List<String> second = new ArrayList<>();
@@ -116,15 +116,15 @@ class MoneyCommandControllerTest {
 
             FakeSource missing = FakeSource.player(UUID.randomUUID(), "Missing");
             context.online().add(missing.playerId().orElseThrow(), "Missing");
-            context.controller().pay(missing, new String[] {"Sender", "1"});
+            context.controller().pay(missing, new String[] {sender.name(), "1"});
             assertTrue(missing.lastMessage().contains("do not have a wallet"));
 
-            context.controller().pay(sender, new String[] {"Sender", "1"});
+            context.controller().pay(sender, new String[] {sender.name(), "1"});
             assertTrue(sender.lastMessage().contains("cannot pay yourself"));
 
-            context.controller().pay(sender, new String[] {"OfflinePlayer", "0"});
+            context.controller().pay(sender, new String[] {offline.name(), "0"});
             assertTrue(sender.lastMessage().contains("positive whole dollars"));
-            context.controller().pay(sender, new String[] {"OfflinePlayer", "201"});
+            context.controller().pay(sender, new String[] {offline.name(), "201"});
             assertTrue(sender.lastMessage().contains("You only have $200"));
         }
     }
@@ -136,11 +136,11 @@ class MoneyCommandControllerTest {
             UUID targetId = target.playerId().orElseThrow();
             FakeSource console = FakeSource.console(true);
 
-            context.controller().larp(console, new String[] {"money", "give", "Target", "25", "Event", "bonus"});
+            context.controller().larp(console, new String[] {"money", "give", target.name(), "25", "Event", "bonus"});
             assertEquals(225, context.money().balance(targetId).balance());
-            context.controller().larp(console, new String[] {"money", "take", "Target", "10", "Fee"});
+            context.controller().larp(console, new String[] {"money", "take", target.name(), "10", "Fee"});
             assertEquals(215, context.money().balance(targetId).balance());
-            context.controller().larp(console, new String[] {"money", "set", "Target", "50", "Reset"});
+            context.controller().larp(console, new String[] {"money", "set", target.name(), "50", "Reset"});
             assertEquals(50, context.money().balance(targetId).balance());
 
             TransactionRecord give = context.money().allTransactions().stream()
@@ -161,11 +161,11 @@ class MoneyCommandControllerTest {
             int refreshes = context.display().refreshes().size();
             for (String invalid : List.of("0", "-1", "1.5", "bad", "9223372036854775808")) {
                 context.controller().larp(console,
-                        new String[] {"money", "give", "Target", invalid, "Invalid", "test"});
+                        new String[] {"money", "give", target.name(), invalid, "Invalid", "test"});
             }
-            context.controller().larp(console, new String[] {"money", "take", "Target", "201", "Too", "much"});
-            context.controller().larp(console, new String[] {"money", "set", "Target", "-1", "Negative"});
-            context.controller().larp(console, new String[] {"money", "give", "Target", "1"});
+            context.controller().larp(console, new String[] {"money", "take", target.name(), "201", "Too", "much"});
+            context.controller().larp(console, new String[] {"money", "set", target.name(), "-1", "Negative"});
+            context.controller().larp(console, new String[] {"money", "give", target.name(), "1"});
             context.controller().larp(console, new String[] {"money", "give", "Unknown", "1", "No wallet"});
             assertEquals(200, context.money().balance(targetId).balance());
             assertEquals(refreshes, context.display().refreshes().size());
@@ -217,8 +217,8 @@ class MoneyCommandControllerTest {
 
     private FakeSource registered(Context context, String name) throws Exception {
         TestDatabaseSupport.RegisteredPlayer player = context.fixture().register(name);
-        context.online().add(player.minecraftUuid(), name);
-        return FakeSource.player(player.minecraftUuid(), name);
+        context.online().add(player.minecraftUuid(), player.username());
+        return FakeSource.player(player.minecraftUuid(), player.username());
     }
 
     private Context context() throws Exception {

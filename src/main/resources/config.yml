@@ -1,5 +1,18 @@
 # Secrets (DB passwords, Resend, storage API keys) live in project-root .env.
 # See .env.example. Values below are local-dev fallbacks only; .env wins at runtime.
+
+# Account-keyed Minecraft body persistence (inventory, location, vitals, XP, effects).
+# Empty default-spawn.world uses the server's first/default world spawn location.
+player-state:
+  autosave-seconds: 60
+  default-spawn:
+    world: ""
+    x: 0.5
+    y: 64.0
+    z: 0.5
+    yaw: 0.0
+    pitch: 0.0
+
 auth:
   enabled: true
   # Longer default so players can check email during the configuration-phase gate.
@@ -40,6 +53,7 @@ auth:
     login-rate-limited: "Too many failed attempts. Please wait and try again."
     login-internal-error: "Authentication is temporarily unavailable. Please try again later."
     login-email-not-verified: "Verify your email before joining. Enter the code we sent you."
+    login-already-online: "That account is already online. Disconnect the other session first."
     signup-title: "Sign up"
     signup-body: "Create an account. We will email a verification code before you can join."
     signup-username-label: "Username"

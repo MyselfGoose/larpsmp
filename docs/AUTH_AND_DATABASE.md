@@ -1,6 +1,6 @@
 # Authentication and Database
 
-This plugin gates world join with Paper Dialogs during the configuration phase. Accounts live in **PostgreSQL**. Passwords are stored only as **Argon2id** hashes. The **LarpSMP username/email + password** is the portable identity: after a successful login, the connecting Minecraft profile is rebound to that account so players can join from any machine.
+This plugin gates world join with Paper Dialogs during the configuration phase. Accounts live in **PostgreSQL**. Passwords are stored only as **Argon2id** hashes. The **LarpSMP username/email + password** is the portable identity: after a successful login, the connecting Minecraft profile is rebound to that account so players can join from any machine. Gameplay body state (inventory, location, vitals, XP, gamemode, effects) is stored per account in Postgres — not in vanilla UUID playerdata.
 
 **v1 defaults**
 
@@ -168,7 +168,45 @@ If Postgres is unreachable, the plugin **does not** allow unauthenticated joins.
 | Log in to unverified account | Verify-email dialog (not world join) |
 | Wrong / expired verification code | Dialog error; resend available |
 | **Back to main menu** | Disconnect with “Returned to the main menu.” |
-| Log in to an account from a **different** Minecraft UUID than the one bound at signup | Rejected (account linked to another profile) |
+| Log in while that account is already online on another connection | Dialog error: account already online |
+| Log in to an account from a **different** Minecraft client/UUID | Succeeds; the Minecraft profile is **rebound** to this account (portable login) |
+
+## Account-keyed player bodies
+
+After successful login or email verify, the plugin loads (or creates) a body snapshot from PostgreSQL table **`account_player_states`**, keyed by `accounts.id`. That snapshot is the source of truth for:
+
+- world location (world name + x/y/z/yaw/pitch)
+- inventory, armor, offhand, ender chest
+- health, food, saturation, exhaustion
+- XP level / total / progress
+- game mode
+- active potion effects
+
+### Lifecycle
+
+1. **Auth success (configure phase)** — reject if the account already has a pending/active session; otherwise register the session, preload state from DB (or defaults), then allow join.
+2. **Spawn / join** — apply location and body on the main thread; set tab list + display name to the LarpSMP username; customize join message.
+3. **Autosave** — every `player-state.autosave-seconds` (default 60), snapshot online authenticated players and UPSERT to Postgres.
+4. **Quit / plugin disable** — sync UPSERT, then clear the Bukkit inventory shell so vanilla `playerdata/<uuid>.dat` cannot leak items to the next account on the same client UUID.
+5. **Account switch** — previous account was saved on quit; new login loads only the new account’s row. Inventories/positions are never merged.
+
+### Concurrent login policy
+
+**Reject the new connection** if that `account_id` is already online (or still pending admit). The active session is not kicked. This prevents double-login item duplication.
+
+### Crash / last-good
+
+Saves are atomic UPSERTs. On crash mid-session, the last successful autosave or quit save is restored (same trade-off as vanilla). There is no separate write-ahead journal.
+
+### Display / messaging
+
+After auth, tab list name, `displayName`, join/quit messages, death-message name rewriting, plugin `/pay` lookups, and wallet display names use the **LarpSMP account username**. Client Minecraft names remain bind metadata only.
+
+**Paper limits:** the offline client username may still appear in some deep vanilla systems (for example certain advancement announcements). Tab list, display name, join/quit/death (via events), and all plugin messages are covered.
+
+### First-time defaults
+
+If no `account_player_states` row exists, the player gets empty inventories, full health/food, Survival, and spawn from `player-state.default-spawn` (empty `world` = server default-world spawn).
 
 ## 4. Using pgAdmin to view data
 
@@ -209,7 +247,11 @@ The Compose stack pre-registers the `larpsmp` Postgres server inside pgAdmin
 
 Also inspect **wallets** / **wallet_transactions** after signup — each account should have balance `200` and a `STARTING_BALANCE` ledger row.
 
-Also inspect **schema_migrations** — you should see versions `001`, `002`, and `003` after the first plugin start with wallets.
+Also inspect **schema_migrations** — you should see versions `001`–`004` after the first plugin start with account bodies.
+
+6. Right-click **account_player_states** → **View/Edit Data** → **All Rows**.
+
+   After playing and quitting once you should see a row per account with location, vitals, and binary inventory blobs.
 
 ### If the `larpsmp` server is missing
 
@@ -268,6 +310,7 @@ Common JDBC SSL options: `sslmode=require`, `sslmode=verify-full` (with trust st
 | `auth_email_challenges` | Hashed one-time email codes (signup / password reset / username recovery) |
 | `wallets` | Account-linked balance (`account_id` PK, starting balance granted at signup) |
 | `wallet_transactions` | Money ledger (transfers, admin give/take/set, starting balance) |
+| `account_player_states` | Account-keyed body (location, inventory, vitals, XP, gamemode, effects) |
 | `schema_migrations` | Applied migration versions |
 
 ## Security notes

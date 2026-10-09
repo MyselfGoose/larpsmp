@@ -101,6 +101,10 @@ public final class TestDatabaseSupport {
             return money;
         }
 
+        public HikariDataSource dataSource() {
+            return dataSource;
+        }
+
         public RegisteredPlayer register(String username) throws Exception {
             UUID minecraftUuid = UUID.randomUUID();
             String unique = username.toLowerCase(java.util.Locale.ROOT)
@@ -114,7 +118,8 @@ public final class TestDatabaseSupport {
                     username);
             minecraftUuids.add(minecraftUuid);
             usernames.add(unique);
-            return new RegisteredPlayer(minecraftUuid, username);
+            // Return the LarpSMP account username (authoritative display / lookup name).
+            return new RegisteredPlayer(minecraftUuid, unique);
         }
 
         @Override

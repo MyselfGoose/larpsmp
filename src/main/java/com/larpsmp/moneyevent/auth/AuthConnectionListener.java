@@ -1,10 +1,15 @@
 package com.larpsmp.moneyevent.auth;
 
 import com.destroystokyo.paper.event.player.PlayerConnectionCloseEvent;
+import com.larpsmp.moneyevent.playerstate.AccountPlayerState;
+import com.larpsmp.moneyevent.playerstate.AccountSession;
+import com.larpsmp.moneyevent.playerstate.AccountSessionManager;
+import com.larpsmp.moneyevent.playerstate.PlayerStateService;
 import io.papermc.paper.connection.PlayerConfigurationConnection;
 import io.papermc.paper.dialog.DialogResponseView;
 import io.papermc.paper.event.connection.configuration.AsyncPlayerConnectionConfigureEvent;
 import io.papermc.paper.event.player.PlayerCustomClickEvent;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.logging.Level;
@@ -25,6 +30,8 @@ public final class AuthConnectionListener implements Listener {
     private final AuthConfig config;
     private final @Nullable AuthService authService;
     private final AuthSessionManager sessionManager;
+    private final AccountSessionManager accountSessions;
+    private final @Nullable PlayerStateService playerStates;
     private final AuthDialogFactory dialogFactory;
     private final ExecutorService authExecutor;
     private final Logger logger;
@@ -34,6 +41,8 @@ public final class AuthConnectionListener implements Listener {
             AuthConfig config,
             @Nullable AuthService authService,
             AuthSessionManager sessionManager,
+            AccountSessionManager accountSessions,
+            @Nullable PlayerStateService playerStates,
             AuthDialogFactory dialogFactory,
             ExecutorService authExecutor,
             boolean databaseReady,
@@ -42,6 +51,8 @@ public final class AuthConnectionListener implements Listener {
         this.config = config;
         this.authService = authService;
         this.sessionManager = sessionManager;
+        this.accountSessions = accountSessions;
+        this.playerStates = playerStates;
         this.dialogFactory = dialogFactory;
         this.authExecutor = authExecutor;
         this.databaseReady = databaseReady;
@@ -91,8 +102,10 @@ public final class AuthConnectionListener implements Listener {
             case ALLOWED -> audience.closeDialog();
             case CANCELLED -> {
                 // Player already disconnected via Back to main menu.
+                accountSessions.cancelPending(profileId);
             }
             case REJECTED -> {
+                accountSessions.cancelPending(profileId);
                 audience.closeDialog();
                 if (connection.isConnected()) {
                     connection.disconnect(Component.text(config.messages().disconnectTimeout(), NamedTextColor.RED));
@@ -201,6 +214,7 @@ public final class AuthConnectionListener implements Listener {
     @EventHandler
     public void onConnectionClose(PlayerConnectionCloseEvent event) {
         sessionManager.cancel(event.getPlayerUniqueId());
+        accountSessions.cancelPending(event.getPlayerUniqueId());
     }
 
     private void handleLogin(
@@ -547,11 +561,8 @@ public final class AuthConnectionListener implements Listener {
         }
 
         switch (result) {
-            case LoginResult.Success ignored -> {
-                if (sessionManager.complete(profileId, AuthResult.ALLOWED)) {
-                    audience.closeDialog();
-                }
-            }
+            case LoginResult.Success success -> admitAuthenticatedAccount(
+                    session, profileId, audience, success.account(), true);
             case LoginResult.EmailNotVerified emailNotVerified -> {
                 session.flow().beginEmailVerification(
                         emailNotVerified.account().id(),
@@ -612,11 +623,8 @@ public final class AuthConnectionListener implements Listener {
 
         String masked = session.flow().maskedEmail();
         switch (result) {
-            case VerifyEmailResult.Success ignored -> {
-                if (sessionManager.complete(profileId, AuthResult.ALLOWED)) {
-                    audience.closeDialog();
-                }
-            }
+            case VerifyEmailResult.Success success -> admitAuthenticatedAccount(
+                    session, profileId, audience, success.account(), false);
             case VerifyEmailResult.InvalidCode ignored ->
                     audience.showDialog(dialogFactory.verifyEmailDialog(masked, config.messages().verifyInvalidCode()));
             case VerifyEmailResult.Expired ignored ->
@@ -692,6 +700,73 @@ public final class AuthConnectionListener implements Listener {
             case RecoverVerifyResult.InternalError ignored ->
                     audience.showDialog(dialogFactory.forgotVerifyDialog(
                             masked, config.messages().verifyInternalError()));
+        }
+    }
+
+    /**
+     * Registers the account session, preloads body state, then allows world join.
+     *
+     * @param loginDialogOnFailure when true, errors return to the login dialog; otherwise verify-email
+     */
+    private void admitAuthenticatedAccount(
+            AuthSession session,
+            UUID profileId,
+            Audience audience,
+            Account account,
+            boolean loginDialogOnFailure
+    ) {
+        if (!session.isPending()) {
+            return;
+        }
+
+        Optional<AccountSession> begun = accountSessions.tryBegin(account.id(), profileId, account.username());
+        if (begun.isEmpty()) {
+            showAuthFailure(session, audience, loginDialogOnFailure, config.messages().loginAlreadyOnline());
+            logger.info("Rejected concurrent login for account '" + account.username()
+                    + "' (minecraftUuid=" + profileId + ")");
+            return;
+        }
+
+        AccountSession accountSession = begun.get();
+        PlayerStateService states = playerStates;
+        if (states == null) {
+            accountSessions.endByMinecraftUuid(profileId);
+            showAuthFailure(session, audience, loginDialogOnFailure, config.messages().loginInternalError());
+            return;
+        }
+
+        try {
+            AccountPlayerState preloaded = states.preload(account.id());
+            accountSession.setPreloadedState(preloaded);
+        } catch (Exception exception) {
+            accountSessions.endByMinecraftUuid(profileId);
+            logger.log(Level.SEVERE, "Failed to preload body for account '" + account.username() + "'", exception);
+            showAuthFailure(session, audience, loginDialogOnFailure, config.messages().loginInternalError());
+            return;
+        }
+
+        if (sessionManager.complete(profileId, AuthResult.ALLOWED)) {
+            audience.closeDialog();
+            logger.info("Admitted account '" + account.username()
+                    + "' (minecraftUuid=" + profileId + ")");
+        } else {
+            accountSessions.endByMinecraftUuid(profileId);
+        }
+    }
+
+    private void showAuthFailure(
+            AuthSession session,
+            Audience audience,
+            boolean loginDialogOnFailure,
+            String message
+    ) {
+        if (!session.isPending()) {
+            return;
+        }
+        if (loginDialogOnFailure) {
+            audience.showDialog(dialogFactory.loginDialog(message));
+        } else {
+            audience.showDialog(dialogFactory.verifyEmailDialog(session.flow().maskedEmail(), message));
         }
     }
 
