@@ -9,8 +9,8 @@ This plugin gates world join with Paper Dialogs during the configuration phase. 
 - Every reconnect still requires an explicit **Log in** (`auth.auto-login-bound-uuid: false`).
 - Logging in with a correct password on an unverified account re-opens the verify-email dialog (with resend).
 - **Forgot password** on the login dialog supports password reset and username recovery via email codes.
-- A Minecraft UUID is linked to at most one account at a time; **successful password login moves that link** to the current profile.
-- Sign up is blocked only if this Minecraft profile is already linked — use **Log in** instead (passwords may be shared across accounts).
+- A Minecraft UUID is linked to at most one account at a time; **successful login or signup moves that link** to the current account.
+- Sign up requires a unique username and email only (passwords may be shared). Creating another account from the same Minecraft character reassigns that character to the new account; the previous account stays intact and can be reached again via **Log in**.
 - No seeded/demo users. Create the first account in-game via Sign up.
 - Signup also creates a linked wallet with starting balance **$200** (same DB transaction).
 - Requires `LARPSMP_RESEND_API_KEY` and `LARPSMP_RESEND_FROM_EMAIL` in `.env`.

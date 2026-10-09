@@ -95,7 +95,7 @@ auth:
     username-reveal-title: "Your username"
     username-reveal-body: "The username for this email is: {username}"
     username-reveal-back: "Back to login"
-    uuid-already-bound: "This Minecraft character is already linked to an account. Passwords can be shared — use Log in for this character, or sign up from a different Minecraft profile."
+    uuid-already-bound: "Could not finish signup because this Minecraft profile changed mid-request. Please try again."
     back-to-menu: "Back to main menu"
     disconnect-cancelled: "Returned to the main menu."
     disconnect-timeout: "Authentication timed out. Please reconnect and try again."

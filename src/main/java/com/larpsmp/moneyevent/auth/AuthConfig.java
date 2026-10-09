@@ -288,7 +288,7 @@ public record AuthConfig(
                         "The username for this email is: {username}"),
                 config.getString("auth.messages.username-reveal-back", "Back to login"),
                 config.getString("auth.messages.uuid-already-bound",
-                        "This Minecraft character is already linked to an account. Passwords can be shared — use Log in for this character, or sign up from a different Minecraft profile."),
+                        "Could not finish signup because this Minecraft profile changed mid-request. Please try again."),
                 config.getString("auth.messages.back-to-menu", "Back to main menu"),
                 config.getString("auth.messages.disconnect-cancelled", "Returned to the main menu."),
                 config.getString("auth.messages.disconnect-timeout",

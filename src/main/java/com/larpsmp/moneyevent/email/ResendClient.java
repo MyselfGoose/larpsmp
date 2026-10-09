@@ -63,7 +63,13 @@ public final class ResendClient implements EmailSender {
                         + " (" + message.subject() + ")");
                 return;
             }
-            logger.log(Level.WARNING, "Resend API rejected email send with HTTP " + status);
+            String body = response.body() == null ? "" : response.body().strip();
+            if (body.length() > 500) {
+                body = body.substring(0, 500) + "...";
+            }
+            logger.log(Level.WARNING, "Resend API rejected email send with HTTP " + status
+                    + " to " + EmailTemplates.maskEmail(message.to())
+                    + (body.isBlank() ? "" : ": " + body));
             throw new EmailSendException("Email provider rejected the request (HTTP " + status + ")");
         } catch (EmailSendException exception) {
             throw exception;
