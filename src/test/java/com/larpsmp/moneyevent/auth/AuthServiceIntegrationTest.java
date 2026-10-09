@@ -162,9 +162,28 @@ final class AuthServiceIntegrationTest {
 
     @Test
     @Order(4)
-    void rejectsUuidMismatch() {
-        LoginResult mismatch = authService.login(USERNAME, PASSWORD, PROFILE_B, "PlayerB");
-        assertInstanceOf(LoginResult.AccountBoundToOtherUuid.class, mismatch);
+    void loginFromDifferentMinecraftProfileRebindsIdentity() throws Exception {
+        LoginResult migrated = authService.login(USERNAME, PASSWORD, PROFILE_B, "PlayerB");
+        assertInstanceOf(LoginResult.Success.class, migrated);
+
+        try (Connection connection = dataSource.getConnection();
+             PreparedStatement statement = connection.prepareStatement(
+                     """
+                     SELECT minecraft_uuid, minecraft_name
+                     FROM account_minecraft_identities
+                     WHERE account_id = (SELECT id FROM accounts WHERE username = ?)
+                     """)) {
+            statement.setString(1, USERNAME);
+            try (ResultSet resultSet = statement.executeQuery()) {
+                assertTrue(resultSet.next());
+                assertEquals(PROFILE_B, resultSet.getObject("minecraft_uuid", UUID.class));
+                assertEquals("PlayerB", resultSet.getString("minecraft_name"));
+            }
+        }
+
+        // Original profile is free; account follows the latest successful login.
+        LoginResult back = authService.login(USERNAME, PASSWORD, PROFILE_A, "PlayerA");
+        assertInstanceOf(LoginResult.Success.class, back);
     }
 
     @Test

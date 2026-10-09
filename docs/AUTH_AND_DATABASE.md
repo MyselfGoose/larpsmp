@@ -1,6 +1,6 @@
 # Authentication and Database
 
-This plugin gates world join with Paper Dialogs during the configuration phase. Accounts live in **PostgreSQL**. Passwords are stored only as **Argon2id** hashes. Minecraft profile UUIDs are bound to accounts so offline-mode clients cannot freely switch identities onto another account.
+This plugin gates world join with Paper Dialogs during the configuration phase. Accounts live in **PostgreSQL**. Passwords are stored only as **Argon2id** hashes. The **LarpSMP username/email + password** is the portable identity: after a successful login, the connecting Minecraft profile is rebound to that account so players can join from any machine.
 
 **v1 defaults**
 
@@ -9,7 +9,8 @@ This plugin gates world join with Paper Dialogs during the configuration phase. 
 - Every reconnect still requires an explicit **Log in** (`auth.auto-login-bound-uuid: false`).
 - Logging in with a correct password on an unverified account re-opens the verify-email dialog (with resend).
 - **Forgot password** on the login dialog supports password reset and username recovery via email codes.
-- One Minecraft UUID ↔ one account. Mismatches are rejected.
+- A Minecraft UUID is linked to at most one account at a time; **successful password login moves that link** to the current profile.
+- Sign up is blocked only if this Minecraft profile is already linked — use **Log in** instead (passwords may be shared across accounts).
 - No seeded/demo users. Create the first account in-game via Sign up.
 - Signup also creates a linked wallet with starting balance **$200** (same DB transaction).
 - Requires `LARPSMP_RESEND_API_KEY` and `LARPSMP_RESEND_FROM_EMAIL` in `.env`.

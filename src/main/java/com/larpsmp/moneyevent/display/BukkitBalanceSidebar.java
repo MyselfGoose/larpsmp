@@ -1,6 +1,7 @@
 package com.larpsmp.moneyevent.display;
 
 import com.larpsmp.moneyevent.wallet.MoneyService;
+import io.papermc.paper.scoreboard.numbers.NumberFormat;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
@@ -18,11 +19,10 @@ import org.bukkit.scoreboard.Scoreboard;
 
 /**
  * Always-on personal Wallet HUD rendered as a compact scoreboard sidebar.
+ * Score numbers are blanked so players only see the title and balance text.
  */
 public final class BukkitBalanceSidebar implements BalanceDisplayControl {
     private static final String OBJECTIVE_NAME = "larpsmp_wallet";
-    private static final String LABEL_ENTRY = " Balance ";
-    private static final String SPACER_ENTRY = " ";
 
     private final Server server;
     private final MoneyService money;
@@ -60,21 +60,21 @@ public final class BukkitBalanceSidebar implements BalanceDisplayControl {
                         Criteria.DUMMY,
                         Component.text("Wallet", NamedTextColor.GOLD, TextDecoration.BOLD));
                 objective.setDisplaySlot(DisplaySlot.SIDEBAR);
-                objective.getScore(SPACER_ENTRY).setScore(3);
-                objective.getScore(LABEL_ENTRY).setScore(2);
+                objective.numberFormat(NumberFormat.blank());
                 sidebar = new OwnedSidebar(previous, owned, null);
                 sidebars.put(playerId, sidebar);
                 player.setScoreboard(owned);
-            }
-            String amount = "$" + account.orElseThrow().balance();
-            if (sidebar.amountEntry() != null && !sidebar.amountEntry().equals(amount)) {
-                sidebar.owned().resetScores(sidebar.amountEntry());
             }
             Objective objective = sidebar.owned().getObjective(OBJECTIVE_NAME);
             if (objective == null) {
                 remove(playerId);
                 refresh(playerId);
                 return;
+            }
+            objective.numberFormat(NumberFormat.blank());
+            String amount = "$" + account.orElseThrow().balance();
+            if (sidebar.amountEntry() != null && !sidebar.amountEntry().equals(amount)) {
+                sidebar.owned().resetScores(sidebar.amountEntry());
             }
             objective.getScore(amount).setScore(1);
             sidebars.put(playerId, new OwnedSidebar(sidebar.previous(), sidebar.owned(), amount));
