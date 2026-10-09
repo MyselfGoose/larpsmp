@@ -216,7 +216,7 @@ public final class MoneyEventPlugin extends JavaPlugin {
 
         try {
             getServer().getPluginManager().registerEvents(
-                    new PlayerStateListener(accountSessionManager, playerStateService, getLogger()),
+                    new PlayerStateListener(this, accountSessionManager, playerStateService, getLogger()),
                     this
             );
             startAutosave(playerStateService, playerStateConfig);

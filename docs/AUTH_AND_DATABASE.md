@@ -202,7 +202,9 @@ Saves are atomic UPSERTs. On crash mid-session, the last successful autosave or 
 
 After auth, tab list name, `displayName`, join/quit messages, death-message name rewriting, plugin `/pay` lookups, and wallet display names use the **LarpSMP account username**. Client Minecraft names remain bind metadata only.
 
-**Paper limits:** the offline client username may still appear in some deep vanilla systems (for example certain advancement announcements). Tab list, display name, join/quit/death (via events), and all plugin messages are covered.
+After auth the plugin also rewrites the Paper **GameProfile name** to the LarpSMP username so tab list and the nametag above the head match `/pay` suggestions. The original TLauncher/client nickname is only the connection vehicle.
+
+**Paper limits:** a few deep vanilla systems may still briefly show the offline client name before join handlers finish. Advancements and some hard-coded client packets can still leak the original nickname in edge cases.
 
 ### First-time defaults
 
