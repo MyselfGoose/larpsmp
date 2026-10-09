@@ -9,7 +9,7 @@ final class TestAuthFixtures {
         return new AuthConfig.Messages(
                 "Login", "body", "id", "pw", "Log in", "Sign up", "Forgot",
                 "invalid", "empty login", "uuid other", "account other", "rate login", "internal login",
-                "email not verified",
+                "email not verified", "already online",
                 "Sign up", "signup body", "user", "email", "pw", "Create", "Back",
                 "empty signup", "bad user", "bad email", "bad password",
                 "user taken", "email taken", "disabled", "rate signup", "internal signup", "email unavailable",

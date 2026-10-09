@@ -361,11 +361,17 @@ public final class JdbcMoneyRepository {
             @Nullable UUID minecraftUuid,
             @Nullable String minecraftName) {
 
+        /**
+         * Player-facing name is the LarpSMP account username. Minecraft client name is bind metadata only.
+         */
         public String displayName() {
+            if (username != null && !username.isBlank()) {
+                return username;
+            }
             if (minecraftName != null && !minecraftName.isBlank()) {
                 return minecraftName;
             }
-            return username;
+            return "unknown";
         }
     }
 }

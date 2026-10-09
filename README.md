@@ -2,7 +2,7 @@
 
 Private Minecraft Java Edition event project foundation.
 
-This repository contains the **Paper plugin + local development server** with **PostgreSQL-backed pre-join authentication** and **account-linked wallets** (starting balance, `/balance`, `/pay`, admin money commands, and an always-on Wallet HUD).
+This repository contains the **Paper plugin + local development server** with **PostgreSQL-backed pre-join authentication**, **account-linked wallets** (starting balance, `/balance`, `/pay`, admin money commands, and an always-on Wallet HUD), and **account-keyed player bodies** (inventory/location/vitals persist per LarpSMP account, not per Minecraft client name).
 
 ## One-command setup (CachyOS / Arch)
 

@@ -78,6 +78,7 @@ Any Java **21 or newer** is accepted. If none exist, the script installs `jdk21-
 
 - Plugin source: `src/main/java/com/larpsmp/moneyevent/`
 - Auth package: `com.larpsmp.moneyevent.auth`
+- Player bodies: `com.larpsmp.moneyevent.playerstate` (account-keyed inventory/location/vitals)
 - DB helpers: `com.larpsmp.moneyevent.db`
 - Migrations: `src/main/resources/db/migrations/`
 - Plugin metadata: `src/main/resources/plugin.yml`
@@ -113,8 +114,12 @@ Use **Sign up** to create the first account (no seeded users). Complete the emai
 
 ## Money / wallets
 
-Wallets are created automatically with every auth account (starting balance **$200**) and stored in PostgreSQL (`wallets`, `wallet_transactions`), linked by `account_id`. Player commands: `/balance`, `/pay`. Admin: `/larp money give|take|set`. The always-on **Wallet** sidebar shows the player's balance.
+Wallets are created automatically with every auth account (starting balance **$200**) and stored in PostgreSQL (`wallets`, `wallet_transactions`), linked by `account_id`. Player commands: `/balance`, `/pay`. Admin: `/larp money give|take|set`. The always-on **Wallet** sidebar shows the player's balance. Lookups and feedback use the **LarpSMP account username**, not the Minecraft client name.
+
+## Account-keyed bodies
+
+Authenticated players load/save Minecraft body state from `account_player_states` (see [AUTH_AND_DATABASE.md](AUTH_AND_DATABASE.md)). Switching LarpSMP accounts on the same client must feel like switching characters. Configure spawn defaults and autosave under `player-state` in `config.yml`.
 
 ## Intentionally out of scope (this phase)
 
-No teams, capture points, auctions, OAuth, or separate auth microservice.
+No teams, capture points, auctions, OAuth, separate auth microservice, or Velocity/Bungee cross-proxy body sync.
