@@ -111,6 +111,10 @@ With the bootstrap finished, join from a **1.21.11** Minecraft Java client:
 
 Use **Sign up** to create the first account (no seeded users). Complete the email verification code before joining. Use **Log in** on later connects. **Forgot password** supports password reset and username recovery via email codes (Resend).
 
+## Money / wallets
+
+Wallets are created automatically with every auth account (starting balance **$200**) and stored in PostgreSQL (`wallets`, `wallet_transactions`), linked by `account_id`. Player commands: `/balance`, `/pay`. Admin: `/larp money give|take|set`. The always-on **Wallet** sidebar shows the player's balance.
+
 ## Intentionally out of scope (this phase)
 
-No economy, teams, capture points, auctions, admin commands, OAuth, or separate auth microservice.
+No teams, capture points, auctions, OAuth, or separate auth microservice.

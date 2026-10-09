@@ -2,7 +2,7 @@
 
 Private Minecraft Java Edition event project foundation.
 
-This repository currently contains the **Paper plugin + local development server** infrastructure with **PostgreSQL-backed pre-join authentication**. Game mechanics beyond auth are intentionally not implemented yet.
+This repository contains the **Paper plugin + local development server** with **PostgreSQL-backed pre-join authentication** and **account-linked wallets** (starting balance, `/balance`, `/pay`, admin money commands, and an always-on Wallet HUD).
 
 ## One-command setup (CachyOS / Arch)
 
@@ -28,7 +28,7 @@ That script:
 cp .env.example .env
 ```
 
-When it finishes the readiness report, join Minecraft and use **Sign up** (no seeded users). Set `LARPSMP_RESEND_API_KEY` and `LARPSMP_RESEND_FROM_EMAIL` in `.env` so the verification email can be delivered.
+When it finishes the readiness report, join Minecraft and use **Sign up**. New accounts automatically receive a **$200** wallet. Set `LARPSMP_RESEND_API_KEY` and `LARPSMP_RESEND_FROM_EMAIL` in `.env` so the verification email can be delivered.
 
 | Service | Address | Credentials (from `.env` defaults) |
 |---------|---------|-------------|

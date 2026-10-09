@@ -11,6 +11,7 @@ This plugin gates world join with Paper Dialogs during the configuration phase. 
 - **Forgot password** on the login dialog supports password reset and username recovery via email codes.
 - One Minecraft UUID ↔ one account. Mismatches are rejected.
 - No seeded/demo users. Create the first account in-game via Sign up.
+- Signup also creates a linked wallet with starting balance **$200** (same DB transaction).
 - Requires `LARPSMP_RESEND_API_KEY` and `LARPSMP_RESEND_FROM_EMAIL` in `.env`.
 
 ## Prerequisites
@@ -205,7 +206,9 @@ The Compose stack pre-registers the `larpsmp` Postgres server inside pgAdmin
    - `minecraft_name` is the last seen name (cosmetic)
    - `account_id` references the row in `accounts`
 
-Also inspect **schema_migrations** — you should see versions `001` and `002` after the first plugin start with this feature.
+Also inspect **wallets** / **wallet_transactions** after signup — each account should have balance `200` and a `STARTING_BALANCE` ledger row.
+
+Also inspect **schema_migrations** — you should see versions `001`, `002`, and `003` after the first plugin start with wallets.
 
 ### If the `larpsmp` server is missing
 
@@ -262,6 +265,8 @@ Common JDBC SSL options: `sslmode=require`, `sslmode=verify-full` (with trust st
 | `accounts` | Username, email, Argon2id hash, email verification flags, timestamps |
 | `account_minecraft_identities` | UUID binding (unique Minecraft UUID → one account) |
 | `auth_email_challenges` | Hashed one-time email codes (signup / password reset / username recovery) |
+| `wallets` | Account-linked balance (`account_id` PK, starting balance granted at signup) |
+| `wallet_transactions` | Money ledger (transfers, admin give/take/set, starting balance) |
 | `schema_migrations` | Applied migration versions |
 
 ## Security notes

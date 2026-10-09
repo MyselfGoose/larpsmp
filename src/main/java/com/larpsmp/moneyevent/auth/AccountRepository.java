@@ -1,5 +1,7 @@
 package com.larpsmp.moneyevent.auth;
 
+import com.larpsmp.moneyevent.wallet.JdbcMoneyRepository;
+import com.larpsmp.moneyevent.wallet.MoneyService;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -123,7 +125,8 @@ public final class AccountRepository {
     }
 
     /**
-     * Creates an unverified account and binds the connecting Minecraft UUID in one transaction.
+     * Creates an unverified account, binds the connecting Minecraft UUID, and provisions a
+     * starting wallet ({@link MoneyService#STARTING_BALANCE}) in one transaction.
      */
     public Account createAccountWithIdentity(
             String username,
@@ -175,6 +178,12 @@ public final class AccountRepository {
                     identityStatement.setTimestamp(6, Timestamp.from(now));
                     identityStatement.executeUpdate();
                 }
+                JdbcMoneyRepository.insertWalletWithStartingBalance(
+                        connection,
+                        accountId,
+                        MoneyService.STARTING_BALANCE,
+                        MoneyService.STARTING_BALANCE_REASON,
+                        now);
                 connection.commit();
                 return new Account(accountId, username, email, passwordHash, false, null, now, now, null);
             } catch (SQLException exception) {
