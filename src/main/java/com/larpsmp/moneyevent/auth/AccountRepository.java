@@ -218,6 +218,96 @@ public final class AccountRepository {
         }
     }
 
+    /**
+     * Makes {@code accountId} the sole owner of {@code minecraftUuid}.
+     * Clears any previous binding for that UUID and moves/creates this account's identity row.
+     * Used after password login so players can use their account from any Minecraft profile/machine.
+     */
+    public void rebindIdentityToMinecraftUuid(
+            UUID accountId,
+            UUID minecraftUuid,
+            @Nullable String minecraftName
+    ) throws SQLException {
+        Instant now = Instant.now();
+        try (Connection connection = dataSource.getConnection()) {
+            boolean previous = connection.getAutoCommit();
+            connection.setAutoCommit(false);
+            try {
+                try (PreparedStatement clearUuid = connection.prepareStatement(
+                        "DELETE FROM account_minecraft_identities WHERE minecraft_uuid = ?")) {
+                    clearUuid.setObject(1, minecraftUuid);
+                    clearUuid.executeUpdate();
+                }
+
+                Optional<AccountIdentity> existing = findIdentityByAccountId(connection, accountId);
+                if (existing.isPresent()) {
+                    String update = """
+                            UPDATE account_minecraft_identities
+                            SET minecraft_uuid = ?,
+                                minecraft_name = COALESCE(?, minecraft_name),
+                                last_seen_at = ?
+                            WHERE account_id = ?
+                            """;
+                    try (PreparedStatement statement = connection.prepareStatement(update)) {
+                        statement.setObject(1, minecraftUuid);
+                        if (minecraftName == null) {
+                            statement.setNull(2, Types.VARCHAR);
+                        } else {
+                            statement.setString(2, minecraftName);
+                        }
+                        statement.setTimestamp(3, Timestamp.from(now));
+                        statement.setObject(4, accountId);
+                        statement.executeUpdate();
+                    }
+                } else {
+                    String insert = """
+                            INSERT INTO account_minecraft_identities
+                                (id, account_id, minecraft_uuid, minecraft_name, bound_at, last_seen_at)
+                            VALUES (?, ?, ?, ?, ?, ?)
+                            """;
+                    try (PreparedStatement statement = connection.prepareStatement(insert)) {
+                        statement.setObject(1, UUID.randomUUID());
+                        statement.setObject(2, accountId);
+                        statement.setObject(3, minecraftUuid);
+                        if (minecraftName == null) {
+                            statement.setNull(4, Types.VARCHAR);
+                        } else {
+                            statement.setString(4, minecraftName);
+                        }
+                        statement.setTimestamp(5, Timestamp.from(now));
+                        statement.setTimestamp(6, Timestamp.from(now));
+                        statement.executeUpdate();
+                    }
+                }
+                connection.commit();
+            } catch (SQLException exception) {
+                connection.rollback();
+                throw exception;
+            } finally {
+                connection.setAutoCommit(previous);
+            }
+        }
+    }
+
+    private Optional<AccountIdentity> findIdentityByAccountId(Connection connection, UUID accountId)
+            throws SQLException {
+        String sql = """
+                SELECT id, account_id, minecraft_uuid, minecraft_name, bound_at, last_seen_at
+                FROM account_minecraft_identities
+                WHERE account_id = ?
+                LIMIT 1
+                """;
+        try (PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setObject(1, accountId);
+            try (ResultSet resultSet = statement.executeQuery()) {
+                if (!resultSet.next()) {
+                    return Optional.empty();
+                }
+                return Optional.of(mapIdentity(resultSet));
+            }
+        }
+    }
+
     public void markEmailVerified(UUID accountId) throws SQLException {
         Instant now = Instant.now();
         String sql = """

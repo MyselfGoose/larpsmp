@@ -166,18 +166,6 @@ public final class AuthService {
                 return new LoginResult.InvalidCredentials();
             }
 
-            Optional<AccountIdentity> uuidIdentity = repository.findIdentityByMinecraftUuid(minecraftUuid);
-            if (uuidIdentity.isPresent() && !uuidIdentity.get().accountId().equals(account.id())) {
-                rateLimiter.recordFailure(minecraftUuid);
-                return new LoginResult.UuidBoundToOtherAccount();
-            }
-
-            Optional<AccountIdentity> accountIdentity = repository.findIdentityByAccountId(account.id());
-            if (accountIdentity.isPresent() && !accountIdentity.get().minecraftUuid().equals(minecraftUuid)) {
-                rateLimiter.recordFailure(minecraftUuid);
-                return new LoginResult.AccountBoundToOtherUuid();
-            }
-
             if (!account.emailVerified()) {
                 EmailChallengeService.IssueResult issue =
                         emailChallengeService.issueAndSend(account, EmailChallengePurpose.SIGNUP_VERIFY);
@@ -191,12 +179,9 @@ public final class AuthService {
                 );
             }
 
-            if (uuidIdentity.isPresent()) {
-                repository.updateIdentityLastSeen(uuidIdentity.get().id(), minecraftName);
-            } else if (accountIdentity.isEmpty()) {
-                repository.bindIdentity(account.id(), minecraftUuid, minecraftName);
-            }
-
+            // Password is the portable credential: attach this Minecraft profile to the account
+            // so the player can join from any machine/name after logging in.
+            repository.rebindIdentityToMinecraftUuid(account.id(), minecraftUuid, minecraftName);
             repository.updateLastLogin(account.id());
             rateLimiter.clear(minecraftUuid);
             logger.info("Account '" + account.username() + "' logged in from Minecraft UUID " + minecraftUuid);
