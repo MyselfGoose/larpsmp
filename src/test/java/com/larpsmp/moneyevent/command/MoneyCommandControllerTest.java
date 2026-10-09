@@ -72,11 +72,13 @@ class MoneyCommandControllerTest {
                     context.online().lastMessage(recipientId));
             assertEquals(150, context.money().balance(senderId).balance());
             assertEquals(250, context.money().balance(recipientId).balance());
+            String expectedReason = "Player payment from " + senderId + " to " + recipientId;
             TransactionRecord payment = context.money().allTransactions().stream()
                     .filter(record -> record.type() == TransactionType.TRANSFER)
+                    .filter(record -> expectedReason.equals(record.reason()))
                     .findFirst().orElseThrow();
             assertEquals(context.money().account(senderId).orElseThrow().accountId(), payment.actorId());
-            assertEquals("Player payment from " + senderId + " to " + recipientId, payment.reason());
+            assertEquals(expectedReason, payment.reason());
         }
     }
 

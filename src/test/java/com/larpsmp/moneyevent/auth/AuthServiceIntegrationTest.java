@@ -34,7 +34,9 @@ final class AuthServiceIntegrationTest {
     private static final UUID PROFILE_A = UUID.fromString("11111111-1111-1111-1111-111111111111");
     private static final UUID PROFILE_B = UUID.fromString("22222222-2222-2222-2222-222222222222");
     private static final String USERNAME = "integ_user_" + System.currentTimeMillis() % 100_000;
+    private static final String SECOND_USERNAME = "integ_b_" + System.currentTimeMillis() % 100_000;
     private static final String EMAIL = USERNAME + "@example.com";
+    private static final String SECOND_EMAIL = SECOND_USERNAME + "@example.com";
     private static final String PASSWORD = "password123";
 
     @BeforeAll
@@ -75,16 +77,32 @@ final class AuthServiceIntegrationTest {
     static void tearDown() throws Exception {
         if (dataSource != null) {
             try (Connection connection = dataSource.getConnection()) {
+                for (String username : new String[] {USERNAME, SECOND_USERNAME}) {
+                    try (PreparedStatement deleteLedger = connection.prepareStatement(
+                            """
+                            DELETE FROM wallet_transactions
+                            WHERE source_account_id IN (SELECT id FROM accounts WHERE username = ?)
+                               OR destination_account_id IN (SELECT id FROM accounts WHERE username = ?)
+                               OR actor_account_id IN (SELECT id FROM accounts WHERE username = ?)
+                            """)) {
+                        deleteLedger.setString(1, username);
+                        deleteLedger.setString(2, username);
+                        deleteLedger.setString(3, username);
+                        deleteLedger.executeUpdate();
+                    }
+                }
                 try (PreparedStatement deleteIdentity = connection.prepareStatement(
                         "DELETE FROM account_minecraft_identities WHERE minecraft_uuid = ? OR minecraft_uuid = ?")) {
                     deleteIdentity.setObject(1, PROFILE_A);
                     deleteIdentity.setObject(2, PROFILE_B);
                     deleteIdentity.executeUpdate();
                 }
-                try (PreparedStatement deleteAccount = connection.prepareStatement(
-                        "DELETE FROM accounts WHERE username = ?")) {
-                    deleteAccount.setString(1, USERNAME);
-                    deleteAccount.executeUpdate();
+                for (String username : new String[] {USERNAME, SECOND_USERNAME}) {
+                    try (PreparedStatement deleteAccount = connection.prepareStatement(
+                            "DELETE FROM accounts WHERE username = ?")) {
+                        deleteAccount.setString(1, username);
+                        deleteAccount.executeUpdate();
+                    }
                 }
             } finally {
                 dataSource.close();
@@ -188,6 +206,49 @@ final class AuthServiceIntegrationTest {
 
     @Test
     @Order(5)
+    void signupSecondAccountFromSameMinecraftProfileRebinds() throws Exception {
+        emailSender.clear();
+        SignupResult second = authService.signup(SECOND_USERNAME, SECOND_EMAIL, PASSWORD, PROFILE_A, "PlayerA");
+        assertInstanceOf(SignupResult.PendingVerification.class, second);
+
+        try (Connection connection = dataSource.getConnection();
+             PreparedStatement bound = connection.prepareStatement(
+                     """
+                     SELECT a.username
+                     FROM account_minecraft_identities i
+                     INNER JOIN accounts a ON a.id = i.account_id
+                     WHERE i.minecraft_uuid = ?
+                     """)) {
+            bound.setObject(1, PROFILE_A);
+            try (ResultSet resultSet = bound.executeQuery()) {
+                assertTrue(resultSet.next());
+                assertEquals(SECOND_USERNAME, resultSet.getString("username"));
+                assertFalse(resultSet.next());
+            }
+        }
+
+        try (Connection connection = dataSource.getConnection();
+             PreparedStatement wallet = connection.prepareStatement(
+                     """
+                     SELECT w.balance
+                     FROM wallets w
+                     INNER JOIN accounts a ON a.id = w.account_id
+                     WHERE a.username = ?
+                     """)) {
+            wallet.setString(1, SECOND_USERNAME);
+            try (ResultSet resultSet = wallet.executeQuery()) {
+                assertTrue(resultSet.next());
+                assertEquals(200, resultSet.getLong("balance"));
+            }
+        }
+
+        // Previous account remains and can reclaim this profile via login after verify flow.
+        LoginResult reclaim = authService.login(USERNAME, PASSWORD, PROFILE_A, "PlayerA");
+        assertInstanceOf(LoginResult.Success.class, reclaim);
+    }
+
+    @Test
+    @Order(6)
     void passwordResetAndUsernameRecovery() {
         emailSender.clear();
         ForgotPasswordResult resetStart = authService.beginRecovery(
@@ -240,7 +301,7 @@ final class AuthServiceIntegrationTest {
     }
 
     @Test
-    @Order(6)
+    @Order(7)
     void unknownRecoveryEmailDoesNotRevealAccount() {
         ForgotPasswordResult result = authService.beginRecovery(
                 "missing_" + EMAIL,

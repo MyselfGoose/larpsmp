@@ -82,12 +82,8 @@ public final class AuthService {
                 return new SignupResult.EmailTaken();
             }
 
-            Optional<AccountIdentity> existingIdentity = repository.findIdentityByMinecraftUuid(minecraftUuid);
-            if (existingIdentity.isPresent()) {
-                rateLimiter.recordFailure(minecraftUuid);
-                return new SignupResult.ValidationError(messages.uuidAlreadyBound());
-            }
-
+            // Username/email uniqueness is what matters. The connecting Minecraft profile is
+            // attached to this new account (moving it off any previous account), matching login.
             String passwordHash = passwordHasher.hash(password);
             Account account = repository.createAccountWithIdentity(
                     username,

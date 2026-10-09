@@ -48,10 +48,24 @@ public final class TestDatabaseSupport {
         }
         HikariDataSource dataSource = DataSourceFactory.create(config);
         new MigrationRunner(dataSource, Logger.getLogger(testName)).migrate();
+        scrubOrphanedLedgerRows(dataSource);
         AccountRepository accounts = new AccountRepository(dataSource);
         JdbcMoneyRepository moneyRepository = new JdbcMoneyRepository(dataSource);
         MoneyService money = new MoneyService(accounts, moneyRepository, message -> { });
         return new Fixture(dataSource, accounts, moneyRepository, money, new ArrayList<>());
+    }
+
+    private static void scrubOrphanedLedgerRows(HikariDataSource dataSource) throws Exception {
+        try (Connection connection = dataSource.getConnection();
+             PreparedStatement statement = connection.prepareStatement(
+                     """
+                     DELETE FROM wallet_transactions
+                     WHERE source_account_id IS NULL
+                       AND destination_account_id IS NULL
+                       AND actor_account_id IS NULL
+                     """)) {
+            statement.executeUpdate();
+        }
     }
 
     public static final class Fixture implements AutoCloseable {
@@ -107,6 +121,22 @@ public final class TestDatabaseSupport {
         public void close() throws Exception {
             money.close();
             try (Connection connection = dataSource.getConnection()) {
+                // Ledger rows use ON DELETE SET NULL, so delete them explicitly or they
+                // linger and poison later tests that scan wallet_transactions.
+                for (String username : usernames) {
+                    try (PreparedStatement statement = connection.prepareStatement(
+                            """
+                            DELETE FROM wallet_transactions
+                            WHERE source_account_id IN (SELECT id FROM accounts WHERE username = ?)
+                               OR destination_account_id IN (SELECT id FROM accounts WHERE username = ?)
+                               OR actor_account_id IN (SELECT id FROM accounts WHERE username = ?)
+                            """)) {
+                        statement.setString(1, username);
+                        statement.setString(2, username);
+                        statement.setString(3, username);
+                        statement.executeUpdate();
+                    }
+                }
                 for (UUID minecraftUuid : minecraftUuids) {
                     try (PreparedStatement statement = connection.prepareStatement(
                             "DELETE FROM account_minecraft_identities WHERE minecraft_uuid = ?")) {
@@ -120,6 +150,15 @@ public final class TestDatabaseSupport {
                         statement.setString(1, username);
                         statement.executeUpdate();
                     }
+                }
+                try (PreparedStatement orphans = connection.prepareStatement(
+                        """
+                        DELETE FROM wallet_transactions
+                        WHERE source_account_id IS NULL
+                          AND destination_account_id IS NULL
+                          AND actor_account_id IS NULL
+                        """)) {
+                    orphans.executeUpdate();
                 }
             } finally {
                 dataSource.close();

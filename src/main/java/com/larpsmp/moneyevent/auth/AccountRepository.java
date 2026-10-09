@@ -165,6 +165,12 @@ public final class AccountRepository {
                     accountStatement.setTimestamp(6, Timestamp.from(now));
                     accountStatement.executeUpdate();
                 }
+                // One Minecraft profile can only point at one account; move it to this signup.
+                try (PreparedStatement clearUuid = connection.prepareStatement(
+                        "DELETE FROM account_minecraft_identities WHERE minecraft_uuid = ?")) {
+                    clearUuid.setObject(1, minecraftUuid);
+                    clearUuid.executeUpdate();
+                }
                 try (PreparedStatement identityStatement = connection.prepareStatement(insertIdentity)) {
                     identityStatement.setObject(1, identityId);
                     identityStatement.setObject(2, accountId);
