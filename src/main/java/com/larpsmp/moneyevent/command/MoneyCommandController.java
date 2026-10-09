@@ -2,13 +2,10 @@ package com.larpsmp.moneyevent.command;
 
 import com.larpsmp.moneyevent.auth.MoneyAdminAction;
 import com.larpsmp.moneyevent.auth.MoneyAdminAuthorizer;
-import com.larpsmp.moneyevent.display.BalanceDisplayControl;
 import com.larpsmp.moneyevent.notification.PaymentNotificationStore;
-import com.larpsmp.moneyevent.wallet.AccountCreationResult;
 import com.larpsmp.moneyevent.wallet.MoneyAuditContext;
 import com.larpsmp.moneyevent.wallet.MoneyService;
 import com.larpsmp.moneyevent.wallet.TransactionResult;
-import com.larpsmp.moneyevent.wallet.TransactionStatus;
 import com.larpsmp.moneyevent.wallet.WalletAccount;
 import java.io.IOException;
 import java.util.List;
@@ -24,7 +21,6 @@ public final class MoneyCommandController {
     private final PaymentNotificationStore notifications;
     private final Consumer<String> errorLogger;
     private final MoneyAdminAuthorizer authorizer;
-    private final BalanceDisplayControl display;
 
     public MoneyCommandController(
             MoneyService money,
@@ -32,15 +28,13 @@ public final class MoneyCommandController {
             OnlinePlayerAccess onlinePlayers,
             PaymentNotificationStore notifications,
             Consumer<String> errorLogger,
-            MoneyAdminAuthorizer authorizer,
-            BalanceDisplayControl display) {
+            MoneyAdminAuthorizer authorizer) {
         this.money = money;
         this.lookup = lookup;
         this.onlinePlayers = onlinePlayers;
         this.notifications = notifications;
         this.errorLogger = errorLogger;
         this.authorizer = authorizer;
-        this.display = display;
     }
 
     public void balance(CommandSource source, String[] arguments) {
@@ -91,10 +85,6 @@ public final class MoneyCommandController {
         if (sender == null) {
             return;
         }
-        if (!sender.initialized()) {
-            source.send("Your wallet has not been initialized.", MessageKind.ERROR);
-            return;
-        }
         PlayerLookupResult resolved = lookup(arguments[0], source);
         if (resolved == null) {
             return;
@@ -138,75 +128,22 @@ public final class MoneyCommandController {
 
     public void larp(CommandSource source, String[] arguments) {
         if (arguments.length < 2 || !arguments[0].equalsIgnoreCase("money")) {
-            source.send("Usage: /larp money <account|initialize|give|take|set|display>", MessageKind.ERROR);
+            source.send("Usage: /larp money <give|take|set>", MessageKind.ERROR);
             return;
         }
         String operation = arguments[1].toLowerCase(Locale.ROOT);
         switch (operation) {
-            case "account" -> accountCreate(source, arguments);
-            case "initialize" -> initialize(source, arguments);
             case "give" -> adminChange(source, arguments, MoneyAdminAction.MONEY_GIVE);
             case "take" -> adminChange(source, arguments, MoneyAdminAction.MONEY_TAKE);
             case "set" -> adminChange(source, arguments, MoneyAdminAction.MONEY_SET);
-            case "display" -> display(source, arguments);
             default -> source.send("Unknown protected money operation.", MessageKind.ERROR);
         }
     }
 
-    private void accountCreate(CommandSource source, String[] arguments) {
-        MoneyAdminAction action = MoneyAdminAction.MONEY_ACCOUNT_CREATE;
-        if (!allowed(source, action)) return;
-        if (arguments.length != 4 || !arguments[2].equalsIgnoreCase("create")) {
-            source.send("Usage: /larp money account create <online-player>", MessageKind.ERROR);
-            return;
-        }
-        Optional<OnlinePlayerIdentity> target = onlinePlayers.findExact(arguments[3]);
-        if (target.isEmpty()) {
-            source.send("That player is not online with that exact name.", MessageKind.ERROR);
-            return;
-        }
-        OnlinePlayerIdentity player = target.orElseThrow();
-        AccountCreationResult result = money.createAccount(player.playerId(), player.username());
-        if (result.status() == AccountCreationResult.Status.CREATED) {
-            errorLogger.accept("Money account created by " + source.name() + " for " + player.playerId());
-            source.send("Created a $0 wallet for " + player.username() + ".", MessageKind.SUCCESS);
-            display.refresh(player.playerId());
-        } else if (result.status() == AccountCreationResult.Status.ALREADY_EXISTS) {
-            source.send(player.username() + " already has a wallet. Current balance: $"
-                    + result.account().balance() + ".", MessageKind.INFO);
-        } else {
-            source.send("The wallet could not be saved. Please contact an admin.", MessageKind.ERROR);
-        }
-    }
-
-    private void initialize(CommandSource source, String[] arguments) {
-        if (!allowed(source, MoneyAdminAction.MONEY_COMPETITOR_INITIALIZE)) return;
-        if (arguments.length != 3) {
-            source.send("Usage: /larp money initialize <online-player>", MessageKind.ERROR);
-            return;
-        }
-        Optional<OnlinePlayerIdentity> target = onlinePlayers.findExact(arguments[2]);
-        if (target.isEmpty()) {
-            source.send("That player is not online with that exact name.", MessageKind.ERROR);
-            return;
-        }
-        OnlinePlayerIdentity player = target.orElseThrow();
-        TransactionResult result = money.initializeEligibleCompetitor(player.playerId(), player.username());
-        if (result.status() == TransactionStatus.SUCCESS) {
-            source.send("Initialized " + player.username() + "'s competitor wallet with $200.",
-                    MessageKind.SUCCESS);
-        } else if (result.status() == TransactionStatus.ALREADY_INITIALIZED) {
-            source.send(player.username() + "'s competitor wallet was already initialized. Current balance: $"
-                    + result.sourceBalanceAfter() + ".", MessageKind.INFO);
-        } else {
-            errorLogger.accept("Could not initialize wallet for " + player.playerId()
-                    + ": transaction status " + result.status());
-            source.send("The wallet could not be saved. Please contact an admin.", MessageKind.ERROR);
-        }
-    }
-
     private void adminChange(CommandSource source, String[] arguments, MoneyAdminAction action) {
-        if (!allowed(source, action)) return;
+        if (!allowed(source, action)) {
+            return;
+        }
         if (arguments.length < 5) {
             source.send("A nonblank reason is required.", MessageKind.ERROR);
             return;
@@ -224,9 +161,13 @@ public final class MoneyCommandController {
             return;
         }
         PlayerLookupResult resolved = lookup(arguments[2], source);
-        if (resolved == null) return;
+        if (resolved == null) {
+            return;
+        }
         WalletAccount target = account(resolved.player().playerId(), source);
-        if (target == null) return;
+        if (target == null) {
+            return;
+        }
         MoneyAuditContext context = new MoneyAuditContext(
                 action.name(), "/larp money " + arguments[1].toLowerCase(Locale.ROOT),
                 source.name(), source.isConsole() ? "CONSOLE" : "PLAYER");
@@ -234,7 +175,6 @@ public final class MoneyCommandController {
             case MONEY_GIVE -> money.add(target.playerId(), amount, reason, source.playerId().orElse(null), context);
             case MONEY_TAKE -> money.remove(target.playerId(), amount, reason, source.playerId().orElse(null), context);
             case MONEY_SET -> money.set(target.playerId(), amount, reason, source.playerId().orElse(null), context);
-            default -> throw new IllegalStateException("Unexpected action " + action);
         };
         if (!result.successful()) {
             handleAdminFailure(source, result, set);
@@ -244,30 +184,11 @@ public final class MoneyCommandController {
             case MONEY_GIVE -> "Added $" + amount + " to " + target.lastKnownUsername() + ".";
             case MONEY_TAKE -> "Removed $" + amount + " from " + target.lastKnownUsername() + ".";
             case MONEY_SET -> "Set " + target.lastKnownUsername() + "'s balance.";
-            default -> throw new IllegalStateException();
         };
         source.send(verb, MessageKind.SUCCESS);
         source.send("Balance: $" + result.sourceBalanceBefore() + " → $" + result.sourceBalanceAfter(),
                 MessageKind.INFO);
         source.send("Reason: " + reason, MessageKind.INFO);
-    }
-
-    private void display(CommandSource source, String[] arguments) {
-        if (!allowed(source, MoneyAdminAction.MONEY_DISPLAY_TOGGLE)) return;
-        if (arguments.length != 3 || (!arguments[2].equalsIgnoreCase("on")
-                && !arguments[2].equalsIgnoreCase("off"))) {
-            source.send("Usage: /larp money display <on|off>", MessageKind.ERROR);
-            return;
-        }
-        boolean enabled = arguments[2].equalsIgnoreCase("on");
-        try {
-            boolean changed = display.setEnabled(enabled);
-            source.send("Personal balance display " + (changed ? "" : "is already ")
-                    + (enabled ? "enabled." : "disabled."), changed ? MessageKind.SUCCESS : MessageKind.INFO);
-        } catch (IOException exception) {
-            errorLogger.accept("Could not persist display setting: " + exception.getMessage());
-            source.send("The display setting could not be saved. Please contact an admin.", MessageKind.ERROR);
-        }
     }
 
     public List<String> tabComplete(String command, CommandSource source, String[] arguments) {
@@ -283,25 +204,8 @@ public final class MoneyCommandController {
             } else if (arguments.length == 2 && arguments[0].equalsIgnoreCase("money")) {
                 candidates = authorizedActions(source);
             } else if (arguments.length == 3 && arguments[0].equalsIgnoreCase("money")
-                    && arguments[1].equalsIgnoreCase("account")
-                    && authorizer.isAllowed(source, MoneyAdminAction.MONEY_ACCOUNT_CREATE)) {
-                candidates = List.of("create");
-            } else if (arguments.length == 4 && arguments[0].equalsIgnoreCase("money")
-                    && arguments[1].equalsIgnoreCase("account") && arguments[2].equalsIgnoreCase("create")
-                    && authorizer.isAllowed(source, MoneyAdminAction.MONEY_ACCOUNT_CREATE)) {
-                candidates = onlinePlayers.onlinePlayers().stream()
-                        .map(OnlinePlayerIdentity::username).toList();
-            } else if (arguments.length == 3 && arguments[0].equalsIgnoreCase("money")
-                    && arguments[1].equalsIgnoreCase("initialize")
-                    && authorizer.isAllowed(source, MoneyAdminAction.MONEY_COMPETITOR_INITIALIZE)) {
-                candidates = onlinePlayers.onlinePlayers().stream().map(OnlinePlayerIdentity::username).toList();
-            } else if (arguments.length == 3 && arguments[0].equalsIgnoreCase("money")
                     && adminAction(arguments[1]).map(action -> authorizer.isAllowed(source, action)).orElse(false)) {
                 candidates = lookup.suggestions();
-            } else if (arguments.length == 3 && arguments[0].equalsIgnoreCase("money")
-                    && arguments[1].equalsIgnoreCase("display")
-                    && authorizer.isAllowed(source, MoneyAdminAction.MONEY_DISPLAY_TOGGLE)) {
-                candidates = List.of("on", "off");
             } else {
                 return List.of();
             }
@@ -313,19 +217,24 @@ public final class MoneyCommandController {
     }
 
     private boolean allowed(CommandSource source, MoneyAdminAction action) {
-        if (authorizer.isAllowed(source, action)) return true;
+        if (authorizer.isAllowed(source, action)) {
+            return true;
+        }
         source.send("You are not authorized to perform that action.", MessageKind.ERROR);
         return false;
     }
 
     private List<String> authorizedActions(CommandSource source) {
         List<String> values = new java.util.ArrayList<>();
-        if (authorizer.isAllowed(source, MoneyAdminAction.MONEY_ACCOUNT_CREATE)) values.add("account");
-        if (authorizer.isAllowed(source, MoneyAdminAction.MONEY_COMPETITOR_INITIALIZE)) values.add("initialize");
-        if (authorizer.isAllowed(source, MoneyAdminAction.MONEY_GIVE)) values.add("give");
-        if (authorizer.isAllowed(source, MoneyAdminAction.MONEY_TAKE)) values.add("take");
-        if (authorizer.isAllowed(source, MoneyAdminAction.MONEY_SET)) values.add("set");
-        if (authorizer.isAllowed(source, MoneyAdminAction.MONEY_DISPLAY_TOGGLE)) values.add("display");
+        if (authorizer.isAllowed(source, MoneyAdminAction.MONEY_GIVE)) {
+            values.add("give");
+        }
+        if (authorizer.isAllowed(source, MoneyAdminAction.MONEY_TAKE)) {
+            values.add("take");
+        }
+        if (authorizer.isAllowed(source, MoneyAdminAction.MONEY_SET)) {
+            values.add("set");
+        }
         return values;
     }
 
@@ -359,7 +268,7 @@ public final class MoneyCommandController {
             Optional<WalletAccount> account = money.account(playerId);
             if (account.isEmpty()) {
                 source.send(source.playerId().filter(playerId::equals).isPresent()
-                        ? "Your wallet has not been initialized."
+                        ? "You do not have a wallet. Sign up for an account first."
                         : "That player does not have a registered wallet.", MessageKind.ERROR);
                 return null;
             }
@@ -374,7 +283,9 @@ public final class MoneyCommandController {
     private PlayerLookupResult lookup(String username, CommandSource source) {
         PlayerLookupResult result = lookup.resolve(username);
         switch (result.status()) {
-            case FOUND -> { return result; }
+            case FOUND -> {
+                return result;
+            }
             case AMBIGUOUS -> source.send("That name matches multiple registered wallets. Please contact an admin.",
                     MessageKind.ERROR);
             case STORAGE_FAILURE -> {
@@ -414,7 +325,9 @@ public final class MoneyCommandController {
     }
 
     private static Long parseAmount(String value, boolean zeroAllowed) {
-        if (!value.matches("[0-9]+")) return null;
+        if (!value.matches("[0-9]+")) {
+            return null;
+        }
         try {
             long amount = Long.parseLong(value);
             return amount > 0 || (zeroAllowed && amount == 0) ? amount : null;

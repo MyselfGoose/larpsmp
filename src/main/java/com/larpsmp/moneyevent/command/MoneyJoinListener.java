@@ -1,8 +1,8 @@
 package com.larpsmp.moneyevent.command;
 
+import com.larpsmp.moneyevent.display.BalanceDisplayControl;
 import com.larpsmp.moneyevent.notification.PaymentNotificationStore;
 import com.larpsmp.moneyevent.wallet.MoneyService;
-import com.larpsmp.moneyevent.display.BalanceDisplayControl;
 import java.io.IOException;
 import java.util.function.Consumer;
 import org.bukkit.event.EventHandler;
@@ -30,9 +30,9 @@ public final class MoneyJoinListener implements Listener {
     @EventHandler
     public void onJoin(PlayerJoinEvent event) {
         try {
-            moneyService.updateUsernameIfRegistered(event.getPlayer().getUniqueId(), event.getPlayer().getName());
+            moneyService.touchIdentityOnJoin(event.getPlayer().getUniqueId(), event.getPlayer().getName());
         } catch (IOException exception) {
-            errorLogger.accept("Could not update wallet username for " + event.getPlayer().getUniqueId()
+            errorLogger.accept("Could not update identity for " + event.getPlayer().getUniqueId()
                     + ": " + exception.getMessage());
         }
         notifications.deliver(event.getPlayer().getUniqueId(),

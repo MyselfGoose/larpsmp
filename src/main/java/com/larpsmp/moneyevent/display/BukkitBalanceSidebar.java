@@ -8,6 +8,7 @@ import java.util.UUID;
 import java.util.function.Consumer;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
+import net.kyori.adventure.text.format.TextDecoration;
 import org.bukkit.Server;
 import org.bukkit.entity.Player;
 import org.bukkit.scoreboard.Criteria;
@@ -15,49 +16,27 @@ import org.bukkit.scoreboard.DisplaySlot;
 import org.bukkit.scoreboard.Objective;
 import org.bukkit.scoreboard.Scoreboard;
 
+/**
+ * Always-on personal Wallet HUD rendered as a compact scoreboard sidebar.
+ */
 public final class BukkitBalanceSidebar implements BalanceDisplayControl {
+    private static final String OBJECTIVE_NAME = "larpsmp_wallet";
+    private static final String LABEL_ENTRY = " Balance ";
+    private static final String SPACER_ENTRY = " ";
+
     private final Server server;
     private final MoneyService money;
-    private final DisplaySettings settings;
     private final Consumer<String> errorLogger;
     private final Map<UUID, OwnedSidebar> sidebars = new HashMap<>();
 
-    public BukkitBalanceSidebar(
-            Server server, MoneyService money, DisplaySettings settings, Consumer<String> errorLogger) {
+    public BukkitBalanceSidebar(Server server, MoneyService money, Consumer<String> errorLogger) {
         this.server = server;
         this.money = money;
-        this.settings = settings;
         this.errorLogger = errorLogger;
     }
 
     @Override
-    public boolean isEnabled() {
-        return settings.enabled();
-    }
-
-    @Override
-    public boolean setEnabled(boolean enabled) throws IOException {
-        if (settings.enabled() == enabled) {
-            return false;
-        }
-        settings.setEnabled(enabled);
-        if (enabled) {
-            for (Player player : server.getOnlinePlayers()) {
-                refresh(player.getUniqueId());
-            }
-        } else {
-            for (UUID playerId : sidebars.keySet().toArray(UUID[]::new)) {
-                remove(playerId);
-            }
-        }
-        return true;
-    }
-
-    @Override
     public void refresh(UUID playerId) {
-        if (!settings.enabled()) {
-            return;
-        }
         Player player = server.getPlayer(playerId);
         if (player == null || !player.isOnline()) {
             return;
@@ -77,9 +56,12 @@ public final class BukkitBalanceSidebar implements BalanceDisplayControl {
                 Scoreboard previous = player.getScoreboard();
                 Scoreboard owned = server.getScoreboardManager().getNewScoreboard();
                 Objective objective = owned.registerNewObjective(
-                        "larpsmp_balance", Criteria.DUMMY, Component.text("LarpSMP", NamedTextColor.GOLD));
+                        OBJECTIVE_NAME,
+                        Criteria.DUMMY,
+                        Component.text("Wallet", NamedTextColor.GOLD, TextDecoration.BOLD));
                 objective.setDisplaySlot(DisplaySlot.SIDEBAR);
-                objective.getScore("Balance").setScore(2);
+                objective.getScore(SPACER_ENTRY).setScore(3);
+                objective.getScore(LABEL_ENTRY).setScore(2);
                 sidebar = new OwnedSidebar(previous, owned, null);
                 sidebars.put(playerId, sidebar);
                 player.setScoreboard(owned);
@@ -88,10 +70,16 @@ public final class BukkitBalanceSidebar implements BalanceDisplayControl {
             if (sidebar.amountEntry() != null && !sidebar.amountEntry().equals(amount)) {
                 sidebar.owned().resetScores(sidebar.amountEntry());
             }
-            sidebar.owned().getObjective("larpsmp_balance").getScore(amount).setScore(1);
+            Objective objective = sidebar.owned().getObjective(OBJECTIVE_NAME);
+            if (objective == null) {
+                remove(playerId);
+                refresh(playerId);
+                return;
+            }
+            objective.getScore(amount).setScore(1);
             sidebars.put(playerId, new OwnedSidebar(sidebar.previous(), sidebar.owned(), amount));
         } catch (IOException exception) {
-            errorLogger.accept("Could not refresh balance display for " + playerId + ": " + exception.getMessage());
+            errorLogger.accept("Could not refresh wallet display for " + playerId + ": " + exception.getMessage());
         }
     }
 
@@ -114,11 +102,10 @@ public final class BukkitBalanceSidebar implements BalanceDisplayControl {
     }
 
     @Override
-    public void close() throws IOException {
+    public void close() {
         for (UUID playerId : sidebars.keySet().toArray(UUID[]::new)) {
             remove(playerId);
         }
-        settings.save();
     }
 
     private record OwnedSidebar(Scoreboard previous, Scoreboard owned, String amountEntry) {

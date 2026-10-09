@@ -17,4 +17,4 @@ commands:
     usage: /pay <player> <amount>
   larp:
     description: Protected LarpSMP money administration commands.
-    usage: /larp money <account|initialize|give|take|set|display>
+    usage: /larp money <give|take|set>

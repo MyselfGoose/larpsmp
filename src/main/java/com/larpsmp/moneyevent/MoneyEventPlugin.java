@@ -22,14 +22,11 @@ import com.larpsmp.moneyevent.db.DataSourceFactory;
 import com.larpsmp.moneyevent.db.MigrationRunner;
 import com.larpsmp.moneyevent.display.BalanceDisplayControl;
 import com.larpsmp.moneyevent.display.BukkitBalanceSidebar;
-import com.larpsmp.moneyevent.display.DisplaySettings;
 import com.larpsmp.moneyevent.email.EmailSender;
 import com.larpsmp.moneyevent.email.ResendClient;
 import com.larpsmp.moneyevent.notification.PaymentNotificationStore;
-import com.larpsmp.moneyevent.wallet.FileTransactionStore;
-import com.larpsmp.moneyevent.wallet.FileWalletRepository;
+import com.larpsmp.moneyevent.wallet.JdbcMoneyRepository;
 import com.larpsmp.moneyevent.wallet.MoneyService;
-import com.larpsmp.moneyevent.wallet.WalletService;
 import com.zaxxer.hikari.HikariDataSource;
 import java.io.IOException;
 import java.util.Objects;
@@ -42,7 +39,6 @@ import org.bukkit.plugin.java.JavaPlugin;
 
 public final class MoneyEventPlugin extends JavaPlugin {
 
-    private WalletService walletService;
     private MoneyService moneyService;
     private BalanceDisplayControl balanceDisplay;
     private AuthSessionManager authSessionManager;
@@ -64,6 +60,7 @@ public final class MoneyEventPlugin extends JavaPlugin {
         AuthDialogFactory dialogFactory = new AuthDialogFactory(authConfig.messages());
 
         AuthService authService = null;
+        AccountRepository accountRepository = null;
         databaseReady = false;
 
         if (authConfig.enabled()) {
@@ -75,7 +72,7 @@ public final class MoneyEventPlugin extends JavaPlugin {
                 new MigrationRunner(dataSource, getLogger()).migrate();
 
                 PasswordHasher passwordHasher = new PasswordHasher();
-                AccountRepository accountRepository = new AccountRepository(dataSource);
+                accountRepository = new AccountRepository(dataSource);
                 EmailChallengeRepository challengeRepository = new EmailChallengeRepository(dataSource);
                 AuthRateLimiter rateLimiter = new AuthRateLimiter(authConfig.rateLimit());
 
@@ -156,6 +153,7 @@ public final class MoneyEventPlugin extends JavaPlugin {
                 closeDataSourceQuietly();
                 databaseReady = false;
                 authService = null;
+                accountRepository = null;
             }
         } else {
             getLogger().info("Pre-join authentication disabled.");
@@ -169,7 +167,6 @@ public final class MoneyEventPlugin extends JavaPlugin {
                     return thread;
                 });
         if (authExecutor == null) {
-            // Keep a handle so onDisable can shut down the fallback executor.
             authExecutor = listenerExecutor;
         }
 
@@ -188,23 +185,23 @@ public final class MoneyEventPlugin extends JavaPlugin {
             getLogger().info("Pre-join authentication enabled (database-backed).");
         }
 
+        if (!databaseReady || dataSource == null || accountRepository == null) {
+            getLogger().severe("Money system requires a healthy PostgreSQL connection; money commands disabled.");
+            getLogger().info("Money Event plugin enabled (auth-only until database is ready).");
+            return;
+        }
+
         try {
-            FileWalletRepository walletRepository =
-                    new FileWalletRepository(getDataFolder().toPath().resolve("wallets"));
-            FileTransactionStore transactionStore =
-                    new FileTransactionStore(walletRepository, getDataFolder().toPath().resolve("transactions"));
-            walletService = new WalletService(walletRepository);
-            moneyService = new MoneyService(walletService, transactionStore, message -> getLogger().severe(message));
+            JdbcMoneyRepository moneyRepository = new JdbcMoneyRepository(dataSource);
+            moneyService = new MoneyService(
+                    accountRepository, moneyRepository, message -> getLogger().severe(message));
             BukkitOnlinePlayerAccess onlinePlayers = new BukkitOnlinePlayerAccess(getServer());
             PaymentNotificationStore notifications = new PaymentNotificationStore(
                     getDataFolder().toPath().resolve("notifications"),
                     moneyService,
                     message -> getLogger().severe(message));
-            DisplaySettings displaySettings = new DisplaySettings(
-                    getDataFolder().toPath().resolve("display.properties"),
-                    message -> getLogger().warning(message));
             balanceDisplay = new BukkitBalanceSidebar(
-                    getServer(), moneyService, displaySettings, message -> getLogger().severe(message));
+                    getServer(), moneyService, message -> getLogger().severe(message));
             moneyService.addBalanceChangeListener((playerId, ignoredBalance) -> balanceDisplay.refresh(playerId));
             MoneyCommandController controller = new MoneyCommandController(
                     moneyService,
@@ -212,8 +209,7 @@ public final class MoneyEventPlugin extends JavaPlugin {
                     onlinePlayers,
                     notifications,
                     message -> getLogger().severe(message),
-                    new DevelopmentConsoleOpAuthorizer(),
-                    balanceDisplay);
+                    new DevelopmentConsoleOpAuthorizer());
             BukkitMoneyCommands commands = new BukkitMoneyCommands(controller);
             for (String commandName : new String[] {"balance", "pay", "larp"}) {
                 var command = Objects.requireNonNull(getCommand(commandName),
@@ -225,8 +221,10 @@ public final class MoneyEventPlugin extends JavaPlugin {
                     new MoneyJoinListener(moneyService, notifications,
                             message -> getLogger().severe(message), balanceDisplay), this);
             getLogger().warning("Using temporary console/operator money authorizer; replace it with Azeem's adapter.");
+            getLogger().info("Account-linked wallets ready (starting balance $"
+                    + MoneyService.STARTING_BALANCE + ").");
         } catch (IOException exception) {
-            getLogger().severe("Could not initialize wallet storage: " + exception.getMessage());
+            getLogger().severe("Could not initialize money storage: " + exception.getMessage());
             getServer().getPluginManager().disablePlugin(this);
             return;
         }
@@ -237,23 +235,12 @@ public final class MoneyEventPlugin extends JavaPlugin {
     @Override
     public void onDisable() {
         if (balanceDisplay != null) {
-            try {
-                balanceDisplay.close();
-            } catch (IOException exception) {
-                getLogger().severe("Could not close balance display cleanly: " + exception.getMessage());
-            } finally {
-                balanceDisplay = null;
-            }
+            balanceDisplay.close();
+            balanceDisplay = null;
         }
         if (moneyService != null) {
-            try {
-                moneyService.close();
-            } catch (IOException exception) {
-                getLogger().severe("Could not close money storage cleanly: " + exception.getMessage());
-            } finally {
-                moneyService = null;
-                walletService = null;
-            }
+            moneyService.close();
+            moneyService = null;
         }
         if (authSessionManager != null) {
             authSessionManager.cancelAll();

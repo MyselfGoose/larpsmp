@@ -1,5 +1,6 @@
 package com.larpsmp.moneyevent.auth;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -93,7 +94,7 @@ final class AuthServiceIntegrationTest {
 
     @Test
     @Order(1)
-    void signupCreatesUnverifiedAccountAndSendsCode() throws Exception {
+    void signupCreatesUnverifiedAccountWalletAndSendsCode() throws Exception {
         SignupResult result = authService.signup(USERNAME, EMAIL, PASSWORD, PROFILE_A, "PlayerA");
         assertInstanceOf(SignupResult.PendingVerification.class, result);
         assertTrue(emailSender.lastCode().isPresent());
@@ -109,6 +110,24 @@ final class AuthServiceIntegrationTest {
                 assertFalse(hash.contains(PASSWORD));
                 assertFalse(resultSet.getBoolean("email_verified"));
                 assertTrue(resultSet.getTimestamp("last_login_at") == null);
+            }
+        }
+
+        try (Connection connection = dataSource.getConnection();
+             PreparedStatement statement = connection.prepareStatement(
+                     """
+                     SELECT w.balance, t.type, t.status
+                     FROM accounts a
+                     INNER JOIN wallets w ON w.account_id = a.id
+                     INNER JOIN wallet_transactions t ON t.source_account_id = a.id
+                     WHERE a.username = ?
+                       AND t.type = 'STARTING_BALANCE'
+                       AND t.status = 'SUCCESS'
+                     """)) {
+            statement.setString(1, USERNAME);
+            try (ResultSet resultSet = statement.executeQuery()) {
+                assertTrue(resultSet.next());
+                assertEquals(200, resultSet.getLong("balance"));
             }
         }
     }

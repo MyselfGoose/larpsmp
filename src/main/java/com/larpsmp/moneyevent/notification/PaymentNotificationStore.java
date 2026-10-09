@@ -74,16 +74,21 @@ public final class PaymentNotificationStore {
     private void deliverTransaction(UUID recipientId, UUID transactionId, Consumer<String> messageConsumer)
             throws IOException {
         TransactionRecord transaction = moneyService.transaction(transactionId).orElse(null);
+        var recipientWallet = moneyService.account(recipientId).orElse(null);
         if (transaction == null
                 || transaction.type() != TransactionType.TRANSFER
                 || transaction.status() != TransactionStatus.SUCCESS
-                || !recipientId.equals(transaction.destinationWalletId())) {
+                || recipientWallet == null
+                || transaction.destinationWalletId() == null
+                || !recipientWallet.accountId().equals(transaction.destinationWalletId())) {
             errorLogger.accept("Ignoring invalid payment notification transaction " + transactionId);
             return;
         }
-        String senderName = moneyService.account(transaction.sourceWalletId())
-                .map(account -> account.lastKnownUsername())
-                .orElse(transaction.sourceWalletId().toString());
+        String senderName = transaction.sourceWalletId() == null
+                ? "Someone"
+                : moneyService.accountByAccountId(transaction.sourceWalletId())
+                        .map(account -> account.lastKnownUsername())
+                        .orElse(transaction.sourceWalletId().toString());
         messageConsumer.accept("While you were offline, " + senderName + " sent you $"
                 + transaction.amount() + ". Your balance is now $" + transaction.destinationBalanceAfter() + ".");
     }
