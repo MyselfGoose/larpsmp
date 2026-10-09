@@ -14,21 +14,25 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
+import org.bukkit.plugin.Plugin;
 
 /**
  * Applies and persists account-keyed bodies around join/quit.
  */
 public final class PlayerStateListener implements Listener {
 
+    private final Plugin plugin;
     private final AccountSessionManager sessions;
     private final PlayerStateService playerStates;
     private final Logger logger;
 
     public PlayerStateListener(
+            Plugin plugin,
             AccountSessionManager sessions,
             PlayerStateService playerStates,
             Logger logger
     ) {
+        this.plugin = plugin;
         this.sessions = sessions;
         this.playerStates = playerStates;
         this.logger = logger;
@@ -74,6 +78,18 @@ public final class PlayerStateListener implements Listener {
                 playerStates.apply(player, state);
             }
             PlayerIdentityDisplay.apply(player, session.username());
+            // Re-apply next tick so later join handlers cannot leave the client name visible.
+            String accountUsername = session.username();
+            plugin.getServer().getScheduler().runTask(plugin, () -> {
+                if (!player.isOnline()) {
+                    return;
+                }
+                sessions.findByMinecraftUuid(player.getUniqueId()).ifPresent(still -> {
+                    if (still.accountId().equals(session.accountId())) {
+                        PlayerIdentityDisplay.apply(player, accountUsername);
+                    }
+                });
+            });
             event.joinMessage(PlayerIdentityDisplay.joinMessage(session.username()));
             sessions.activate(player.getUniqueId());
             logger.info("Applied account body for '" + session.username()
