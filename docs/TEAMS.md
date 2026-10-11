@@ -17,10 +17,10 @@ Status key:
 | Thing | Plan | Status |
 |-------|------|--------|
 | Competitors | 12 players (including Karim) | Confirmed |
-| Teams | 3 teams of 4 | Confirmed |
-| Likely colors / IDs | Blue, Red, Yellow | Likely (names still open) |
-| Captains | One captain per team | Confirmed |
-| Tiers | Tier 1 (strongest) through Tier 4 | Confirmed |
+| Teams | 3 teams of 4 (soft target). Admins have full team CRUD; Blue/Red/Yellow are seeded defaults. | Confirmed (competition shape); CRUD implemented |
+| Likely colors / IDs | Blue, Red, Yellow | Likely (names still open); seeded + editable |
+| Captains | One captain per team | Confirmed; assign/clear implemented (abilities later) |
+| Tiers | Tier 1 (strongest) through Tier 4 | Confirmed for competition; **deferred** in current plugin slice |
 | Balance rule | Exactly one player of each tier per team | Confirmed (roster design) |
 | Substitutes | Not used | Confirmed |
 | Developers | Amira = admin / auction host (not a competitor). Azeem = developer (not a competitor). Do not count either as an extra competitor unless they have a roster slot. | Confirmed |
@@ -34,9 +34,9 @@ Still to fill in before invite: final usernames, team assignments, captains, tie
 
 ### Confirmed model
 
-- A team is a roster of up to **four competing accounts**.
+- A team is a roster of up to **four competing accounts** (soft limit with admin warnings).
 - Each competitor belongs to **at most one team**.
-- Each competitor on a team has a **tier** (1–4).
+- Each competitor on a team will have a **tier** (1–4) — tier assignment is **not implemented yet**.
 - Each team has **one captain** (must be a member of that team).
 - There is **no team wallet**. Money is only in personal wallets.
 - **Team wealth** = sum of the four personal wallets on that team’s roster.
@@ -117,13 +117,20 @@ Incomplete or unbalanced rosters should produce a **visible admin warning**, not
 
 ## 4. Roster rules for admins
 
-Admins need to:
+### Implemented admin surfaces
 
-| Action | Example command | Notes |
-|--------|-----------------|-------|
-| Assign / move player to a team | `/larp team set <player> <team>` | Uses authenticated account identity, not only current display name |
-| Set / change tier | `/larp tier set <player> <1–4>` | Player cannot self-edit |
-| Set captain | `/larp captain set <team> <player>` | Player must be on that team |
+- **In-game UI:** Paper Dialogs hub opened by the Teams Admin Nether Star (preferred hotbar slot 8) or `/larp teams` (ops/console authorizer).
+- **Chat/console:** `/larp team …` and `/larp captain …`.
+
+Admins can:
+
+| Action | Example command / UI | Notes |
+|--------|----------------------|-------|
+| Create / rename / recolor / delete teams | `/larp team create\|rename\|color\|delete` or dialog | Full CRUD; Blue/Red/Yellow seeded |
+| Assign / move player to a team | `/larp team set <player> <team>` or dialog | Uses authenticated account identity |
+| Remove player from team | `/larp team unset <player>` or dialog | Clears captain if that player was captain |
+| Set / clear captain | `/larp captain set\|clear` or dialog | Player must be on that team to be captain |
+| Set / change tier | `/larp tier set <player> <1–4>` | **Deferred** — not in this slice |
 
 Exact wording can change; permissions must block ordinary players.
 
@@ -198,14 +205,22 @@ No private team chat in this plugin.
 
 ## 7. Team-related admin commands
 
-| Command | Purpose |
-|---------|---------|
-| `/larp team set <player> <team>` | Assign or move a competitor |
-| `/larp tier set <player> <1–4>` | Give or change tier |
-| `/larp captain set <team> <player>` | Choose captain |
-| `/larp visibility teamtotals <show\|hide>` | Hide/show public team totals |
-| `/larp money …` | Economy corrections (not team ownership, but affects team wealth) |
-| `/larp killreward set <tier> <amount>` | Edit death prices by tier |
+| Command | Purpose | Status |
+|---------|---------|--------|
+| `/larp teams` | Open Teams Admin dialog (players) | Implemented |
+| `/larp team list` | Dump rosters + warnings | Implemented |
+| `/larp team create <name> [color]` | Create team | Implemented |
+| `/larp team rename <team> <name>` | Rename team | Implemented |
+| `/larp team color <team> <color>` | Recolor team | Implemented |
+| `/larp team delete <team>` | Delete team + memberships | Implemented |
+| `/larp team set <player> <team>` | Assign or move a competitor | Implemented |
+| `/larp team unset <player>` | Remove from team | Implemented |
+| `/larp captain set <team> <player>` | Choose captain | Implemented |
+| `/larp captain clear <team>` | Clear captain | Implemented |
+| `/larp tier set <player> <1–4>` | Give or change tier | Deferred |
+| `/larp visibility teamtotals <show\|hide>` | Hide/show public team totals | Deferred |
+| `/larp money …` | Economy corrections (not team ownership, but affects team wealth) | Exists |
+| `/larp killreward set <tier> <amount>` | Edit death prices by tier | Deferred |
 
 All need permissions. Captains and auction representatives get **event abilities only**, not admin money or arbitrary roster edits (unless also admins).
 
@@ -328,20 +343,20 @@ Related but owned by economy / other modules (teams must not duplicate as source
 
 ### Ownership
 
-- **Teams feature branch (`feature/teams`)**: roster, tiers, captains, team queries, team admin commands, team display hooks that need roster data.
+- **Teams feature branch (`feature/teams`)**: roster, captains, team CRUD, team queries, team admin commands + Paper Dialog UI. Tiers and displays land in later slices.
 - **Economy (existing / Amira’s side)**: wallets, transfers, team wealth **math**, reward split, death settlement, rescue, money logs, money commands.
 - **Azeem**: more complex systems (auth already present; kill attribution, capture detection, event logic) — calls teams for membership and economy for money.
 
 Do **not** build a second authentication or wallet system inside teams. Use existing permanent account IDs from auth.
 
-### Suggested package / module placement
+### Package / module placement
 
-Follow existing plugin layout under `com.larpsmp.moneyevent` (or a dedicated `team` package beside auth/wallet). Keep:
+Implemented under `com.larpsmp.moneyevent.team`:
 
-- Team domain model + repository (Postgres).
-- Team service (assign, tier, captain, queries, warnings).
-- Admin commands + permissions.
-- Thin adapters so economy/events ask the service — no scattered SQL.
+- Domain + `JdbcTeamRepository` + `TeamService` (Postgres migration `V005__teams.sql`).
+- `TeamAdminDialogFactory` / `TeamAdminListener` (Paper Dialogs + hotbar shortcut).
+- `TeamCommandController` wired through `/larp`.
+- Temporary authz: console or op via `DevelopmentConsoleOpAuthorizer` (same as money).
 
 ### Admin warning examples (unfinished roster)
 

@@ -3,16 +3,19 @@ package com.larpsmp.moneyevent.command;
 import com.larpsmp.moneyevent.auth.MoneyAdminAction;
 import com.larpsmp.moneyevent.auth.MoneyAdminAuthorizer;
 import com.larpsmp.moneyevent.notification.PaymentNotificationStore;
+import com.larpsmp.moneyevent.team.TeamCommandController;
 import com.larpsmp.moneyevent.wallet.MoneyAuditContext;
 import com.larpsmp.moneyevent.wallet.MoneyService;
 import com.larpsmp.moneyevent.wallet.TransactionResult;
 import com.larpsmp.moneyevent.wallet.WalletAccount;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Consumer;
+import org.jetbrains.annotations.Nullable;
 
 public final class MoneyCommandController {
     private final MoneyService money;
@@ -21,6 +24,7 @@ public final class MoneyCommandController {
     private final PaymentNotificationStore notifications;
     private final Consumer<String> errorLogger;
     private final MoneyAdminAuthorizer authorizer;
+    private final @Nullable TeamCommandController teams;
 
     public MoneyCommandController(
             MoneyService money,
@@ -29,12 +33,24 @@ public final class MoneyCommandController {
             PaymentNotificationStore notifications,
             Consumer<String> errorLogger,
             MoneyAdminAuthorizer authorizer) {
+        this(money, lookup, onlinePlayers, notifications, errorLogger, authorizer, null);
+    }
+
+    public MoneyCommandController(
+            MoneyService money,
+            PlayerLookup lookup,
+            OnlinePlayerAccess onlinePlayers,
+            PaymentNotificationStore notifications,
+            Consumer<String> errorLogger,
+            MoneyAdminAuthorizer authorizer,
+            @Nullable TeamCommandController teams) {
         this.money = money;
         this.lookup = lookup;
         this.onlinePlayers = onlinePlayers;
         this.notifications = notifications;
         this.errorLogger = errorLogger;
         this.authorizer = authorizer;
+        this.teams = teams;
     }
 
     public void balance(CommandSource source, String[] arguments) {
@@ -127,8 +143,11 @@ public final class MoneyCommandController {
     }
 
     public void larp(CommandSource source, String[] arguments) {
+        if (arguments.length >= 1 && teams != null && teams.handle(source, arguments)) {
+            return;
+        }
         if (arguments.length < 2 || !arguments[0].equalsIgnoreCase("money")) {
-            source.send("Usage: /larp money <give|take|set>", MessageKind.ERROR);
+            source.send("Usage: /larp <money|teams|team|captain> ...", MessageKind.ERROR);
             return;
         }
         String operation = arguments[1].toLowerCase(Locale.ROOT);
@@ -200,12 +219,24 @@ public final class MoneyCommandController {
                     .filter(name -> !name.equalsIgnoreCase(source.name())).toList();
         } else if (command.equalsIgnoreCase("larp")) {
             if (arguments.length == 1) {
-                candidates = authorizedActions(source).isEmpty() ? List.of() : List.of("money");
-            } else if (arguments.length == 2 && arguments[0].equalsIgnoreCase("money")) {
-                candidates = authorizedActions(source);
-            } else if (arguments.length == 3 && arguments[0].equalsIgnoreCase("money")
-                    && adminAction(arguments[1]).map(action -> authorizer.isAllowed(source, action)).orElse(false)) {
-                candidates = lookup.suggestions();
+                candidates = new ArrayList<>();
+                if (!authorizedActions(source).isEmpty()) {
+                    candidates.add("money");
+                }
+                if (teams != null) {
+                    candidates.addAll(teams.tabComplete(source, arguments));
+                }
+            } else if (arguments[0].equalsIgnoreCase("money")) {
+                if (arguments.length == 2) {
+                    candidates = authorizedActions(source);
+                } else if (arguments.length == 3
+                        && adminAction(arguments[1]).map(action -> authorizer.isAllowed(source, action)).orElse(false)) {
+                    candidates = lookup.suggestions();
+                } else {
+                    return List.of();
+                }
+            } else if (teams != null) {
+                return teams.tabComplete(source, arguments);
             } else {
                 return List.of();
             }

@@ -32,6 +32,13 @@ import com.larpsmp.moneyevent.playerstate.AccountSessionManager;
 import com.larpsmp.moneyevent.playerstate.PlayerStateConfig;
 import com.larpsmp.moneyevent.playerstate.PlayerStateListener;
 import com.larpsmp.moneyevent.playerstate.PlayerStateService;
+import com.larpsmp.moneyevent.team.JdbcTeamRepository;
+import com.larpsmp.moneyevent.team.TeamAdminDialogFactory;
+import com.larpsmp.moneyevent.team.TeamAdminListener;
+import com.larpsmp.moneyevent.team.TeamAdminSession;
+import com.larpsmp.moneyevent.team.TeamAdminTool;
+import com.larpsmp.moneyevent.team.TeamCommandController;
+import com.larpsmp.moneyevent.team.TeamService;
 import com.larpsmp.moneyevent.wallet.JdbcMoneyRepository;
 import com.larpsmp.moneyevent.wallet.MoneyService;
 import com.zaxxer.hikari.HikariDataSource;
@@ -51,6 +58,7 @@ import org.jetbrains.annotations.Nullable;
 public final class MoneyEventPlugin extends JavaPlugin {
 
     private MoneyService moneyService;
+    private TeamService teamService;
     private BalanceDisplayControl balanceDisplay;
     private AuthSessionManager authSessionManager;
     private AccountSessionManager accountSessionManager;
@@ -224,6 +232,25 @@ public final class MoneyEventPlugin extends JavaPlugin {
             JdbcMoneyRepository moneyRepository = new JdbcMoneyRepository(dataSource);
             moneyService = new MoneyService(
                     accountRepository, moneyRepository, message -> getLogger().severe(message));
+            JdbcTeamRepository teamRepository = new JdbcTeamRepository(dataSource);
+            teamService = new TeamService(
+                    teamRepository, accountRepository, message -> getLogger().severe(message));
+            TeamAdminTool teamAdminTool = new TeamAdminTool(this);
+            playerStateService.setCaptureExcludedItem(teamAdminTool::isTool);
+            TeamAdminSession teamAdminSessions = new TeamAdminSession();
+            TeamAdminDialogFactory teamDialogs = new TeamAdminDialogFactory(teamService);
+            DevelopmentConsoleOpAuthorizer adminAuthorizer = new DevelopmentConsoleOpAuthorizer();
+            TeamAdminListener teamAdminListener = new TeamAdminListener(
+                    this,
+                    teamService,
+                    teamDialogs,
+                    teamAdminSessions,
+                    teamAdminTool,
+                    adminAuthorizer
+            );
+            getServer().getPluginManager().registerEvents(teamAdminListener, this);
+            TeamCommandController teamCommands = new TeamCommandController(
+                    teamService, adminAuthorizer, player -> teamAdminListener.openHub(player, null));
             BukkitOnlinePlayerAccess onlinePlayers = new BukkitOnlinePlayerAccess(
                     getServer(), accountSessionManager);
             PaymentNotificationStore notifications = new PaymentNotificationStore(
@@ -239,7 +266,8 @@ public final class MoneyEventPlugin extends JavaPlugin {
                     onlinePlayers,
                     notifications,
                     message -> getLogger().severe(message),
-                    new DevelopmentConsoleOpAuthorizer());
+                    adminAuthorizer,
+                    teamCommands);
             BukkitMoneyCommands commands = new BukkitMoneyCommands(controller);
             for (String commandName : new String[] {"balance", "pay", "larp"}) {
                 var command = Objects.requireNonNull(getCommand(commandName),
@@ -253,6 +281,7 @@ public final class MoneyEventPlugin extends JavaPlugin {
             getLogger().warning("Using temporary console/operator money authorizer; replace it with Azeem's adapter.");
             getLogger().info("Account-linked wallets ready (starting balance $"
                     + MoneyService.STARTING_BALANCE + ").");
+            getLogger().info("Teams administration ready (dialog UI + /larp team|captain|teams).");
             getLogger().info("Account-keyed player bodies enabled (autosave "
                     + playerStateConfig.autosaveSeconds() + "s).");
         } catch (IOException exception) {
@@ -292,6 +321,7 @@ public final class MoneyEventPlugin extends JavaPlugin {
             moneyService.close();
             moneyService = null;
         }
+        teamService = null;
         if (authSessionManager != null) {
             authSessionManager.cancelAll();
             authSessionManager = null;
@@ -311,6 +341,13 @@ public final class MoneyEventPlugin extends JavaPlugin {
             throw new IllegalStateException("Money service is not available");
         }
         return moneyService;
+    }
+
+    public TeamService getTeamService() {
+        if (teamService == null) {
+            throw new IllegalStateException("Team service is not available");
+        }
+        return teamService;
     }
 
     public AccountSessionManager getAccountSessionManager() {

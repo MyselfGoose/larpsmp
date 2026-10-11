@@ -120,6 +120,10 @@ Wallets are created automatically with every auth account (starting balance **$2
 
 Authenticated players load/save Minecraft body state from `account_player_states` (see [AUTH_AND_DATABASE.md](AUTH_AND_DATABASE.md)). Switching LarpSMP accounts on the same client must feel like switching characters. Configure spawn defaults and autosave under `player-state` in `config.yml`.
 
+## Teams (admin slice)
+
+Admins (ops/console) manage teams via Paper Dialogs (`/larp teams` or the Teams Admin Nether Star) and chat (`/larp team …`, `/larp captain …`). Blue/Red/Yellow are seeded; full CRUD and member/captain assignment are supported. Tiers, team wealth HUD, and captain abilities are not in this slice yet. See [TEAMS.md](TEAMS.md).
+
 ## Intentionally out of scope (this phase)
 
-No teams, capture points, auctions, OAuth, separate auth microservice, or Velocity/Bungee cross-proxy body sync.
+No capture points, auctions, OAuth, separate auth microservice, or Velocity/Bungee cross-proxy body sync.

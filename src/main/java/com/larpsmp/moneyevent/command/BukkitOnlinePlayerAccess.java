@@ -68,6 +68,7 @@ public final class BukkitOnlinePlayerAccess implements OnlinePlayerAccess {
         NamedTextColor color = switch (kind) {
             case INFO -> NamedTextColor.GOLD;
             case SUCCESS -> NamedTextColor.GREEN;
+            case WARNING -> NamedTextColor.YELLOW;
             case ERROR -> NamedTextColor.RED;
         };
         return Component.text(message, color);

@@ -7,6 +7,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.function.Predicate;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import org.bukkit.Bukkit;
@@ -29,6 +30,7 @@ public final class PlayerStateService {
     private final AccountPlayerStateRepository repository;
     private final PlayerStateConfig config;
     private final Logger logger;
+    private @Nullable Predicate<ItemStack> captureExcludedItem;
 
     public PlayerStateService(
             AccountPlayerStateRepository repository,
@@ -38,6 +40,13 @@ public final class PlayerStateService {
         this.repository = repository;
         this.config = config;
         this.logger = logger;
+    }
+
+    /**
+     * Items matching this predicate are omitted from captured body inventories (e.g. admin tools).
+     */
+    public void setCaptureExcludedItem(@Nullable Predicate<ItemStack> captureExcludedItem) {
+        this.captureExcludedItem = captureExcludedItem;
     }
 
     public PlayerStateConfig config() {
@@ -193,6 +202,11 @@ public final class PlayerStateService {
                 : location.getWorld().getName();
 
         PlayerInventory inventory = player.getInventory();
+        ItemStack[] contents = sanitizeCapturedContents(inventory.getContents());
+        ItemStack offHand = inventory.getItemInOffHand();
+        if (captureExcludedItem != null && captureExcludedItem.test(offHand)) {
+            offHand = ItemStack.empty();
+        }
         return new AccountPlayerState(
                 accountId,
                 PlayerStateCodec.CURRENT_SCHEMA_VERSION,
@@ -202,9 +216,9 @@ public final class PlayerStateService {
                 location.getZ(),
                 location.getYaw(),
                 location.getPitch(),
-                PlayerStateCodec.encodeItemArray(inventory.getContents()),
+                PlayerStateCodec.encodeItemArray(contents),
                 PlayerStateCodec.encodeItemArray(inventory.getArmorContents()),
-                PlayerStateCodec.encodeSingleItem(inventory.getItemInOffHand()),
+                PlayerStateCodec.encodeSingleItem(offHand),
                 PlayerStateCodec.encodeItemArray(player.getEnderChest().getContents()),
                 player.getHealth(),
                 player.getFoodLevel(),
@@ -244,6 +258,27 @@ public final class PlayerStateService {
         AttributeInstance maxHealth = player.getAttribute(Attribute.MAX_HEALTH);
         double max = maxHealth == null ? 20.0 : maxHealth.getValue();
         player.setHealth(max);
+    }
+
+    private ItemStack[] sanitizeCapturedContents(ItemStack[] contents) {
+        if (captureExcludedItem == null) {
+            ItemStack[] copy = new ItemStack[contents.length];
+            for (int i = 0; i < contents.length; i++) {
+                ItemStack stack = contents[i];
+                copy[i] = stack == null ? null : stack.clone();
+            }
+            return copy;
+        }
+        ItemStack[] copy = new ItemStack[contents.length];
+        for (int i = 0; i < contents.length; i++) {
+            ItemStack stack = contents[i];
+            if (stack == null || captureExcludedItem.test(stack)) {
+                copy[i] = null;
+            } else {
+                copy[i] = stack.clone();
+            }
+        }
+        return copy;
     }
 
     public boolean savePlayer(Player player, UUID accountId) {

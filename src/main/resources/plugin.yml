@@ -16,5 +16,5 @@ commands:
     description: Pays a registered player from your wallet.
     usage: /pay <player> <amount>
   larp:
-    description: Protected LarpSMP money administration commands.
-    usage: /larp money <give|take|set>
+    description: Protected LarpSMP administration commands (money and teams).
+    usage: /larp <money|teams|team|captain> ...
