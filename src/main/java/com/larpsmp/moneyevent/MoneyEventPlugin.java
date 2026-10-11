@@ -34,7 +34,9 @@ import com.larpsmp.moneyevent.playerstate.PlayerStateListener;
 import com.larpsmp.moneyevent.playerstate.PlayerStateService;
 import com.larpsmp.moneyevent.team.JdbcTeamRepository;
 import com.larpsmp.moneyevent.team.TeamAdminDialogFactory;
+import com.larpsmp.moneyevent.team.TeamAdminGuiKeys;
 import com.larpsmp.moneyevent.team.TeamAdminListener;
+import com.larpsmp.moneyevent.team.TeamAdminMenus;
 import com.larpsmp.moneyevent.team.TeamAdminSession;
 import com.larpsmp.moneyevent.team.TeamAdminTool;
 import com.larpsmp.moneyevent.team.TeamCommandController;
@@ -238,13 +240,17 @@ public final class MoneyEventPlugin extends JavaPlugin {
             TeamAdminTool teamAdminTool = new TeamAdminTool(this);
             playerStateService.setCaptureExcludedItem(teamAdminTool::isTool);
             TeamAdminSession teamAdminSessions = new TeamAdminSession();
-            TeamAdminDialogFactory teamDialogs = new TeamAdminDialogFactory(teamService);
+            TeamAdminGuiKeys teamGuiKeys = new TeamAdminGuiKeys(this);
+            TeamAdminMenus teamMenus = new TeamAdminMenus(teamService, teamGuiKeys);
+            TeamAdminDialogFactory teamDialogs = new TeamAdminDialogFactory();
             DevelopmentConsoleOpAuthorizer adminAuthorizer = new DevelopmentConsoleOpAuthorizer();
             TeamAdminListener teamAdminListener = new TeamAdminListener(
                     this,
                     teamService,
+                    teamMenus,
                     teamDialogs,
                     teamAdminSessions,
+                    teamGuiKeys,
                     teamAdminTool,
                     adminAuthorizer
             );
@@ -281,7 +287,7 @@ public final class MoneyEventPlugin extends JavaPlugin {
             getLogger().warning("Using temporary console/operator money authorizer; replace it with Azeem's adapter.");
             getLogger().info("Account-linked wallets ready (starting balance $"
                     + MoneyService.STARTING_BALANCE + ").");
-            getLogger().info("Teams administration ready (dialog UI + /larp team|captain|teams).");
+            getLogger().info("Teams administration ready (chest GUI + /larp team|captain|teams).");
             getLogger().info("Account-keyed player bodies enabled (autosave "
                     + playerStateConfig.autosaveSeconds() + "s).");
         } catch (IOException exception) {

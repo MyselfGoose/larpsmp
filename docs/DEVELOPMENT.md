@@ -122,7 +122,7 @@ Authenticated players load/save Minecraft body state from `account_player_states
 
 ## Teams (admin slice)
 
-Admins (ops/console) manage teams via Paper Dialogs (`/larp teams` or the Teams Admin Nether Star) and chat (`/larp team …`, `/larp captain …`). Blue/Red/Yellow are seeded; full CRUD and member/captain assignment are supported. Tiers, team wealth HUD, and captain abilities are not in this slice yet. See [TEAMS.md](TEAMS.md).
+Admins (ops/console) manage teams via a chest GUI (`/larp teams` or the Teams Admin Nether Star), with Paper Dialogs only for typed forms, plus chat (`/larp team …`, `/larp captain …`). Blue/Red/Yellow are seeded; full CRUD and member/captain assignment are supported. Tiers, team wealth HUD, and captain abilities are not in this slice yet. See [TEAMS.md](TEAMS.md).
 
 ## Intentionally out of scope (this phase)
 

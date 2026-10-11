@@ -17,6 +17,7 @@ import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.Action;
 import org.bukkit.event.entity.PlayerDeathEvent;
+import org.bukkit.event.inventory.ClickType;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryDragEvent;
 import org.bukkit.event.player.PlayerDropItemEvent;
@@ -24,34 +25,41 @@ import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.inventory.EquipmentSlot;
+import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.Plugin;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Teams Admin dialog navigation, hotbar shortcut, and tool lifecycle.
+ * Teams Admin chest GUI, typed dialog forms, hotbar shortcut, and tool lifecycle.
  */
 public final class TeamAdminListener implements Listener {
 
     private final Plugin plugin;
     private final TeamService teams;
+    private final TeamAdminMenus menus;
     private final TeamAdminDialogFactory dialogs;
     private final TeamAdminSession sessions;
+    private final TeamAdminGuiKeys guiKeys;
     private final TeamAdminTool tool;
     private final TeamAdminAuthorizer authorizer;
 
     public TeamAdminListener(
             Plugin plugin,
             TeamService teams,
+            TeamAdminMenus menus,
             TeamAdminDialogFactory dialogs,
             TeamAdminSession sessions,
+            TeamAdminGuiKeys guiKeys,
             TeamAdminTool tool,
             TeamAdminAuthorizer authorizer
     ) {
         this.plugin = plugin;
         this.teams = teams;
+        this.menus = menus;
         this.dialogs = dialogs;
         this.sessions = sessions;
+        this.guiKeys = guiKeys;
         this.tool = tool;
         this.authorizer = authorizer;
     }
@@ -61,7 +69,26 @@ public final class TeamAdminListener implements Listener {
             player.sendMessage(Component.text("You are not allowed to manage teams.", NamedTextColor.RED));
             return;
         }
-        player.showDialog(dialogs.hubDialog(statusMessage));
+        player.closeDialog();
+        player.openInventory(menus.hub(statusMessage));
+        if (statusMessage != null && !statusMessage.isBlank()) {
+            player.sendMessage(Component.text(statusMessage, NamedTextColor.YELLOW));
+        }
+    }
+
+    public void openTeam(Player player, UUID teamId, @Nullable String statusMessage) {
+        Optional<Team> team = teams.getTeam(teamId);
+        if (team.isEmpty()) {
+            sessions.clear(player.getUniqueId());
+            openHub(player, "That team no longer exists.");
+            return;
+        }
+        sessions.selectTeam(player.getUniqueId(), teamId);
+        player.closeDialog();
+        player.openInventory(menus.team(team.get(), statusMessage));
+        if (statusMessage != null && !statusMessage.isBlank()) {
+            player.sendMessage(Component.text(statusMessage, NamedTextColor.YELLOW));
+        }
     }
 
     @EventHandler(priority = EventPriority.MONITOR)
@@ -71,11 +98,7 @@ public final class TeamAdminListener implements Listener {
             if (!player.isOnline()) {
                 return;
             }
-            if (!player.isOp()) {
-                tool.stripAll(player.getInventory());
-                return;
-            }
-            if (!isAuthorized(player, TeamAdminAction.TEAM_OPEN_UI)) {
+            if (!player.isOp() || !isAuthorized(player, TeamAdminAction.TEAM_OPEN_UI)) {
                 tool.stripAll(player.getInventory());
                 return;
             }
@@ -134,7 +157,24 @@ public final class TeamAdminListener implements Listener {
         if (!(event.getWhoClicked() instanceof Player player)) {
             return;
         }
-        boolean playerOnlyView = event.getView().getTopInventory().equals(player.getInventory());
+
+        Inventory top = event.getView().getTopInventory();
+        if (top.getHolder() instanceof TeamAdminMenu) {
+            event.setCancelled(true);
+            if (event.getClickedInventory() == null || !event.getClickedInventory().equals(top)) {
+                return;
+            }
+            ItemStack clicked = event.getCurrentItem();
+            TeamAdminGuiKeys.Action action = guiKeys.actionOf(clicked);
+            if (action == null) {
+                return;
+            }
+            handleGuiAction(player, action, clicked, event.getClick());
+            return;
+        }
+
+        // Protect the hotbar tool from being moved into other inventories.
+        boolean playerOnlyView = top.equals(player.getInventory());
         if (playerOnlyView) {
             return;
         }
@@ -153,6 +193,10 @@ public final class TeamAdminListener implements Listener {
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     public void onInventoryDrag(InventoryDragEvent event) {
         if (!(event.getWhoClicked() instanceof Player player)) {
+            return;
+        }
+        if (event.getView().getTopInventory().getHolder() instanceof TeamAdminMenu) {
+            event.setCancelled(true);
             return;
         }
         if (event.getView().getTopInventory().equals(player.getInventory())) {
@@ -186,110 +230,124 @@ public final class TeamAdminListener implements Listener {
         }
 
         DialogResponseView view = event.getDialogResponseView();
-        UUID playerId = player.getUniqueId();
 
-        if (identifier.equals(TeamAdminDialogKeys.CLOSE)) {
-            sessions.clear(playerId);
-            player.closeDialog();
+        if (identifier.equals(TeamAdminDialogKeys.OPEN_HUB)
+                || identifier.equals(TeamAdminDialogKeys.CLOSE)) {
+            openHub(player, null);
             return;
         }
-        if (identifier.equals(TeamAdminDialogKeys.OPEN_HUB)) {
-            player.showDialog(dialogs.hubDialog(null));
-            return;
-        }
-        if (identifier.equals(TeamAdminDialogKeys.OPEN_CREATE)) {
-            if (!isAuthorized(player, TeamAdminAction.TEAM_CREATE)) {
-                deny(player);
-                return;
-            }
-            player.showDialog(dialogs.createTeamDialog(null));
+        Optional<UUID> openTeamId = TeamAdminDialogKeys.parseOpenTeam(identifier);
+        if (openTeamId.isPresent()) {
+            openTeam(player, openTeamId.get(), null);
             return;
         }
         if (identifier.equals(TeamAdminDialogKeys.CREATE_SUBMIT)) {
             handleCreate(player, view);
             return;
         }
-        if (identifier.equals(TeamAdminDialogKeys.OPEN_WARNINGS)) {
-            if (!isAuthorized(player, TeamAdminAction.TEAM_VIEW)) {
-                deny(player);
-                return;
-            }
-            player.showDialog(dialogs.warningsDialog());
-            return;
-        }
-
-        Optional<UUID> openTeamId = TeamAdminDialogKeys.parseOpenTeam(identifier);
-        if (openTeamId.isPresent()) {
-            openTeamDetail(player, openTeamId.get(), null);
-            return;
-        }
-
-        Team selected = requireSelectedTeam(player).orElse(null);
-        if (identifier.equals(TeamAdminDialogKeys.OPEN_EDIT)) {
-            if (selected == null) {
-                player.showDialog(dialogs.hubDialog("Select a team first."));
-                return;
-            }
-            player.showDialog(dialogs.editTeamDialog(selected, null));
-            return;
-        }
         if (identifier.equals(TeamAdminDialogKeys.EDIT_SUBMIT)) {
             handleEdit(player, view);
             return;
         }
-        if (identifier.equals(TeamAdminDialogKeys.OPEN_MEMBERS)) {
-            if (selected == null) {
-                player.showDialog(dialogs.hubDialog("Select a team first."));
-                return;
-            }
-            player.showDialog(dialogs.membersDialog(selected, null));
-            return;
-        }
-        if (identifier.equals(TeamAdminDialogKeys.OPEN_ASSIGN)) {
-            if (selected == null) {
-                player.showDialog(dialogs.hubDialog("Select a team first."));
-                return;
-            }
-            player.showDialog(dialogs.assignDialog(selected, null));
-            return;
-        }
         if (identifier.equals(TeamAdminDialogKeys.ASSIGN_SUBMIT)) {
             handleAssign(player, view);
-            return;
         }
-        if (identifier.equals(TeamAdminDialogKeys.OPEN_CAPTAIN)) {
-            if (selected == null) {
-                player.showDialog(dialogs.hubDialog("Select a team first."));
-                return;
-            }
-            player.showDialog(dialogs.captainDialog(selected, null));
-            return;
-        }
-        if (identifier.equals(TeamAdminDialogKeys.CLEAR_CAPTAIN)) {
-            handleClearCaptain(player);
-            return;
-        }
-        if (identifier.equals(TeamAdminDialogKeys.OPEN_DELETE)) {
-            if (selected == null) {
-                player.showDialog(dialogs.hubDialog("Select a team first."));
-                return;
-            }
-            player.showDialog(dialogs.deleteConfirmDialog(selected, null));
-            return;
-        }
-        if (identifier.equals(TeamAdminDialogKeys.DELETE_CONFIRM)) {
-            handleDelete(player);
-            return;
-        }
+    }
 
-        Optional<UUID> captainAccount = TeamAdminDialogKeys.parseSetCaptain(identifier);
-        if (captainAccount.isPresent()) {
-            handleSetCaptain(player, captainAccount.get());
-            return;
-        }
-        Optional<UUID> removeAccount = TeamAdminDialogKeys.parseRemoveMember(identifier);
-        if (removeAccount.isPresent()) {
-            handleRemoveMember(player, removeAccount.get());
+    private void handleGuiAction(
+            Player player,
+            TeamAdminGuiKeys.Action action,
+            ItemStack clicked,
+            ClickType click
+    ) {
+        switch (action) {
+            case OPEN_TEAM -> {
+                UUID teamId = guiKeys.teamIdOf(clicked);
+                if (teamId != null) {
+                    openTeam(player, teamId, null);
+                }
+            }
+            case CREATE -> {
+                if (!isAuthorized(player, TeamAdminAction.TEAM_CREATE)) {
+                    deny(player);
+                    return;
+                }
+                player.closeInventory();
+                player.showDialog(dialogs.createTeamDialog(null));
+            }
+            case WARNINGS -> {
+                if (!isAuthorized(player, TeamAdminAction.TEAM_VIEW)) {
+                    deny(player);
+                    return;
+                }
+                player.openInventory(menus.warnings());
+            }
+            case WARNINGS_BACK, BACK_HUB, CLOSE -> {
+                if (action == TeamAdminGuiKeys.Action.CLOSE) {
+                    player.closeInventory();
+                    sessions.clear(player.getUniqueId());
+                } else {
+                    openHub(player, null);
+                }
+            }
+            case ASSIGN -> {
+                Team team = requireTeam(player, guiKeys.teamIdOf(clicked));
+                if (team == null || !isAuthorized(player, TeamAdminAction.TEAM_ASSIGN)) {
+                    deny(player);
+                    return;
+                }
+                sessions.selectTeam(player.getUniqueId(), team.id());
+                player.closeInventory();
+                player.showDialog(dialogs.assignDialog(team, null));
+            }
+            case EDIT -> {
+                Team team = requireTeam(player, guiKeys.teamIdOf(clicked));
+                if (team == null || !isAuthorized(player, TeamAdminAction.TEAM_EDIT)) {
+                    deny(player);
+                    return;
+                }
+                sessions.selectTeam(player.getUniqueId(), team.id());
+                player.closeInventory();
+                player.showDialog(dialogs.editTeamDialog(team, null));
+            }
+            case DELETE -> {
+                Team team = requireTeam(player, guiKeys.teamIdOf(clicked));
+                if (team == null || !isAuthorized(player, TeamAdminAction.TEAM_DELETE)) {
+                    deny(player);
+                    return;
+                }
+                sessions.selectTeam(player.getUniqueId(), team.id());
+                player.openInventory(menus.deleteConfirm(team));
+            }
+            case DELETE_CONFIRM -> handleDelete(player, guiKeys.teamIdOf(clicked));
+            case DELETE_CANCEL, BACK_TEAM -> {
+                UUID teamId = guiKeys.teamIdOf(clicked);
+                if (teamId != null) {
+                    openTeam(player, teamId, null);
+                } else {
+                    openHub(player, null);
+                }
+            }
+            case REMOVE_MEMBER -> {
+                UUID accountId = guiKeys.accountIdOf(clicked);
+                UUID teamId = guiKeys.teamIdOf(clicked);
+                if (accountId == null || teamId == null) {
+                    return;
+                }
+                if (click.isRightClick()) {
+                    handleSetCaptain(player, teamId, accountId);
+                } else {
+                    handleRemoveMember(player, teamId, accountId);
+                }
+            }
+            case SET_CAPTAIN -> {
+                UUID accountId = guiKeys.accountIdOf(clicked);
+                UUID teamId = guiKeys.teamIdOf(clicked);
+                if (accountId != null && teamId != null) {
+                    handleSetCaptain(player, teamId, accountId);
+                }
+            }
+            case CLEAR_CAPTAIN -> handleClearCaptain(player, guiKeys.teamIdOf(clicked));
         }
     }
 
@@ -310,10 +368,9 @@ public final class TeamAdminListener implements Listener {
             return;
         }
         if (result.team() != null) {
-            sessions.selectTeam(player.getUniqueId(), result.team().id());
-            player.showDialog(dialogs.teamDetailDialog(result.team(), formatFeedback(result)));
+            openTeam(player, result.team().id(), formatFeedback(result));
         } else {
-            player.showDialog(dialogs.hubDialog(formatFeedback(result)));
+            openHub(player, formatFeedback(result));
         }
     }
 
@@ -324,7 +381,7 @@ public final class TeamAdminListener implements Listener {
         }
         Team selected = requireSelectedTeam(player).orElse(null);
         if (selected == null) {
-            player.showDialog(dialogs.hubDialog("Select a team first."));
+            openHub(player, "Select a team first.");
             return;
         }
         String name = text(view, TeamAdminDialogKeys.INPUT_NAME);
@@ -335,8 +392,7 @@ public final class TeamAdminListener implements Listener {
             return;
         }
         Team updated = result.team() == null ? selected : result.team();
-        sessions.selectTeam(player.getUniqueId(), updated.id());
-        player.showDialog(dialogs.teamDetailDialog(updated, formatFeedback(result)));
+        openTeam(player, updated.id(), formatFeedback(result));
     }
 
     private void handleAssign(Player player, @Nullable DialogResponseView view) {
@@ -346,7 +402,7 @@ public final class TeamAdminListener implements Listener {
         }
         Team selected = requireSelectedTeam(player).orElse(null);
         if (selected == null) {
-            player.showDialog(dialogs.hubDialog("Select a team first."));
+            openHub(player, "Select a team first.");
             return;
         }
         String username = text(view, TeamAdminDialogKeys.INPUT_USERNAME);
@@ -356,101 +412,61 @@ public final class TeamAdminListener implements Listener {
             return;
         }
         TeamMutationResult result = teams.assignMember(account.get().id(), selected.id());
-        Team refreshed = teams.getTeam(selected.id()).orElse(selected);
         if (!result.success()) {
-            player.showDialog(dialogs.assignDialog(refreshed, result.error()));
+            player.showDialog(dialogs.assignDialog(selected, result.error()));
             return;
         }
-        player.showDialog(dialogs.membersDialog(refreshed, formatFeedback(result)));
+        openTeam(player, selected.id(), formatFeedback(result));
     }
 
-    private void handleRemoveMember(Player player, UUID accountId) {
+    private void handleRemoveMember(Player player, UUID teamId, UUID accountId) {
         if (!isAuthorized(player, TeamAdminAction.TEAM_UNASSIGN)) {
             deny(player);
             return;
         }
-        Team selected = requireSelectedTeam(player).orElse(null);
-        if (selected == null) {
-            player.showDialog(dialogs.hubDialog("Select a team first."));
-            return;
-        }
         TeamMutationResult result = teams.removeMember(accountId);
-        Team refreshed = teams.getTeam(selected.id()).orElse(selected);
-        if (!result.success()) {
-            player.showDialog(dialogs.membersDialog(refreshed, result.error()));
-            return;
-        }
-        player.showDialog(dialogs.membersDialog(refreshed, formatFeedback(result)));
+        openTeam(player, teamId, formatFeedback(result));
     }
 
-    private void handleSetCaptain(Player player, UUID accountId) {
+    private void handleSetCaptain(Player player, UUID teamId, UUID accountId) {
         if (!isAuthorized(player, TeamAdminAction.CAPTAIN_SET)) {
             deny(player);
             return;
         }
-        Team selected = requireSelectedTeam(player).orElse(null);
-        if (selected == null) {
-            player.showDialog(dialogs.hubDialog("Select a team first."));
-            return;
-        }
-        TeamMutationResult result = teams.setCaptain(selected.id(), accountId);
-        Team refreshed = teams.getTeam(selected.id()).orElse(selected);
-        if (!result.success()) {
-            player.showDialog(dialogs.captainDialog(refreshed, result.error()));
-            return;
-        }
-        player.showDialog(dialogs.teamDetailDialog(refreshed, formatFeedback(result)));
+        TeamMutationResult result = teams.setCaptain(teamId, accountId);
+        openTeam(player, teamId, formatFeedback(result));
     }
 
-    private void handleClearCaptain(Player player) {
-        if (!isAuthorized(player, TeamAdminAction.CAPTAIN_CLEAR)) {
+    private void handleClearCaptain(Player player, @Nullable UUID teamId) {
+        if (teamId == null || !isAuthorized(player, TeamAdminAction.CAPTAIN_CLEAR)) {
             deny(player);
             return;
         }
-        Team selected = requireSelectedTeam(player).orElse(null);
-        if (selected == null) {
-            player.showDialog(dialogs.hubDialog("Select a team first."));
-            return;
-        }
-        TeamMutationResult result = teams.clearCaptain(selected.id());
-        Team refreshed = teams.getTeam(selected.id()).orElse(selected);
-        if (!result.success()) {
-            player.showDialog(dialogs.captainDialog(refreshed, result.error()));
-            return;
-        }
-        player.showDialog(dialogs.teamDetailDialog(refreshed, formatFeedback(result)));
+        TeamMutationResult result = teams.clearCaptain(teamId);
+        openTeam(player, teamId, formatFeedback(result));
     }
 
-    private void handleDelete(Player player) {
-        if (!isAuthorized(player, TeamAdminAction.TEAM_DELETE)) {
+    private void handleDelete(Player player, @Nullable UUID teamId) {
+        if (teamId == null || !isAuthorized(player, TeamAdminAction.TEAM_DELETE)) {
             deny(player);
             return;
         }
-        Team selected = requireSelectedTeam(player).orElse(null);
-        if (selected == null) {
-            player.showDialog(dialogs.hubDialog("Select a team first."));
-            return;
-        }
-        UUID teamId = selected.id();
         TeamMutationResult result = teams.deleteTeam(teamId);
         sessions.clearTeam(teamId);
         sessions.clear(player.getUniqueId());
-        if (!result.success()) {
-            player.showDialog(dialogs.deleteConfirmDialog(selected, result.error()));
-            return;
-        }
-        player.showDialog(dialogs.hubDialog(formatFeedback(result)));
+        openHub(player, formatFeedback(result));
     }
 
-    private void openTeamDetail(Player player, UUID teamId, @Nullable String status) {
+    private @Nullable Team requireTeam(Player player, @Nullable UUID teamId) {
+        if (teamId == null) {
+            return null;
+        }
         Optional<Team> team = teams.getTeam(teamId);
         if (team.isEmpty()) {
-            sessions.clear(player.getUniqueId());
-            player.showDialog(dialogs.hubDialog("That team no longer exists."));
-            return;
+            openHub(player, "That team no longer exists.");
+            return null;
         }
-        sessions.selectTeam(player.getUniqueId(), teamId);
-        player.showDialog(dialogs.teamDetailDialog(team.get(), status));
+        return team.get();
     }
 
     private Optional<Team> requireSelectedTeam(Player player) {
@@ -463,6 +479,7 @@ public final class TeamAdminListener implements Listener {
 
     private static void deny(Player player) {
         player.sendMessage(Component.text("You are not allowed to do that.", NamedTextColor.RED));
+        player.closeInventory();
         player.closeDialog();
     }
 
@@ -475,6 +492,9 @@ public final class TeamAdminListener implements Listener {
     }
 
     private static String formatFeedback(TeamMutationResult result) {
+        if (!result.success()) {
+            return result.error() == null ? "Team operation failed." : result.error();
+        }
         return result.allFeedback().stream().collect(Collectors.joining(" "));
     }
 
