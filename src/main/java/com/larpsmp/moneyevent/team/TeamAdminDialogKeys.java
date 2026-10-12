@@ -18,11 +18,13 @@ public final class TeamAdminDialogKeys {
     public static final Key OPEN_WARNINGS = Key.key(NAMESPACE, "team/warnings");
     public static final Key OPEN_EDIT = Key.key(NAMESPACE, "team/open-edit");
     public static final Key EDIT_SUBMIT = Key.key(NAMESPACE, "team/edit");
-    public static final Key OPEN_MEMBERS = Key.key(NAMESPACE, "team/open-members");
     public static final Key OPEN_ASSIGN = Key.key(NAMESPACE, "team/open-assign");
     public static final Key ASSIGN_SUBMIT = Key.key(NAMESPACE, "team/assign");
-    public static final Key OPEN_CAPTAIN = Key.key(NAMESPACE, "team/open-captain");
+    public static final Key OPEN_SET_CAPTAIN = Key.key(NAMESPACE, "team/open-set-captain");
+    public static final Key SET_CAPTAIN_SUBMIT = Key.key(NAMESPACE, "team/set-captain-submit");
     public static final Key CLEAR_CAPTAIN = Key.key(NAMESPACE, "team/clear-captain");
+    public static final Key OPEN_REMOVE_MEMBER = Key.key(NAMESPACE, "team/open-remove-member");
+    public static final Key REMOVE_MEMBER_SUBMIT = Key.key(NAMESPACE, "team/remove-member-submit");
     public static final Key OPEN_DELETE = Key.key(NAMESPACE, "team/open-delete");
     public static final Key DELETE_CONFIRM = Key.key(NAMESPACE, "team/delete");
     public static final Key CLOSE = Key.key(NAMESPACE, "team/close");
@@ -30,10 +32,9 @@ public final class TeamAdminDialogKeys {
     public static final String INPUT_NAME = "team_name";
     public static final String INPUT_COLOR = "team_color";
     public static final String INPUT_USERNAME = "username";
+    public static final String INPUT_MEMBER = "member";
 
     private static final String OPEN_TEAM_PREFIX = "team/open/";
-    private static final String SET_CAPTAIN_PREFIX = "team/set-captain/";
-    private static final String REMOVE_MEMBER_PREFIX = "team/remove-member/";
 
     private TeamAdminDialogKeys() {
     }
@@ -42,24 +43,8 @@ public final class TeamAdminDialogKeys {
         return Key.key(NAMESPACE, OPEN_TEAM_PREFIX + teamId);
     }
 
-    public static Key setCaptain(UUID accountId) {
-        return Key.key(NAMESPACE, SET_CAPTAIN_PREFIX + accountId);
-    }
-
-    public static Key removeMember(UUID accountId) {
-        return Key.key(NAMESPACE, REMOVE_MEMBER_PREFIX + accountId);
-    }
-
     public static Optional<UUID> parseOpenTeam(@Nullable Key key) {
         return parseUuidSuffix(key, OPEN_TEAM_PREFIX);
-    }
-
-    public static Optional<UUID> parseSetCaptain(@Nullable Key key) {
-        return parseUuidSuffix(key, SET_CAPTAIN_PREFIX);
-    }
-
-    public static Optional<UUID> parseRemoveMember(@Nullable Key key) {
-        return parseUuidSuffix(key, REMOVE_MEMBER_PREFIX);
     }
 
     public static boolean isTeamAdminKey(@Nullable Key key) {

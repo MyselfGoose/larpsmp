@@ -119,7 +119,7 @@ Incomplete or unbalanced rosters should produce a **visible admin warning**, not
 
 ### Implemented admin surfaces
 
-- **In-game UI:** Chest GUI hub opened by the Teams Admin Nether Star (preferred hotbar slot 8) or `/larp teams` (ops/console authorizer). Typed forms (create / rename / assign username) use Paper Dialogs.
+- **In-game UI:** Native Paper Dialog console opened by the Teams Admin Nether Star (preferred hotbar slot 8) or `/larp teams` (ops/console authorizer). All admin screens (hub, team detail, create/edit, assign, captain, remove, delete, warnings) are dialogs.
 - **Chat/console:** `/larp team …` and `/larp captain …`.
 
 Admins can:
@@ -354,7 +354,7 @@ Do **not** build a second authentication or wallet system inside teams. Use exis
 Implemented under `com.larpsmp.moneyevent.team`:
 
 - Domain + `JdbcTeamRepository` + `TeamService` (Postgres migration `V005__teams.sql`).
-- `TeamAdminMenus` / `TeamAdminListener` (chest GUI + dialog forms + hotbar shortcut).
+- `TeamAdminDialogFactory` / `TeamAdminListener` (dialog-only admin UI + hotbar shortcut).
 - `TeamCommandController` wired through `/larp`.
 - Temporary authz: console or op via `DevelopmentConsoleOpAuthorizer` (same as money).
 
