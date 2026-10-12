@@ -245,15 +245,19 @@ Good feedback examples:
 
 ### Sidebar (implemented)
 
-Compact Wallet sidebar (scoreboard). Team line above personal Wallet; aqua vs gold:
+Minecraft allows only one sidebar panel per player, so Team Money and Wallet are two stacked
+sections in that panel (label above, amount below, divider between). Amounts use grouped digits
+(`$2,601`). Aqua = team; gold = personal.
 
 ```text
+Team Money
+$2,601
+··········
 Wallet
-Team $817
-Wallet $235
+$250
 ```
 
-Players with no team see `Team —`. Team totals visibility hide/show remains deferred.
+Players with no team see `—` under Team Money. Team totals visibility hide/show remains deferred.
 
 ### Suggested player list
 

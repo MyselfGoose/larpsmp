@@ -5,6 +5,7 @@ import com.larpsmp.moneyevent.auth.MoneyAdminAuthorizer;
 import com.larpsmp.moneyevent.notification.PaymentNotificationStore;
 import com.larpsmp.moneyevent.team.TeamCommandController;
 import com.larpsmp.moneyevent.wallet.MoneyAuditContext;
+import com.larpsmp.moneyevent.wallet.MoneyFormats;
 import com.larpsmp.moneyevent.wallet.MoneyService;
 import com.larpsmp.moneyevent.wallet.TransactionResult;
 import com.larpsmp.moneyevent.wallet.WalletAccount;
@@ -64,7 +65,7 @@ public final class MoneyCommandController {
             if (account == null) {
                 return;
             }
-            source.send("Your balance: $" + account.balance(), MessageKind.INFO);
+            source.send("Your balance: " + MoneyFormats.currency(account.balance()), MessageKind.INFO);
             return;
         }
         if (arguments.length != 1) {
@@ -79,7 +80,8 @@ public final class MoneyCommandController {
         if (account == null) {
             return;
         }
-        source.send(account.lastKnownUsername() + "'s balance: $" + account.balance(), MessageKind.INFO);
+        source.send(account.lastKnownUsername() + "'s balance: "
+                + MoneyFormats.currency(account.balance()), MessageKind.INFO);
     }
 
     public void pay(CommandSource source, String[] arguments) {
@@ -122,10 +124,13 @@ public final class MoneyCommandController {
             return;
         }
 
-        source.send("You sent " + recipient.lastKnownUsername() + " $" + amount
-                + ". Your balance is now $" + result.sourceBalanceAfter() + ".", MessageKind.SUCCESS);
-        String recipientMessage = source.name() + " sent you $" + amount
-                + ". Your balance is now $" + result.destinationBalanceAfter() + ".";
+        long senderAfter = result.sourceBalanceAfter() == null ? 0L : result.sourceBalanceAfter();
+        long recipientAfter = result.destinationBalanceAfter() == null ? 0L : result.destinationBalanceAfter();
+        source.send("You sent " + recipient.lastKnownUsername() + " " + MoneyFormats.currency(amount)
+                + ". Your balance is now " + MoneyFormats.currency(senderAfter) + ".",
+                MessageKind.SUCCESS);
+        String recipientMessage = source.name() + " sent you " + MoneyFormats.currency(amount)
+                + ". Your balance is now " + MoneyFormats.currency(recipientAfter) + ".";
         if (onlinePlayers.isOnline(recipientId)) {
             onlinePlayers.send(recipientId, recipientMessage, MessageKind.SUCCESS);
             return;
@@ -200,12 +205,16 @@ public final class MoneyCommandController {
             return;
         }
         String verb = switch (action) {
-            case MONEY_GIVE -> "Added $" + amount + " to " + target.lastKnownUsername() + ".";
-            case MONEY_TAKE -> "Removed $" + amount + " from " + target.lastKnownUsername() + ".";
+            case MONEY_GIVE -> "Added " + MoneyFormats.currency(amount) + " to "
+                    + target.lastKnownUsername() + ".";
+            case MONEY_TAKE -> "Removed " + MoneyFormats.currency(amount) + " from "
+                    + target.lastKnownUsername() + ".";
             case MONEY_SET -> "Set " + target.lastKnownUsername() + "'s balance.";
         };
         source.send(verb, MessageKind.SUCCESS);
-        source.send("Balance: $" + result.sourceBalanceBefore() + " → $" + result.sourceBalanceAfter(),
+        long before = result.sourceBalanceBefore() == null ? 0L : result.sourceBalanceBefore();
+        long after = result.sourceBalanceAfter() == null ? 0L : result.sourceBalanceAfter();
+        source.send("Balance: " + MoneyFormats.currency(before) + " → " + MoneyFormats.currency(after),
                 MessageKind.INFO);
         source.send("Reason: " + reason, MessageKind.INFO);
     }
@@ -280,7 +289,10 @@ public final class MoneyCommandController {
 
     private void handleAdminFailure(CommandSource source, TransactionResult result, boolean set) {
         switch (result.status()) {
-            case INSUFFICIENT_FUNDS -> source.send("That wallet only has $" + result.sourceBalanceBefore() + ".",
+            case INSUFFICIENT_FUNDS -> source.send(
+                    "That wallet only has "
+                            + MoneyFormats.currency(result.sourceBalanceBefore() == null
+                                    ? 0L : result.sourceBalanceBefore()) + ".",
                     MessageKind.ERROR);
             case INVALID_AMOUNT -> source.send(set ? "Balance must be a non-negative whole dollar amount."
                     : "Amounts must be positive whole dollars.", MessageKind.ERROR);
@@ -330,7 +342,10 @@ public final class MoneyCommandController {
 
     private void handlePaymentFailure(CommandSource source, TransactionResult result) {
         switch (result.status()) {
-            case INSUFFICIENT_FUNDS -> source.send("You only have $" + result.sourceBalanceBefore() + ".",
+            case INSUFFICIENT_FUNDS -> source.send(
+                    "You only have "
+                            + MoneyFormats.currency(result.sourceBalanceBefore() == null
+                                    ? 0L : result.sourceBalanceBefore()) + ".",
                     MessageKind.ERROR);
             case SAME_WALLET -> source.send("You cannot pay yourself.", MessageKind.ERROR);
             case WALLET_NOT_FOUND -> source.send("That player does not have a registered wallet.", MessageKind.ERROR);

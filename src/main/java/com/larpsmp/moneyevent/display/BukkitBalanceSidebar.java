@@ -5,6 +5,7 @@ import com.larpsmp.moneyevent.auth.AccountRepository;
 import com.larpsmp.moneyevent.team.Team;
 import com.larpsmp.moneyevent.team.TeamMember;
 import com.larpsmp.moneyevent.team.TeamService;
+import com.larpsmp.moneyevent.wallet.MoneyFormats;
 import com.larpsmp.moneyevent.wallet.MoneyService;
 import io.papermc.paper.scoreboard.numbers.NumberFormat;
 import java.io.IOException;
@@ -16,6 +17,7 @@ import java.util.UUID;
 import java.util.function.Consumer;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
+import net.kyori.adventure.text.format.TextColor;
 import net.kyori.adventure.text.format.TextDecoration;
 import org.bukkit.Server;
 import org.bukkit.entity.Player;
@@ -26,15 +28,39 @@ import org.bukkit.scoreboard.Scoreboard;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Always-on money HUD: Team wealth (aqua) above personal Wallet (gold).
- * Score numbers are blanked; unique scoreboard entries avoid amount collisions.
+ * Always-on money HUD as two stacked sections inside the sidebar panel.
+ *
+ * <p>Minecraft only allows one sidebar panel per player, so Team Money and Wallet are
+ * rendered as two visually separated blocks (label above, amount below) with a divider —
+ * not one combined {@code Team $N / Wallet $N} row.
+ *
+ * <pre>
+ * Team Money
+ * $2,601
+ * ··········
+ * Wallet
+ * $250
+ * </pre>
  */
 public final class BukkitBalanceSidebar implements BalanceDisplayControl {
-    private static final String OBJECTIVE_NAME = "larpsmp_wallet";
-    private static final String TEAM_ENTRY = "§a§r";
-    private static final String WALLET_ENTRY = "§b§r";
-    private static final String SCORE_TEAM_TEAM = "me_team";
-    private static final String SCORE_TEAM_WALLET = "me_wallet";
+    private static final String OBJECTIVE_NAME = "larpsmp_money";
+
+    /** Stable unique scoreboard entries (never shown; prefixes carry the visible text). */
+    private static final String ENTRY_TEAM_LABEL = "§0§r";
+    private static final String ENTRY_TEAM_AMOUNT = "§1§r";
+    private static final String ENTRY_DIVIDER = "§2§r";
+    private static final String ENTRY_WALLET_LABEL = "§3§r";
+    private static final String ENTRY_WALLET_AMOUNT = "§4§r";
+
+    private static final String TEAM_LABEL = "sb_tm_lbl";
+    private static final String TEAM_AMOUNT = "sb_tm_amt";
+    private static final String DIVIDER = "sb_div";
+    private static final String WALLET_LABEL = "sb_wl_lbl";
+    private static final String WALLET_AMOUNT = "sb_wl_amt";
+
+    private static final TextColor TEAM_COLOR = NamedTextColor.AQUA;
+    private static final TextColor WALLET_COLOR = NamedTextColor.GOLD;
+    private static final TextColor DIVIDER_COLOR = TextColor.color(0x555555);
 
     private final Server server;
     private final MoneyService money;
@@ -77,13 +103,15 @@ public final class BukkitBalanceSidebar implements BalanceDisplayControl {
             if (sidebar == null) {
                 Scoreboard previous = player.getScoreboard();
                 Scoreboard owned = server.getScoreboardManager().getNewScoreboard();
+                // Empty title so the panel is not branded as a single "Wallet" box —
+                // each section carries its own label line instead.
                 Objective objective = owned.registerNewObjective(
                         OBJECTIVE_NAME,
                         Criteria.DUMMY,
-                        Component.text("Wallet", NamedTextColor.GOLD, TextDecoration.BOLD));
+                        Component.empty());
                 objective.setDisplaySlot(DisplaySlot.SIDEBAR);
                 objective.numberFormat(NumberFormat.blank());
-                ensureDisplayTeams(owned);
+                ensureLines(owned);
                 sidebar = new OwnedSidebar(previous, owned);
                 sidebars.put(playerId, sidebar);
                 player.setScoreboard(owned);
@@ -94,30 +122,31 @@ public final class BukkitBalanceSidebar implements BalanceDisplayControl {
                 refresh(playerId);
                 return;
             }
+            // Migrate older objective titles if the player still has a prior board.
+            objective.displayName(Component.empty());
             objective.numberFormat(NumberFormat.blank());
-            ensureDisplayTeams(sidebar.owned());
+            ensureLines(sidebar.owned());
 
             long personal = account.orElseThrow().balance();
             @Nullable Long teamWealth = resolveTeamWealth(account.orElseThrow().accountId());
 
-            org.bukkit.scoreboard.Team teamLine = sidebar.owned().getTeam(SCORE_TEAM_TEAM);
-            org.bukkit.scoreboard.Team walletLine = sidebar.owned().getTeam(SCORE_TEAM_WALLET);
-            if (teamLine != null) {
-                teamLine.prefix(Component.text(
-                        "Team " + (teamWealth == null ? "—" : "$" + teamWealth),
-                        NamedTextColor.AQUA));
-                if (!teamLine.hasEntry(TEAM_ENTRY)) {
-                    teamLine.addEntry(TEAM_ENTRY);
-                }
-            }
-            if (walletLine != null) {
-                walletLine.prefix(Component.text("Wallet $" + personal, NamedTextColor.GOLD));
-                if (!walletLine.hasEntry(WALLET_ENTRY)) {
-                    walletLine.addEntry(WALLET_ENTRY);
-                }
-            }
-            objective.getScore(TEAM_ENTRY).setScore(2);
-            objective.getScore(WALLET_ENTRY).setScore(1);
+            setLine(sidebar.owned(), TEAM_LABEL, ENTRY_TEAM_LABEL,
+                    Component.text("Team Money", TEAM_COLOR, TextDecoration.BOLD));
+            setLine(sidebar.owned(), TEAM_AMOUNT, ENTRY_TEAM_AMOUNT,
+                    Component.text(MoneyFormats.currencyOrDash(teamWealth), TEAM_COLOR));
+            setLine(sidebar.owned(), DIVIDER, ENTRY_DIVIDER,
+                    Component.text("··········", DIVIDER_COLOR));
+            setLine(sidebar.owned(), WALLET_LABEL, ENTRY_WALLET_LABEL,
+                    Component.text("Wallet", WALLET_COLOR, TextDecoration.BOLD));
+            setLine(sidebar.owned(), WALLET_AMOUNT, ENTRY_WALLET_AMOUNT,
+                    Component.text(MoneyFormats.currency(personal), WALLET_COLOR));
+
+            // Higher score = higher on screen. Two blocks separated by the divider.
+            objective.getScore(ENTRY_TEAM_LABEL).setScore(5);
+            objective.getScore(ENTRY_TEAM_AMOUNT).setScore(4);
+            objective.getScore(ENTRY_DIVIDER).setScore(3);
+            objective.getScore(ENTRY_WALLET_LABEL).setScore(2);
+            objective.getScore(ENTRY_WALLET_AMOUNT).setScore(1);
         } catch (IOException exception) {
             errorLogger.accept("Could not refresh wallet display for " + playerId + ": " + exception.getMessage());
         }
@@ -182,12 +211,29 @@ public final class BukkitBalanceSidebar implements BalanceDisplayControl {
         }
     }
 
-    private static void ensureDisplayTeams(Scoreboard scoreboard) {
-        if (scoreboard.getTeam(SCORE_TEAM_TEAM) == null) {
-            scoreboard.registerNewTeam(SCORE_TEAM_TEAM);
+    private static void ensureLines(Scoreboard scoreboard) {
+        ensureTeam(scoreboard, TEAM_LABEL);
+        ensureTeam(scoreboard, TEAM_AMOUNT);
+        ensureTeam(scoreboard, DIVIDER);
+        ensureTeam(scoreboard, WALLET_LABEL);
+        ensureTeam(scoreboard, WALLET_AMOUNT);
+    }
+
+    private static void ensureTeam(Scoreboard scoreboard, String name) {
+        if (scoreboard.getTeam(name) == null) {
+            scoreboard.registerNewTeam(name);
         }
-        if (scoreboard.getTeam(SCORE_TEAM_WALLET) == null) {
-            scoreboard.registerNewTeam(SCORE_TEAM_WALLET);
+    }
+
+    private static void setLine(Scoreboard scoreboard, String teamName, String entry, Component text) {
+        org.bukkit.scoreboard.Team team = scoreboard.getTeam(teamName);
+        if (team == null) {
+            return;
+        }
+        team.prefix(text);
+        team.suffix(Component.empty());
+        if (!team.hasEntry(entry)) {
+            team.addEntry(entry);
         }
     }
 

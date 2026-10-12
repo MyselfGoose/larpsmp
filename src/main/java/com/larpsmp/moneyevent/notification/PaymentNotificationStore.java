@@ -1,5 +1,6 @@
 package com.larpsmp.moneyevent.notification;
 
+import com.larpsmp.moneyevent.wallet.MoneyFormats;
 import com.larpsmp.moneyevent.wallet.MoneyService;
 import com.larpsmp.moneyevent.wallet.TransactionRecord;
 import com.larpsmp.moneyevent.wallet.TransactionStatus;
@@ -89,8 +90,10 @@ public final class PaymentNotificationStore {
                 : moneyService.accountByAccountId(transaction.sourceWalletId())
                         .map(account -> account.lastKnownUsername())
                         .orElse(transaction.sourceWalletId().toString());
-        messageConsumer.accept("While you were offline, " + senderName + " sent you $"
-                + transaction.amount() + ". Your balance is now $" + transaction.destinationBalanceAfter() + ".");
+        long after = transaction.destinationBalanceAfter() == null ? 0L : transaction.destinationBalanceAfter();
+        messageConsumer.accept("While you were offline, " + senderName + " sent you "
+                + MoneyFormats.currency(transaction.amount())
+                + ". Your balance is now " + MoneyFormats.currency(after) + ".");
     }
 
     private static void writeAtomically(Path destination, Properties values) throws IOException {
