@@ -11,6 +11,7 @@ public enum TeamAdminAction {
     TEAM_UNASSIGN,
     CAPTAIN_SET,
     CAPTAIN_CLEAR,
+    TIER_SET,
     TEAM_VIEW,
     TEAM_OPEN_UI
 }

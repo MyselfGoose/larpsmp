@@ -84,6 +84,27 @@ public final class JdbcMoneyRepository {
         }
     }
 
+    /**
+     * Sum of personal wallet balances for every roster member of a team (offline included).
+     * Members without a wallet row contribute 0.
+     */
+    public long sumBalancesForTeam(UUID teamId) throws SQLException {
+        String sql = """
+                SELECT COALESCE(SUM(w.balance), 0)
+                FROM team_memberships m
+                LEFT JOIN wallets w ON w.account_id = m.account_id
+                WHERE m.team_id = ?
+                """;
+        try (Connection connection = dataSource.getConnection();
+             PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setObject(1, teamId);
+            try (ResultSet resultSet = statement.executeQuery()) {
+                resultSet.next();
+                return resultSet.getLong(1);
+            }
+        }
+    }
+
     public Optional<TransactionRecord> loadTransaction(UUID transactionId) throws SQLException {
         String sql = """
                 SELECT id, type, status, amount, reason, actor_account_id,

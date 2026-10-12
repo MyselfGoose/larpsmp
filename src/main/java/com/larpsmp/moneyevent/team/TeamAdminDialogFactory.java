@@ -10,6 +10,8 @@ import io.papermc.paper.registry.data.dialog.input.SingleOptionDialogInput;
 import io.papermc.paper.registry.data.dialog.type.DialogType;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
 import net.kyori.adventure.key.Key;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
@@ -78,6 +80,11 @@ public final class TeamAdminDialogFactory {
                 .tooltip(Component.text("Add a new competing team"))
                 .action(DialogAction.customClick(TeamAdminDialogKeys.OPEN_CREATE, null))
                 .build());
+        actions.add(ActionButton.builder(Component.text("Tiers", NamedTextColor.AQUA))
+                .width(BUTTON_WIDTH)
+                .tooltip(Component.text("Assign Tier 1–4 to rostered competitors"))
+                .action(DialogAction.customClick(TeamAdminDialogKeys.OPEN_TIERS, null))
+                .build());
         actions.add(ActionButton.builder(Component.text(
                         warnings.isEmpty() ? "Warnings" : "Warnings (" + warnings.size() + ")",
                         NamedTextColor.GOLD))
@@ -107,17 +114,16 @@ public final class TeamAdminDialogFactory {
         if (members.isEmpty()) {
             body.add(plain("Roster empty — assign a player.", NamedTextColor.DARK_GRAY));
         } else {
-            StringBuilder roster = new StringBuilder();
-            for (int i = 0; i < members.size(); i++) {
-                TeamMember member = members.get(i);
+            for (TeamMember member : members) {
                 boolean isCaptain = team.captainAccountId() != null
                         && team.captainAccountId().equals(member.accountId());
-                if (i > 0) {
-                    roster.append("  ");
-                }
-                roster.append(isCaptain ? "★ " : "").append(member.username());
+                Optional<PlayerTier> tier = member.playerTier();
+                String label = (isCaptain ? "★ " : "") + member.username()
+                        + " · " + tier.map(PlayerTier::shortLabel).orElse("no tier");
+                TextColor color = tier.map(value -> TextColor.color(value.rgb()))
+                        .orElse(NamedTextColor.DARK_GRAY);
+                body.add(plain(label, color));
             }
-            body.add(plain(roster.toString(), NamedTextColor.WHITE));
         }
         appendStatus(body, statusMessage);
 
@@ -136,6 +142,11 @@ public final class TeamAdminDialogFactory {
                         .width(BUTTON_WIDTH)
                         .tooltip(Component.text("Choose captain from members"))
                         .action(DialogAction.customClick(TeamAdminDialogKeys.OPEN_SET_CAPTAIN, null))
+                        .build(),
+                ActionButton.builder(Component.text("Set Tier", NamedTextColor.LIGHT_PURPLE))
+                        .width(BUTTON_WIDTH)
+                        .tooltip(Component.text("Assign Tier 1–4 to a member"))
+                        .action(DialogAction.customClick(TeamAdminDialogKeys.OPEN_SET_TIER_PICKER, null))
                         .build(),
                 ActionButton.builder(Component.text("Clear Captain", NamedTextColor.YELLOW))
                         .width(BUTTON_WIDTH)
@@ -159,6 +170,147 @@ public final class TeamAdminDialogFactory {
                 .type(DialogType.multiAction(actions)
                         .columns(2)
                         .exitAction(backToHubButton())
+                        .build()));
+    }
+
+    public Dialog tiersBoardDialog(@Nullable String statusMessage) {
+        List<JdbcTeamRepository.RosteredCompetitor> competitors = teams.listRosteredCompetitors();
+        long unset = competitors.stream().filter(row -> row.tier() == null).count();
+        List<String> warnings = teams.rosterWarnings().stream()
+                .filter(warning -> warning.contains("Tier") || warning.contains("tier"))
+                .toList();
+
+        List<DialogBody> body = new ArrayList<>();
+        if (statusMessage != null && !statusMessage.isBlank()) {
+            body.add(plain(statusMessage, NamedTextColor.YELLOW));
+        } else if (competitors.isEmpty()) {
+            body.add(plain("No rostered competitors yet — assign players to teams first.", MUTED));
+        } else {
+            body.add(plain(
+                    competitors.size() + " competitors · " + unset + " without a tier"
+                            + (warnings.isEmpty() ? "" : " · " + warnings.size() + " tier warning(s)"),
+                    NamedTextColor.GRAY));
+        }
+
+        List<ActionButton> actions = new ArrayList<>();
+        for (JdbcTeamRepository.RosteredCompetitor competitor : competitors) {
+            Optional<PlayerTier> tier = competitor.playerTier();
+            TextColor color = tier.map(value -> TextColor.color(value.rgb())).orElse(MUTED);
+            String label = competitor.username() + " · " + competitor.teamDisplayName()
+                    + " · " + tier.map(PlayerTier::shortLabel).orElse("unset");
+            actions.add(ActionButton.builder(Component.text(label, color))
+                    .width(BUTTON_WIDTH)
+                    .tooltip(Component.text("Set tier for " + competitor.username()))
+                    .action(DialogAction.customClick(
+                            TeamAdminDialogKeys.openSetTier(competitor.accountId()), null))
+                    .build());
+        }
+
+        return Dialog.create(factory -> factory.empty()
+                .base(base("Competitor Tiers", ACCENT, body))
+                .type(DialogType.multiAction(actions.isEmpty()
+                                ? List.of(ActionButton.builder(Component.text("Refresh", SECONDARY))
+                                        .width(BUTTON_WIDTH)
+                                        .action(DialogAction.customClick(TeamAdminDialogKeys.OPEN_TIERS, null))
+                                        .build())
+                                : actions)
+                        .columns(2)
+                        .exitAction(backToHubButton())
+                        .build()));
+    }
+
+    public Dialog setTierDialog(
+            String username,
+            UUID accountId,
+            @Nullable PlayerTier current,
+            @Nullable Key backKey,
+            @Nullable String statusMessage
+    ) {
+        List<DialogBody> body = new ArrayList<>();
+        body.add(plain(
+                username + " · " + (current == null ? "no tier" : current.displayName()),
+                current == null ? MUTED : TextColor.color(current.rgb())));
+        appendStatus(body, statusMessage);
+
+        List<ActionButton> actions = new ArrayList<>();
+        for (PlayerTier tier : PlayerTier.values()) {
+            boolean selected = current == tier;
+            actions.add(ActionButton.builder(Component.text(
+                            selected ? "● " + tier.displayName() : tier.displayName(),
+                            TextColor.color(tier.rgb()))
+                    .decorate(TextDecoration.BOLD))
+                    .width(BUTTON_WIDTH)
+                    .tooltip(Component.text("Assign " + tier.displayName()))
+                    .action(DialogAction.customClick(TeamAdminDialogKeys.setTier(tier), null))
+                    .build());
+        }
+        actions.add(ActionButton.builder(Component.text("Clear Tier", DANGER))
+                .width(BUTTON_WIDTH)
+                .tooltip(Component.text("Remove tier assignment"))
+                .action(DialogAction.customClick(TeamAdminDialogKeys.TIER_CLEAR, null))
+                .build());
+
+        Key exit = backKey == null ? TeamAdminDialogKeys.OPEN_TIERS : backKey;
+        return Dialog.create(factory -> factory.empty()
+                .base(base("Set Tier · " + username, ACCENT, body))
+                .type(DialogType.multiAction(actions)
+                        .columns(2)
+                        .exitAction(ActionButton.builder(Component.text("Back", SECONDARY))
+                                .width(BUTTON_WIDTH)
+                                .action(DialogAction.customClick(exit, null))
+                                .build())
+                        .build()));
+    }
+
+    public Dialog setTierPickerDialog(Team team, @Nullable String statusMessage) {
+        List<TeamMember> members = teams.membersOf(team.id());
+        List<DialogBody> body = bodyWithStatus(
+                members.isEmpty()
+                        ? "No members — assign someone first."
+                        : "Choose a member of " + team.displayName() + " to set their tier.",
+                statusMessage);
+
+        if (members.isEmpty()) {
+            return emptyPickerDialog("Set Tier", body, TeamAdminDialogKeys.openTeam(team.id()));
+        }
+
+        List<SingleOptionDialogInput.OptionEntry> options = new ArrayList<>();
+        for (int i = 0; i < members.size(); i++) {
+            TeamMember member = members.get(i);
+            Optional<PlayerTier> tier = member.playerTier();
+            options.add(SingleOptionDialogInput.OptionEntry.create(
+                    member.username(),
+                    Component.text(
+                            member.username() + " · " + tier.map(PlayerTier::shortLabel).orElse("unset"),
+                            tier.map(value -> TextColor.color(value.rgb())).orElse(NamedTextColor.WHITE)),
+                    i == 0
+            ));
+        }
+
+        return Dialog.create(factory -> factory.empty()
+                .base(DialogBase.builder(Component.text("Set Tier", ACCENT))
+                        .canCloseWithEscape(true)
+                        .pause(false)
+                        .afterAction(DialogBase.DialogAfterAction.NONE)
+                        .body(body)
+                        .inputs(List.of(
+                                DialogInput.singleOption(
+                                                TeamAdminDialogKeys.INPUT_MEMBER,
+                                                Component.text("Member"),
+                                                options)
+                                        .width(FIELD_WIDTH)
+                                        .build()
+                        ))
+                        .build())
+                .type(DialogType.multiAction(List.of(
+                                ActionButton.builder(Component.text("Continue", CONFIRM))
+                                        .width(BUTTON_WIDTH)
+                                        .action(DialogAction.customClick(
+                                                TeamAdminDialogKeys.SET_TIER_PICK_SUBMIT, null))
+                                        .build()
+                        ))
+                        .columns(1)
+                        .exitAction(backToTeamButton(team.id()))
                         .build()));
     }
 

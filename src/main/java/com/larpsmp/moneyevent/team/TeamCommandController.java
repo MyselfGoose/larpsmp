@@ -53,6 +53,10 @@ public final class TeamCommandController {
                 handleCaptain(source, arguments);
                 yield true;
             }
+            case "tier" -> {
+                handleTier(source, arguments);
+                yield true;
+            }
             default -> false;
         };
     }
@@ -61,10 +65,12 @@ public final class TeamCommandController {
         if (arguments.length == 1) {
             List<String> roots = new ArrayList<>();
             if (authorizer.isAllowed(source, TeamAdminAction.TEAM_OPEN_UI)
-                    || authorizer.isAllowed(source, TeamAdminAction.TEAM_VIEW)) {
+                    || authorizer.isAllowed(source, TeamAdminAction.TEAM_VIEW)
+                    || authorizer.isAllowed(source, TeamAdminAction.TIER_SET)) {
                 roots.add("teams");
                 roots.add("team");
                 roots.add("captain");
+                roots.add("tier");
             }
             return filter(roots, arguments[0]);
         }
@@ -74,6 +80,9 @@ public final class TeamCommandController {
         }
         if (root.equals("captain")) {
             return tabCaptain(source, arguments);
+        }
+        if (root.equals("tier")) {
+            return tabTier(source, arguments);
         }
         return List.of();
     }
@@ -127,6 +136,80 @@ public final class TeamCommandController {
             case "set" -> setCaptain(source, arguments);
             case "clear" -> clearCaptain(source, arguments);
             default -> source.send("Usage: /larp captain <set|clear> ...", MessageKind.ERROR);
+        }
+    }
+
+    private void handleTier(CommandSource source, String[] arguments) {
+        if (arguments.length < 2) {
+            source.send("Usage: /larp tier <set|clear|list> ...", MessageKind.ERROR);
+            return;
+        }
+        String action = arguments[1].toLowerCase(Locale.ROOT);
+        switch (action) {
+            case "set" -> setTier(source, arguments);
+            case "clear" -> clearTier(source, arguments);
+            case "list" -> listTiers(source);
+            default -> source.send("Usage: /larp tier <set|clear|list> ...", MessageKind.ERROR);
+        }
+    }
+
+    private void setTier(CommandSource source, String[] arguments) {
+        if (!allowed(source, TeamAdminAction.TIER_SET)) {
+            return;
+        }
+        if (arguments.length != 4) {
+            source.send("Usage: /larp tier set <player> <1-4>", MessageKind.ERROR);
+            return;
+        }
+        Account account = requireAccount(source, arguments[2]);
+        if (account == null) {
+            return;
+        }
+        Optional<PlayerTier> tier = PlayerTier.fromToken(arguments[3]);
+        if (tier.isEmpty()) {
+            source.send("Tier must be 1, 2, 3, or 4.", MessageKind.ERROR);
+            return;
+        }
+        sendResult(source, teams.setTier(account.id(), tier.get()));
+    }
+
+    private void clearTier(CommandSource source, String[] arguments) {
+        if (!allowed(source, TeamAdminAction.TIER_SET)) {
+            return;
+        }
+        if (arguments.length != 3) {
+            source.send("Usage: /larp tier clear <player>", MessageKind.ERROR);
+            return;
+        }
+        Account account = requireAccount(source, arguments[2]);
+        if (account == null) {
+            return;
+        }
+        sendResult(source, teams.clearTier(account.id()));
+    }
+
+    private void listTiers(CommandSource source) {
+        if (!authorizer.isAllowed(source, TeamAdminAction.TIER_SET)
+                && !authorizer.isAllowed(source, TeamAdminAction.TEAM_VIEW)) {
+            source.send("You are not authorized to perform that action.", MessageKind.ERROR);
+            return;
+        }
+        List<JdbcTeamRepository.RosteredCompetitor> competitors = teams.listRosteredCompetitors();
+        if (competitors.isEmpty()) {
+            source.send("No rostered competitors.", MessageKind.INFO);
+            return;
+        }
+        for (JdbcTeamRepository.RosteredCompetitor competitor : competitors) {
+            String tierLabel = competitor.playerTier()
+                    .map(PlayerTier::displayName)
+                    .orElse("unset");
+            source.send(competitor.username() + " · " + competitor.teamDisplayName()
+                    + " · " + tierLabel, MessageKind.INFO);
+        }
+        for (String warning : teams.rosterWarnings()) {
+            if (warning.toLowerCase(Locale.ROOT).contains("tier")) {
+                source.send("Warn: " + warning, MessageKind.WARNING);
+            }
         }
     }
 
@@ -362,6 +445,29 @@ public final class TeamCommandController {
             }
             List<String> members = teams.membersOf(team.id()).stream().map(TeamMember::username).toList();
             return filter(members, arguments[3]);
+        }
+        return List.of();
+    }
+
+    private List<String> tabTier(CommandSource source, String[] arguments) {
+        if (arguments.length == 2) {
+            List<String> actions = new ArrayList<>();
+            if (authorizer.isAllowed(source, TeamAdminAction.TIER_SET)
+                    || authorizer.isAllowed(source, TeamAdminAction.TEAM_VIEW)) {
+                actions.add("list");
+            }
+            if (authorizer.isAllowed(source, TeamAdminAction.TIER_SET)) {
+                actions.add("set");
+                actions.add("clear");
+            }
+            return filter(actions, arguments[1]);
+        }
+        String action = arguments[1].toLowerCase(Locale.ROOT);
+        if (arguments.length == 3 && (action.equals("set") || action.equals("clear"))) {
+            return filter(accountUsernames(), arguments[2]);
+        }
+        if (arguments.length == 4 && action.equals("set")) {
+            return filter(List.of("1", "2", "3", "4"), arguments[3]);
         }
         return List.of();
     }

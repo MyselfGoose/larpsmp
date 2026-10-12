@@ -156,9 +156,10 @@ public final class JdbcTeamRepository {
 
     public List<TeamMember> membersOf(UUID teamId) throws SQLException {
         String sql = """
-                SELECT m.team_id, m.account_id, a.username, m.sort_order, m.joined_at
+                SELECT m.team_id, m.account_id, a.username, m.sort_order, m.joined_at, t.tier
                 FROM team_memberships m
                 INNER JOIN accounts a ON a.id = m.account_id
+                LEFT JOIN competitor_tiers t ON t.account_id = m.account_id
                 WHERE m.team_id = ?
                 ORDER BY m.sort_order, a.username
                 """;
@@ -177,9 +178,10 @@ public final class JdbcTeamRepository {
 
     public Optional<TeamMember> findMembership(UUID accountId) throws SQLException {
         String sql = """
-                SELECT m.team_id, m.account_id, a.username, m.sort_order, m.joined_at
+                SELECT m.team_id, m.account_id, a.username, m.sort_order, m.joined_at, t.tier
                 FROM team_memberships m
                 INNER JOIN accounts a ON a.id = m.account_id
+                LEFT JOIN competitor_tiers t ON t.account_id = m.account_id
                 WHERE m.account_id = ?
                 """;
         try (Connection connection = dataSource.getConnection();
@@ -191,6 +193,77 @@ public final class JdbcTeamRepository {
                 }
                 return Optional.of(mapMember(resultSet));
             }
+        }
+    }
+
+    public Optional<PlayerTier> findTier(UUID accountId) throws SQLException {
+        String sql = "SELECT tier FROM competitor_tiers WHERE account_id = ?";
+        try (Connection connection = dataSource.getConnection();
+             PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setObject(1, accountId);
+            try (ResultSet resultSet = statement.executeQuery()) {
+                if (!resultSet.next()) {
+                    return Optional.empty();
+                }
+                return PlayerTier.fromValue(resultSet.getInt("tier"));
+            }
+        }
+    }
+
+    public void upsertTier(UUID accountId, PlayerTier tier) throws SQLException {
+        String sql = """
+                INSERT INTO competitor_tiers (account_id, tier, updated_at)
+                VALUES (?, ?, ?)
+                ON CONFLICT (account_id) DO UPDATE
+                SET tier = EXCLUDED.tier, updated_at = EXCLUDED.updated_at
+                """;
+        try (Connection connection = dataSource.getConnection();
+             PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setObject(1, accountId);
+            statement.setInt(2, tier.value());
+            statement.setTimestamp(3, Timestamp.from(Instant.now()));
+            statement.executeUpdate();
+        }
+    }
+
+    public boolean deleteTier(UUID accountId) throws SQLException {
+        String sql = "DELETE FROM competitor_tiers WHERE account_id = ?";
+        try (Connection connection = dataSource.getConnection();
+             PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setObject(1, accountId);
+            return statement.executeUpdate() > 0;
+        }
+    }
+
+    /**
+     * All rostered competitors across teams, with optional tier, for the admin tiers board.
+     */
+    public List<RosteredCompetitor> listRosteredCompetitors() throws SQLException {
+        String sql = """
+                SELECT m.account_id, a.username, m.team_id, tm.display_name, tm.color, t.tier
+                FROM team_memberships m
+                INNER JOIN accounts a ON a.id = m.account_id
+                INNER JOIN teams tm ON tm.id = m.team_id
+                LEFT JOIN competitor_tiers t ON t.account_id = m.account_id
+                ORDER BY tm.sort_order, tm.display_name, a.username
+                """;
+        try (Connection connection = dataSource.getConnection();
+             PreparedStatement statement = connection.prepareStatement(sql);
+             ResultSet resultSet = statement.executeQuery()) {
+            List<RosteredCompetitor> rows = new ArrayList<>();
+            while (resultSet.next()) {
+                int tierValue = resultSet.getInt("tier");
+                Integer tier = resultSet.wasNull() ? null : tierValue;
+                rows.add(new RosteredCompetitor(
+                        (UUID) resultSet.getObject("account_id"),
+                        resultSet.getString("username"),
+                        (UUID) resultSet.getObject("team_id"),
+                        resultSet.getString("display_name"),
+                        TeamColor.requireKey(resultSet.getString("color")),
+                        tier
+                ));
+            }
+            return List.copyOf(rows);
         }
     }
 
@@ -298,12 +371,34 @@ public final class JdbcTeamRepository {
     }
 
     private static TeamMember mapMember(ResultSet resultSet) throws SQLException {
+        int tierValue = resultSet.getInt("tier");
+        Integer tier = resultSet.wasNull() ? null : tierValue;
         return new TeamMember(
                 (UUID) resultSet.getObject("team_id"),
                 (UUID) resultSet.getObject("account_id"),
                 resultSet.getString("username"),
                 resultSet.getInt("sort_order"),
-                resultSet.getTimestamp("joined_at").toInstant()
+                resultSet.getTimestamp("joined_at").toInstant(),
+                tier
         );
+    }
+
+    /**
+     * Rostered account with team + optional tier for admin overviews.
+     */
+    public record RosteredCompetitor(
+            UUID accountId,
+            String username,
+            UUID teamId,
+            String teamDisplayName,
+            TeamColor teamColor,
+            @Nullable Integer tier
+    ) {
+        public Optional<PlayerTier> playerTier() {
+            if (tier == null) {
+                return Optional.empty();
+            }
+            return PlayerTier.fromValue(tier);
+        }
     }
 }

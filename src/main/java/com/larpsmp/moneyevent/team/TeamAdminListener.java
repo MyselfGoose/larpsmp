@@ -3,6 +3,7 @@ package com.larpsmp.moneyevent.team;
 import com.larpsmp.moneyevent.command.CommandSource;
 import com.larpsmp.moneyevent.command.MessageKind;
 import io.papermc.paper.connection.PlayerGameConnection;
+import io.papermc.paper.dialog.Dialog;
 import io.papermc.paper.dialog.DialogResponseView;
 import io.papermc.paper.event.player.PlayerCustomClickEvent;
 import java.util.Optional;
@@ -11,7 +12,6 @@ import java.util.stream.Collectors;
 import net.kyori.adventure.key.Key;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
-import io.papermc.paper.dialog.Dialog;
 import org.bukkit.entity.Player;
 import org.bukkit.event.Event;
 import org.bukkit.event.EventHandler;
@@ -77,6 +77,36 @@ public final class TeamAdminListener implements Listener {
         }
         sessions.selectTeam(player.getUniqueId(), teamId);
         showDialogNow(player, dialogs.teamDialog(team.get(), statusMessage));
+    }
+
+    public void openTiersBoard(Player player, @Nullable String statusMessage) {
+        if (!isAuthorized(player, TeamAdminAction.TIER_SET)
+                && !isAuthorized(player, TeamAdminAction.TEAM_VIEW)) {
+            player.sendMessage(Component.text("You are not allowed to manage tiers.", NamedTextColor.RED));
+            return;
+        }
+        showDialogNow(player, dialogs.tiersBoardDialog(statusMessage));
+    }
+
+    public void openSetTier(
+            Player player,
+            UUID accountId,
+            Key backKey,
+            @Nullable String statusMessage
+    ) {
+        if (!isAuthorized(player, TeamAdminAction.TIER_SET)) {
+            deny(player);
+            return;
+        }
+        var account = teams.findAccountById(accountId);
+        if (account.isEmpty()) {
+            openTiersBoard(player, "That account no longer exists.");
+            return;
+        }
+        sessions.selectAccount(player.getUniqueId(), accountId);
+        PlayerTier current = teams.tierOf(accountId).orElse(null);
+        showDialogNow(player, dialogs.setTierDialog(
+                account.get().username(), accountId, current, backKey, statusMessage));
     }
 
     private void showDialogNow(Player player, Dialog dialog) {
@@ -246,6 +276,37 @@ public final class TeamAdminListener implements Listener {
                 return;
             }
             player.showDialog(dialogs.warningsDialog());
+            return;
+        }
+        if (identifier.equals(TeamAdminDialogKeys.OPEN_TIERS)) {
+            if (!isAuthorized(player, TeamAdminAction.TIER_SET)
+                    && !isAuthorized(player, TeamAdminAction.TEAM_VIEW)) {
+                deny(player);
+                return;
+            }
+            openTiersBoard(player, null);
+            return;
+        }
+        Optional<UUID> openSetTierAccount = TeamAdminDialogKeys.parseOpenSetTier(identifier);
+        if (openSetTierAccount.isPresent()) {
+            openSetTier(player, openSetTierAccount.get(), TeamAdminDialogKeys.OPEN_TIERS, null);
+            return;
+        }
+        Optional<PlayerTier> setTier = TeamAdminDialogKeys.parseSetTier(identifier);
+        if (setTier.isPresent()) {
+            handleSetTier(player, setTier.get());
+            return;
+        }
+        if (identifier.equals(TeamAdminDialogKeys.TIER_CLEAR)) {
+            handleClearTier(player);
+            return;
+        }
+        if (identifier.equals(TeamAdminDialogKeys.OPEN_SET_TIER_PICKER)) {
+            handleOpenSetTierPicker(player);
+            return;
+        }
+        if (identifier.equals(TeamAdminDialogKeys.SET_TIER_PICK_SUBMIT)) {
+            handleSetTierPickSubmit(player, view);
             return;
         }
         if (identifier.equals(TeamAdminDialogKeys.OPEN_EDIT)) {
@@ -486,6 +547,73 @@ public final class TeamAdminListener implements Listener {
         }
         TeamMutationResult result = teams.clearCaptain(selected.id());
         openTeam(player, selected.id(), formatFeedback(result));
+    }
+
+    private void handleOpenSetTierPicker(Player player) {
+        if (!isAuthorized(player, TeamAdminAction.TIER_SET)) {
+            deny(player);
+            return;
+        }
+        Team selected = requireSelectedTeam(player).orElse(null);
+        if (selected == null) {
+            openHub(player, "Select a team first.");
+            return;
+        }
+        player.showDialog(dialogs.setTierPickerDialog(selected, null));
+    }
+
+    private void handleSetTierPickSubmit(Player player, @Nullable DialogResponseView view) {
+        if (!isAuthorized(player, TeamAdminAction.TIER_SET)) {
+            deny(player);
+            return;
+        }
+        Team selected = requireSelectedTeam(player).orElse(null);
+        if (selected == null) {
+            openHub(player, "Select a team first.");
+            return;
+        }
+        String username = text(view, TeamAdminDialogKeys.INPUT_MEMBER);
+        var account = teams.findAccountByUsername(username);
+        if (account.isEmpty()) {
+            player.showDialog(dialogs.setTierPickerDialog(
+                    selected, "No registered account named '" + username + "'."));
+            return;
+        }
+        openSetTier(player, account.get().id(), TeamAdminDialogKeys.openTeam(selected.id()), null);
+    }
+
+    private void handleSetTier(Player player, PlayerTier tier) {
+        if (!isAuthorized(player, TeamAdminAction.TIER_SET)) {
+            deny(player);
+            return;
+        }
+        Optional<UUID> accountId = sessions.selectedAccount(player.getUniqueId());
+        if (accountId.isEmpty()) {
+            openTiersBoard(player, "Select a player first.");
+            return;
+        }
+        TeamMutationResult result = teams.setTier(accountId.get(), tier);
+        Key back = sessions.selectedTeam(player.getUniqueId())
+                .map(TeamAdminDialogKeys::openTeam)
+                .orElse(TeamAdminDialogKeys.OPEN_TIERS);
+        openSetTier(player, accountId.get(), back, formatFeedback(result));
+    }
+
+    private void handleClearTier(Player player) {
+        if (!isAuthorized(player, TeamAdminAction.TIER_SET)) {
+            deny(player);
+            return;
+        }
+        Optional<UUID> accountId = sessions.selectedAccount(player.getUniqueId());
+        if (accountId.isEmpty()) {
+            openTiersBoard(player, "Select a player first.");
+            return;
+        }
+        TeamMutationResult result = teams.clearTier(accountId.get());
+        Key back = sessions.selectedTeam(player.getUniqueId())
+                .map(TeamAdminDialogKeys::openTeam)
+                .orElse(TeamAdminDialogKeys.OPEN_TIERS);
+        openSetTier(player, accountId.get(), back, formatFeedback(result));
     }
 
     private void handleDelete(Player player) {

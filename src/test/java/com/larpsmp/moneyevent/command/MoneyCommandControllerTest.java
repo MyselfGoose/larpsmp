@@ -313,6 +313,15 @@ class MoneyCommandControllerTest {
         }
 
         @Override
+        public void refreshTeam(UUID teamId) {
+        }
+
+        @Override
+        public void refreshPlayerAndTeammates(UUID playerId) {
+            refresh(playerId);
+        }
+
+        @Override
         public void playerJoined(UUID playerId) {
         }
 

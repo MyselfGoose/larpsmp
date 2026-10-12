@@ -6,10 +6,15 @@ import java.sql.Connection;
 import java.sql.SQLException;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.Consumer;
 import java.util.regex.Pattern;
 import org.jetbrains.annotations.Nullable;
@@ -31,6 +36,7 @@ public final class TeamService {
     private final JdbcTeamRepository repository;
     private final AccountRepository accounts;
     private final Consumer<String> errorLogger;
+    private final List<RosterChangeListener> rosterChangeListeners = new CopyOnWriteArrayList<>();
 
     public TeamService(
             JdbcTeamRepository repository,
@@ -40,6 +46,10 @@ public final class TeamService {
         this.repository = repository;
         this.accounts = accounts;
         this.errorLogger = errorLogger;
+    }
+
+    public void addRosterChangeListener(RosterChangeListener listener) {
+        rosterChangeListeners.add(listener);
     }
 
     public List<Team> listTeams() {
@@ -236,6 +246,7 @@ public final class TeamService {
                 String name = existing.get().displayName();
                 repository.deleteTeam(connection, teamId);
                 connection.commit();
+                notifyRosterChanged(Set.of(teamId));
                 return TeamMutationResult.ok("Deleted team " + name + ".", null, rosterWarnings());
             } catch (Exception exception) {
                 connection.rollback();
@@ -265,11 +276,14 @@ public final class TeamService {
                 }
                 Optional<TeamMember> existing = repository.findMembership(accountId);
                 String username = account.get().username();
+                Set<UUID> affected = new HashSet<>();
+                affected.add(teamId);
                 if (existing.isPresent()) {
                     if (existing.get().teamId().equals(teamId)) {
                         connection.rollback();
                         return TeamMutationResult.fail(username + " is already on " + team.get().displayName() + ".");
                     }
+                    affected.add(existing.get().teamId());
                     repository.clearCaptainIf(connection, existing.get().teamId(), accountId);
                     repository.deleteMembership(connection, accountId);
                 }
@@ -277,6 +291,7 @@ public final class TeamService {
                 repository.insertMembership(connection, teamId, accountId, sortOrder, Instant.now());
                 connection.commit();
                 Team refreshed = repository.findById(teamId).orElse(team.get());
+                notifyRosterChanged(affected);
                 String message = existing.isPresent()
                         ? "Moved " + username + " to " + refreshed.displayName() + "."
                         : "Assigned " + username + " to " + refreshed.displayName() + ".";
@@ -307,6 +322,7 @@ public final class TeamService {
                 repository.clearCaptainIf(connection, member.teamId(), accountId);
                 repository.deleteMembership(connection, accountId);
                 connection.commit();
+                notifyRosterChanged(Set.of(member.teamId()));
                 Team refreshed = team.flatMap(value -> {
                     try {
                         return repository.findById(value.id());
@@ -330,6 +346,102 @@ public final class TeamService {
         } catch (SQLException exception) {
             errorLogger.accept("Failed to remove member " + accountId + ": " + exception.getMessage());
             return TeamMutationResult.fail("Could not remove player from team.");
+        }
+    }
+
+    public Optional<PlayerTier> tierOf(UUID accountId) {
+        try {
+            return repository.findTier(accountId);
+        } catch (SQLException exception) {
+            errorLogger.accept("Failed to load tier for " + accountId + ": " + exception.getMessage());
+            return Optional.empty();
+        }
+    }
+
+    public TeamMutationResult setTier(UUID accountId, PlayerTier tier) {
+        if (tier == null) {
+            return TeamMutationResult.fail("A valid tier (1–4) is required.");
+        }
+        try {
+            Optional<Account> account = accounts.findById(accountId);
+            if (account.isEmpty()) {
+                return TeamMutationResult.fail("That account does not exist.");
+            }
+            repository.upsertTier(accountId, tier);
+            Optional<TeamMember> membership = repository.findMembership(accountId);
+            List<String> warnings = membership.isEmpty()
+                    ? List.of()
+                    : repository.findById(membership.get().teamId())
+                            .map(team -> {
+                                try {
+                                    return warningsForTeam(team);
+                                } catch (SQLException exception) {
+                                    return List.<String>of();
+                                }
+                            })
+                            .orElse(List.of());
+            return TeamMutationResult.ok(
+                    "Set " + account.get().username() + " to " + tier.displayName() + ".",
+                    membership.flatMap(member -> {
+                        try {
+                            return repository.findById(member.teamId());
+                        } catch (SQLException exception) {
+                            return Optional.empty();
+                        }
+                    }).orElse(null),
+                    warnings
+            );
+        } catch (SQLException exception) {
+            errorLogger.accept("Failed to set tier for " + accountId + ": " + exception.getMessage());
+            return TeamMutationResult.fail("Could not set tier.");
+        }
+    }
+
+    public TeamMutationResult clearTier(UUID accountId) {
+        try {
+            Optional<Account> account = accounts.findById(accountId);
+            if (account.isEmpty()) {
+                return TeamMutationResult.fail("That account does not exist.");
+            }
+            boolean removed = repository.deleteTier(accountId);
+            if (!removed) {
+                return TeamMutationResult.fail(account.get().username() + " has no tier set.");
+            }
+            Optional<TeamMember> membership = repository.findMembership(accountId);
+            List<String> warnings = membership.isEmpty()
+                    ? List.of()
+                    : repository.findById(membership.get().teamId())
+                            .map(team -> {
+                                try {
+                                    return warningsForTeam(team);
+                                } catch (SQLException exception) {
+                                    return List.<String>of();
+                                }
+                            })
+                            .orElse(List.of());
+            return TeamMutationResult.ok(
+                    "Cleared tier for " + account.get().username() + ".",
+                    membership.flatMap(member -> {
+                        try {
+                            return repository.findById(member.teamId());
+                        } catch (SQLException exception) {
+                            return Optional.empty();
+                        }
+                    }).orElse(null),
+                    warnings
+            );
+        } catch (SQLException exception) {
+            errorLogger.accept("Failed to clear tier for " + accountId + ": " + exception.getMessage());
+            return TeamMutationResult.fail("Could not clear tier.");
+        }
+    }
+
+    public List<JdbcTeamRepository.RosteredCompetitor> listRosteredCompetitors() {
+        try {
+            return repository.listRosteredCompetitors();
+        } catch (SQLException exception) {
+            errorLogger.accept("Failed to list rostered competitors: " + exception.getMessage());
+            return List.of();
         }
     }
 
@@ -419,6 +531,15 @@ public final class TeamService {
         }
     }
 
+    public Optional<Account> findAccountById(UUID accountId) {
+        try {
+            return accounts.findById(accountId);
+        } catch (SQLException exception) {
+            errorLogger.accept("Failed to look up account " + accountId + ": " + exception.getMessage());
+            return Optional.empty();
+        }
+    }
+
     /**
      * Registered accounts for assign pickers / command tab-complete, ordered by username.
      */
@@ -449,7 +570,8 @@ public final class TeamService {
 
     private List<String> warningsForTeam(Team team) throws SQLException {
         List<String> warnings = new ArrayList<>();
-        int count = repository.memberCount(team.id());
+        List<TeamMember> members = repository.membersOf(team.id());
+        int count = members.size();
         if (count == 0) {
             warnings.add(team.displayName() + " has no members.");
         } else if (count < EXPECTED_ROSTER_SIZE) {
@@ -466,7 +588,32 @@ public final class TeamService {
                 warnings.add(team.displayName() + " captain is not on the team roster.");
             }
         }
+        Map<Integer, List<String>> byTier = new HashMap<>();
+        for (TeamMember member : members) {
+            if (member.tier() == null) {
+                warnings.add(team.displayName() + " member " + member.username() + " has no tier.");
+            } else {
+                byTier.computeIfAbsent(member.tier(), ignored -> new ArrayList<>()).add(member.username());
+            }
+        }
+        for (Map.Entry<Integer, List<String>> entry : byTier.entrySet()) {
+            if (entry.getValue().size() > 1) {
+                warnings.add(team.displayName() + " has " + entry.getValue().size()
+                        + " Tier " + entry.getKey() + " players ("
+                        + String.join(", ", entry.getValue()) + ").");
+            }
+        }
         return warnings;
+    }
+
+    private void notifyRosterChanged(Set<UUID> affectedTeamIds) {
+        if (affectedTeamIds.isEmpty()) {
+            return;
+        }
+        Set<UUID> immutable = Set.copyOf(affectedTeamIds);
+        for (RosterChangeListener listener : rosterChangeListeners) {
+            listener.rosterChanged(immutable);
+        }
     }
 
     private String allocateSlug(Connection connection, String displayName, @Nullable UUID excludingTeamId)

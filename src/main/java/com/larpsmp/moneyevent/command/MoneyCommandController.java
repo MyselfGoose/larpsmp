@@ -147,7 +147,7 @@ public final class MoneyCommandController {
             return;
         }
         if (arguments.length < 2 || !arguments[0].equalsIgnoreCase("money")) {
-            source.send("Usage: /larp <money|teams|team|captain> ...", MessageKind.ERROR);
+            source.send("Usage: /larp <money|teams|team|captain|tier> ...", MessageKind.ERROR);
             return;
         }
         String operation = arguments[1].toLowerCase(Locale.ROOT);

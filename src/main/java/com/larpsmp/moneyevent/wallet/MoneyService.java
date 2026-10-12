@@ -80,6 +80,19 @@ public final class MoneyService implements AutoCloseable {
     }
 
     /**
+     * Combined personal balances of every roster member on {@code teamId} (offline included).
+     * Empty rosters return 0.
+     */
+    public synchronized long teamWealth(UUID teamId) throws IOException {
+        ensureOpen();
+        try {
+            return money.sumBalancesForTeam(Objects.requireNonNull(teamId, "teamId"));
+        } catch (SQLException exception) {
+            throw storageException("sum team wealth for " + teamId, exception);
+        }
+    }
+
+    /**
      * Updates the Minecraft identity last-seen/name when a bound player joins. Does not create wallets.
      */
     public synchronized Optional<WalletAccount> touchIdentityOnJoin(UUID minecraftUuid, String minecraftName)

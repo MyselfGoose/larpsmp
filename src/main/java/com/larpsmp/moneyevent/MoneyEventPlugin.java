@@ -258,8 +258,18 @@ public final class MoneyEventPlugin extends JavaPlugin {
                     moneyService,
                     message -> getLogger().severe(message));
             balanceDisplay = new BukkitBalanceSidebar(
-                    getServer(), moneyService, message -> getLogger().severe(message));
-            moneyService.addBalanceChangeListener((playerId, ignoredBalance) -> balanceDisplay.refresh(playerId));
+                    getServer(),
+                    moneyService,
+                    teamService,
+                    accountRepository,
+                    message -> getLogger().severe(message));
+            moneyService.addBalanceChangeListener(
+                    (playerId, ignoredBalance) -> balanceDisplay.refreshPlayerAndTeammates(playerId));
+            teamService.addRosterChangeListener(teamIds -> {
+                for (UUID teamId : teamIds) {
+                    balanceDisplay.refreshTeam(teamId);
+                }
+            });
             MoneyCommandController controller = new MoneyCommandController(
                     moneyService,
                     new WalletPlayerLookup(moneyService, onlinePlayers),
@@ -281,7 +291,7 @@ public final class MoneyEventPlugin extends JavaPlugin {
             getLogger().warning("Using temporary console/operator money authorizer; replace it with Azeem's adapter.");
             getLogger().info("Account-linked wallets ready (starting balance $"
                     + MoneyService.STARTING_BALANCE + ").");
-            getLogger().info("Teams administration ready (dialog UI + /larp team|captain|teams).");
+            getLogger().info("Teams administration ready (dialog UI + /larp team|captain|tier|teams).");
             getLogger().info("Account-keyed player bodies enabled (autosave "
                     + playerStateConfig.autosaveSeconds() + "s).");
         } catch (IOException exception) {
