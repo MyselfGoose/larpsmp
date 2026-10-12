@@ -13,17 +13,24 @@ public final class TeamAdminMenu implements InventoryHolder {
     public enum View {
         HUB,
         TEAM,
+        ASSIGN,
         DELETE_CONFIRM,
         WARNINGS
     }
 
     private final View view;
     private final @Nullable UUID teamId;
+    private final int page;
     private Inventory inventory;
 
     public TeamAdminMenu(View view, @Nullable UUID teamId) {
+        this(view, teamId, 0);
+    }
+
+    public TeamAdminMenu(View view, @Nullable UUID teamId, int page) {
         this.view = view;
         this.teamId = teamId;
+        this.page = Math.max(0, page);
     }
 
     public View view() {
@@ -32,6 +39,10 @@ public final class TeamAdminMenu implements InventoryHolder {
 
     public @Nullable UUID teamId() {
         return teamId;
+    }
+
+    public int page() {
+        return page;
     }
 
     void attach(Inventory inventory) {

@@ -297,6 +297,39 @@ public final class TeamAdminListener implements Listener {
                     return;
                 }
                 sessions.selectTeam(player.getUniqueId(), team.id());
+                player.openInventory(menus.assign(team, 0));
+            }
+            case ASSIGN_PICK -> {
+                UUID teamId = guiKeys.teamIdOf(clicked);
+                UUID accountId = guiKeys.accountIdOf(clicked);
+                if (teamId == null || accountId == null || !isAuthorized(player, TeamAdminAction.TEAM_ASSIGN)) {
+                    deny(player);
+                    return;
+                }
+                TeamMutationResult result = teams.assignMember(accountId, teamId);
+                openTeam(player, teamId, formatFeedback(result));
+            }
+            case ASSIGN_PAGE_PREV, ASSIGN_PAGE_NEXT -> {
+                if (!(player.getOpenInventory().getTopInventory().getHolder() instanceof TeamAdminMenu menu)
+                        || menu.teamId() == null) {
+                    return;
+                }
+                Team team = requireTeam(player, menu.teamId());
+                if (team == null) {
+                    return;
+                }
+                int nextPage = action == TeamAdminGuiKeys.Action.ASSIGN_PAGE_PREV
+                        ? menu.page() - 1
+                        : menu.page() + 1;
+                player.openInventory(menus.assign(team, nextPage));
+            }
+            case ASSIGN_TYPE -> {
+                Team team = requireTeam(player, guiKeys.teamIdOf(clicked));
+                if (team == null || !isAuthorized(player, TeamAdminAction.TEAM_ASSIGN)) {
+                    deny(player);
+                    return;
+                }
+                sessions.selectTeam(player.getUniqueId(), team.id());
                 player.closeInventory();
                 player.showDialog(dialogs.assignDialog(team, null));
             }

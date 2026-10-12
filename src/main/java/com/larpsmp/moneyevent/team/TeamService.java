@@ -419,6 +419,22 @@ public final class TeamService {
         }
     }
 
+    /**
+     * Registered accounts for assign pickers / command tab-complete, ordered by username.
+     */
+    public List<Account> listAccounts() {
+        try {
+            return accounts.listAccounts();
+        } catch (SQLException exception) {
+            errorLogger.accept("Failed to list accounts: " + exception.getMessage());
+            return List.of();
+        }
+    }
+
+    public List<String> listUsernames() {
+        return listAccounts().stream().map(Account::username).toList();
+    }
+
     public Optional<String> captainUsername(Team team) {
         if (team.captainAccountId() == null) {
             return Optional.empty();

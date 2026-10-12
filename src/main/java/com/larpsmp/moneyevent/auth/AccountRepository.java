@@ -9,6 +9,8 @@ import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.sql.Types;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import javax.sql.DataSource;
@@ -84,6 +86,22 @@ public final class AccountRepository {
                 }
                 return Optional.of(mapAccount(resultSet));
             }
+        }
+    }
+
+    /**
+     * All registered accounts ordered by username (case-insensitive).
+     */
+    public List<Account> listAccounts() throws SQLException {
+        String sql = "SELECT " + ACCOUNT_COLUMNS + " FROM accounts ORDER BY LOWER(username)";
+        try (Connection connection = dataSource.getConnection();
+             PreparedStatement statement = connection.prepareStatement(sql);
+             ResultSet resultSet = statement.executeQuery()) {
+            List<Account> accounts = new ArrayList<>();
+            while (resultSet.next()) {
+                accounts.add(mapAccount(resultSet));
+            }
+            return List.copyOf(accounts);
         }
     }
 

@@ -1,7 +1,13 @@
 package com.larpsmp.moneyevent.team;
 
+import com.larpsmp.moneyevent.auth.Account;
 import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
+import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
@@ -20,13 +26,19 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Builds polished chest menus for Teams Admin browsing and management.
  *
- * <p>Text entry (create / rename / assign) still uses Paper Dialogs; everything else is inventory UI.
+ * <p>Create / rename still use Paper Dialogs. Assign uses a clickable player picker
+ * (dialog text fields cannot offer command-style tab completion).
  */
 public final class TeamAdminMenus {
 
     private static final TextColor ACCENT = TextColor.color(0xE0B040);
     private static final int[] TEAM_SLOTS = {10, 12, 14, 16, 28, 30, 32, 34};
     private static final int[] MEMBER_SLOTS = {10, 11, 12, 13, 14, 15, 16};
+    private static final int[] ASSIGN_SLOTS = {
+            10, 11, 12, 13, 14, 15, 16,
+            19, 20, 21, 22, 23, 24, 25,
+            28, 29, 30, 31, 32, 33, 34
+    };
 
     private final TeamService teams;
     private final TeamAdminGuiKeys keys;
@@ -135,7 +147,7 @@ public final class TeamAdminMenus {
         ItemStack assign = named(
                 Material.EMERALD,
                 Component.text("Assign Player", NamedTextColor.GREEN).decoration(TextDecoration.ITALIC, false),
-                List.of(Component.text("Add or move a player by username", NamedTextColor.GRAY)
+                List.of(Component.text("Pick from registered accounts", NamedTextColor.GRAY)
                         .decoration(TextDecoration.ITALIC, false)));
         keys.tag(assign, TeamAdminGuiKeys.Action.ASSIGN, team.id(), null);
         inventory.setItem(29, assign);
@@ -185,6 +197,92 @@ public final class TeamAdminMenus {
                         Component.text(members.size() + "/" + TeamService.EXPECTED_ROSTER_SIZE + " filled",
                                         NamedTextColor.DARK_GRAY)
                                 .decoration(TextDecoration.ITALIC, false))));
+
+        return inventory;
+    }
+
+    public Inventory assign(Team team, int page) {
+        List<Account> candidates = sortedAssignableAccounts();
+        int pageSize = ASSIGN_SLOTS.length;
+        int maxPage = Math.max(0, (candidates.size() - 1) / pageSize);
+        int safePage = Math.min(Math.max(0, page), maxPage);
+
+        TeamAdminMenu holder = new TeamAdminMenu(TeamAdminMenu.View.ASSIGN, team.id(), safePage);
+        Inventory inventory = Bukkit.createInventory(
+                holder,
+                54,
+                Component.text("Assign → " + team.displayName(), TextColor.color(team.color().rgb())));
+        holder.attach(inventory);
+        fill(inventory, Material.GRAY_STAINED_GLASS_PANE);
+
+        Set<UUID> onThisTeam = new HashSet<>();
+        for (TeamMember member : teams.membersOf(team.id())) {
+            onThisTeam.add(member.accountId());
+        }
+
+        inventory.setItem(4, named(
+                concreteFor(team.color()),
+                Component.text("Assign to " + team.displayName(), TextColor.color(team.color().rgb()))
+                        .decoration(TextDecoration.ITALIC, false)
+                        .decorate(TextDecoration.BOLD),
+                List.of(
+                        Component.text("Click a player to assign or move them.", NamedTextColor.GRAY)
+                                .decoration(TextDecoration.ITALIC, false),
+                        Component.text(candidates.size() + " registered account(s)", NamedTextColor.DARK_GRAY)
+                                .decoration(TextDecoration.ITALIC, false))));
+
+        int start = safePage * pageSize;
+        for (int i = 0; i < pageSize; i++) {
+            int index = start + i;
+            if (index >= candidates.size()) {
+                break;
+            }
+            Account account = candidates.get(index);
+            inventory.setItem(ASSIGN_SLOTS[i], assignCandidateHead(team, account, onThisTeam.contains(account.id())));
+        }
+
+        if (safePage > 0) {
+            ItemStack prev = named(
+                    Material.ARROW,
+                    Component.text("Previous", NamedTextColor.WHITE).decoration(TextDecoration.ITALIC, false),
+                    List.of(Component.text("Page " + safePage + " / " + (maxPage + 1), NamedTextColor.DARK_GRAY)
+                            .decoration(TextDecoration.ITALIC, false)));
+            keys.tag(prev, TeamAdminGuiKeys.Action.ASSIGN_PAGE_PREV, team.id(), null);
+            inventory.setItem(45, prev);
+        }
+
+        ItemStack back = named(
+                Material.ARROW,
+                Component.text("Back", NamedTextColor.WHITE).decoration(TextDecoration.ITALIC, false),
+                List.of());
+        keys.tag(back, TeamAdminGuiKeys.Action.BACK_TEAM, team.id(), null);
+        inventory.setItem(49, back);
+
+        if (safePage < maxPage) {
+            ItemStack next = named(
+                    Material.ARROW,
+                    Component.text("Next", NamedTextColor.WHITE).decoration(TextDecoration.ITALIC, false),
+                    List.of(Component.text("Page " + (safePage + 2) + " / " + (maxPage + 1), NamedTextColor.DARK_GRAY)
+                            .decoration(TextDecoration.ITALIC, false)));
+            keys.tag(next, TeamAdminGuiKeys.Action.ASSIGN_PAGE_NEXT, team.id(), null);
+            inventory.setItem(53, next);
+        }
+
+        ItemStack type = named(
+                Material.NAME_TAG,
+                Component.text("Type username…", NamedTextColor.AQUA).decoration(TextDecoration.ITALIC, false),
+                List.of(Component.text("Open a picker list if you prefer typing/selecting", NamedTextColor.GRAY)
+                        .decoration(TextDecoration.ITALIC, false)));
+        keys.tag(type, TeamAdminGuiKeys.Action.ASSIGN_TYPE, team.id(), null);
+        inventory.setItem(51, type);
+
+        if (candidates.isEmpty()) {
+            inventory.setItem(22, named(
+                    Material.BARRIER,
+                    Component.text("No accounts yet", NamedTextColor.RED).decoration(TextDecoration.ITALIC, false),
+                    List.of(Component.text("Players must sign up before they can be assigned.", NamedTextColor.GRAY)
+                            .decoration(TextDecoration.ITALIC, false))));
+        }
 
         return inventory;
     }
@@ -299,6 +397,58 @@ public final class TeamAdminMenus {
             keys.tag(item, action, team.id(), null);
         }
         return item;
+    }
+
+    private ItemStack assignCandidateHead(Team targetTeam, Account account, boolean alreadyOnTeam) {
+        Optional<Team> currentTeam = teams.teamOf(account.id());
+        boolean online = Bukkit.getOnlinePlayers().stream()
+                .anyMatch(player -> player.getName().equalsIgnoreCase(account.username()));
+
+        ItemStack head = new ItemStack(Material.PLAYER_HEAD);
+        SkullMeta meta = (SkullMeta) head.getItemMeta();
+        meta.displayName(Component.text(account.username(), online ? NamedTextColor.GREEN : NamedTextColor.WHITE)
+                .decoration(TextDecoration.ITALIC, false));
+
+        Player onlinePlayer = Bukkit.getPlayerExact(account.username());
+        if (onlinePlayer != null) {
+            meta.setOwningPlayer(onlinePlayer);
+        } else {
+            meta.setPlayerProfile(Bukkit.createProfile(account.username()));
+        }
+
+        List<Component> lore = new ArrayList<>();
+        lore.add(online
+                ? Component.text("Online", NamedTextColor.GREEN).decoration(TextDecoration.ITALIC, false)
+                : Component.text("Offline", NamedTextColor.DARK_GRAY).decoration(TextDecoration.ITALIC, false));
+        if (alreadyOnTeam) {
+            lore.add(Component.text("Already on " + targetTeam.displayName(), NamedTextColor.GOLD)
+                    .decoration(TextDecoration.ITALIC, false));
+        } else if (currentTeam.isPresent()) {
+            lore.add(Component.text("On " + currentTeam.get().displayName() + " — click to move", NamedTextColor.YELLOW)
+                    .decoration(TextDecoration.ITALIC, false));
+        } else {
+            lore.add(Component.text("Unassigned", NamedTextColor.GRAY).decoration(TextDecoration.ITALIC, false));
+        }
+        lore.add(Component.empty());
+        lore.add(Component.text("Click to assign to " + targetTeam.displayName(), NamedTextColor.AQUA)
+                .decoration(TextDecoration.ITALIC, false));
+        meta.lore(lore);
+        meta.addItemFlags(ItemFlag.HIDE_ATTRIBUTES);
+        head.setItemMeta(meta);
+        keys.tag(head, TeamAdminGuiKeys.Action.ASSIGN_PICK, targetTeam.id(), account.id());
+        return head;
+    }
+
+    private List<Account> sortedAssignableAccounts() {
+        Set<String> onlineNames = new HashSet<>();
+        for (Player player : Bukkit.getOnlinePlayers()) {
+            onlineNames.add(player.getName().toLowerCase(Locale.ROOT));
+        }
+        List<Account> accounts = new ArrayList<>(teams.listAccounts());
+        accounts.sort(Comparator
+                .comparing((Account account) -> !onlineNames.contains(account.username().toLowerCase(Locale.ROOT)))
+                .thenComparing(account -> account.username().toLowerCase(Locale.ROOT)));
+        return accounts;
     }
 
     private ItemStack memberHead(Team team, TeamMember member) {

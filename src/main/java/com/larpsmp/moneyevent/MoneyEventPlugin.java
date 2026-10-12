@@ -242,7 +242,7 @@ public final class MoneyEventPlugin extends JavaPlugin {
             TeamAdminSession teamAdminSessions = new TeamAdminSession();
             TeamAdminGuiKeys teamGuiKeys = new TeamAdminGuiKeys(this);
             TeamAdminMenus teamMenus = new TeamAdminMenus(teamService, teamGuiKeys);
-            TeamAdminDialogFactory teamDialogs = new TeamAdminDialogFactory();
+            TeamAdminDialogFactory teamDialogs = new TeamAdminDialogFactory(teamService);
             DevelopmentConsoleOpAuthorizer adminAuthorizer = new DevelopmentConsoleOpAuthorizer();
             TeamAdminListener teamAdminListener = new TeamAdminListener(
                     this,

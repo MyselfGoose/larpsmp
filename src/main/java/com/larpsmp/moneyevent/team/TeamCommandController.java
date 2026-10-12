@@ -410,19 +410,7 @@ public final class TeamCommandController {
     }
 
     private List<String> accountUsernames() {
-        // Suggestions come from online players' account usernames via Bukkit display names when available.
-        List<String> names = new ArrayList<>();
-        for (Player player : Bukkit.getOnlinePlayers()) {
-            names.add(player.getName());
-        }
-        for (Team team : teams.listTeams()) {
-            for (TeamMember member : teams.membersOf(team.id())) {
-                if (names.stream().noneMatch(existing -> existing.equalsIgnoreCase(member.username()))) {
-                    names.add(member.username());
-                }
-            }
-        }
-        return names;
+        return teams.listUsernames();
     }
 
     private static List<String> colorKeys() {
