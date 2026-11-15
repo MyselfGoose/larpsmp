@@ -1,5 +1,6 @@
 package com.larpsmp.moneyevent.display;
 
+import java.util.Collection;
 import java.util.UUID;
 
 public interface BalanceDisplayControl extends AutoCloseable {
@@ -11,6 +12,11 @@ public interface BalanceDisplayControl extends AutoCloseable {
     void refreshTeam(UUID teamId);
 
     /**
+     * Refreshes HUDs for specific accounts (e.g. players who just left a team).
+     */
+    void refreshAccounts(Collection<UUID> accountIds);
+
+    /**
      * Refreshes the player and all online teammates after a personal balance change.
      */
     void refreshPlayerAndTeammates(UUID playerId);
@@ -18,6 +24,9 @@ public interface BalanceDisplayControl extends AutoCloseable {
     void playerJoined(UUID playerId);
 
     void playerQuit(UUID playerId);
+
+    /** Refresh every currently tracked online sidebar (e.g. after visibility toggle). */
+    void refreshAll();
 
     @Override
     void close();

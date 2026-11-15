@@ -26,7 +26,7 @@ DONE     (account bodies)         → account-keyed inventory/location on main
 DONE     feature/teams            → teams, captains, tiers, team wealth HUD
 DONE     documentation            → documentation/ tree on main
 ────────────────────────────────────────────────────────────────
-NEXT     feature/economy-settlement
+DONE     feature/economy-settlement
 QUEUED   feature/kill-attribution          (PARALLEL with settlement APIs)
 QUEUED   feature/capture-points
 QUEUED   feature/spawn-protection
@@ -108,7 +108,7 @@ OPS      roster, calendar, map, hosting, playtest
 
 ---
 
-## 5. `feature/economy-settlement` — NEXT (do this now)
+## 5. `feature/economy-settlement` — DONE (this branch)
 
 **Owner:** Amira (economy).  
 **Branch from:** `main`.  

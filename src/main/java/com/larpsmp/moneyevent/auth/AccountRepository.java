@@ -1,7 +1,6 @@
 package com.larpsmp.moneyevent.auth;
 
 import com.larpsmp.moneyevent.wallet.JdbcMoneyRepository;
-import com.larpsmp.moneyevent.wallet.MoneyService;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -37,6 +36,23 @@ public final class AccountRepository {
         try (Connection connection = dataSource.getConnection();
              PreparedStatement statement = connection.prepareStatement(sql)) {
             statement.setString(1, username);
+            try (ResultSet resultSet = statement.executeQuery()) {
+                if (!resultSet.next()) {
+                    return Optional.empty();
+                }
+                return Optional.of(mapAccount(resultSet));
+            }
+        }
+    }
+
+    public Optional<Account> findByUsernameIgnoreCase(String username) throws SQLException {
+        if (username == null || username.isBlank()) {
+            return Optional.empty();
+        }
+        String sql = "SELECT " + ACCOUNT_COLUMNS + " FROM accounts WHERE LOWER(username) = LOWER(?)";
+        try (Connection connection = dataSource.getConnection();
+             PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setString(1, username.trim());
             try (ResultSet resultSet = statement.executeQuery()) {
                 if (!resultSet.next()) {
                     return Optional.empty();
@@ -143,8 +159,8 @@ public final class AccountRepository {
     }
 
     /**
-     * Creates an unverified account, binds the connecting Minecraft UUID, and provisions a
-     * starting wallet ({@link MoneyService#STARTING_BALANCE}) in one transaction.
+     * Creates an unverified account, binds the connecting Minecraft UUID, and provisions an
+     * empty wallet ($0). Competitor starting balance is granted later on first team assignment.
      */
     public Account createAccountWithIdentity(
             String username,
@@ -202,12 +218,7 @@ public final class AccountRepository {
                     identityStatement.setTimestamp(6, Timestamp.from(now));
                     identityStatement.executeUpdate();
                 }
-                JdbcMoneyRepository.insertWalletWithStartingBalance(
-                        connection,
-                        accountId,
-                        MoneyService.STARTING_BALANCE,
-                        MoneyService.STARTING_BALANCE_REASON,
-                        now);
+                JdbcMoneyRepository.insertEmptyWallet(connection, accountId, now);
                 connection.commit();
                 return new Account(accountId, username, email, passwordHash, false, null, now, now, null);
             } catch (SQLException exception) {

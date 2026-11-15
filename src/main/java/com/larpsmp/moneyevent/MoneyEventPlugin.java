@@ -1,5 +1,7 @@
 package com.larpsmp.moneyevent;
 
+import com.larpsmp.moneyevent.auth.AccountAdminRepository;
+import com.larpsmp.moneyevent.auth.AccountAdminService;
 import com.larpsmp.moneyevent.auth.AccountRepository;
 import com.larpsmp.moneyevent.auth.AuthConfig;
 import com.larpsmp.moneyevent.auth.AuthConnectionListener;
@@ -14,6 +16,7 @@ import com.larpsmp.moneyevent.auth.PasswordHasher;
 import com.larpsmp.moneyevent.auth.VerificationCodeHasher;
 import com.larpsmp.moneyevent.command.BukkitMoneyCommands;
 import com.larpsmp.moneyevent.command.BukkitOnlinePlayerAccess;
+import com.larpsmp.moneyevent.command.MessageKind;
 import com.larpsmp.moneyevent.command.MoneyCommandController;
 import com.larpsmp.moneyevent.command.MoneyJoinListener;
 import com.larpsmp.moneyevent.command.WalletPlayerLookup;
@@ -229,12 +232,30 @@ public final class MoneyEventPlugin extends JavaPlugin {
             );
             startAutosave(playerStateService, playerStateConfig);
 
+            final AccountRepository moneyAccounts = accountRepository;
             JdbcMoneyRepository moneyRepository = new JdbcMoneyRepository(dataSource);
             moneyService = new MoneyService(
-                    accountRepository, moneyRepository, message -> getLogger().severe(message));
+                    moneyAccounts, moneyRepository, message -> getLogger().severe(message));
             JdbcTeamRepository teamRepository = new JdbcTeamRepository(dataSource);
             teamService = new TeamService(
-                    teamRepository, accountRepository, message -> getLogger().severe(message));
+                    teamRepository, moneyAccounts, message -> getLogger().severe(message));
+            moneyService.setTeamService(teamService);
+            teamService.setCompetitorEnrollmentListener(accountId -> {
+                try {
+                    boolean granted = moneyService.grantCompetitorStartingBalanceIfNeeded(accountId);
+                    if (granted) {
+                        getLogger().info("Granted competitor starting balance to account " + accountId + ".");
+                    }
+                } catch (IOException exception) {
+                    getLogger().severe("Failed to grant competitor starting balance to " + accountId
+                            + ": " + exception.getMessage());
+                }
+            });
+            AccountAdminService accountAdmins = new AccountAdminService(
+                    new AccountAdminRepository(dataSource),
+                    moneyAccounts,
+                    accountSessionManager,
+                    message -> getLogger().severe(message));
             TeamAdminTool teamAdminTool = new TeamAdminTool(this);
             playerStateService.setCaptureExcludedItem(teamAdminTool::isTool);
             TeamAdminSession teamAdminSessions = new TeamAdminSession();
@@ -246,7 +267,8 @@ public final class MoneyEventPlugin extends JavaPlugin {
                     teamDialogs,
                     teamAdminSessions,
                     teamAdminTool,
-                    adminAuthorizer
+                    adminAuthorizer,
+                    accountAdmins
             );
             getServer().getPluginManager().registerEvents(teamAdminListener, this);
             TeamCommandController teamCommands = new TeamCommandController(
@@ -261,14 +283,27 @@ public final class MoneyEventPlugin extends JavaPlugin {
                     getServer(),
                     moneyService,
                     teamService,
-                    accountRepository,
+                    moneyAccounts,
                     message -> getLogger().severe(message));
             moneyService.addBalanceChangeListener(
                     (playerId, ignoredBalance) -> balanceDisplay.refreshPlayerAndTeammates(playerId));
-            teamService.addRosterChangeListener(teamIds -> {
+            moneyService.addSettlementNoticeListener((accountId, message) -> {
+                try {
+                    moneyAccounts.findIdentityByAccountId(accountId).ifPresent(identity -> {
+                        if (onlinePlayers.isOnline(identity.minecraftUuid())) {
+                            onlinePlayers.send(identity.minecraftUuid(), message, MessageKind.INFO);
+                        }
+                    });
+                } catch (java.sql.SQLException exception) {
+                    getLogger().severe("Could not notify account " + accountId + " of settlement: "
+                            + exception.getMessage());
+                }
+            });
+            teamService.addRosterChangeListener((teamIds, accountIds) -> {
                 for (UUID teamId : teamIds) {
                     balanceDisplay.refreshTeam(teamId);
                 }
+                balanceDisplay.refreshAccounts(accountIds);
             });
             MoneyCommandController controller = new MoneyCommandController(
                     moneyService,
@@ -277,9 +312,12 @@ public final class MoneyEventPlugin extends JavaPlugin {
                     notifications,
                     message -> getLogger().severe(message),
                     adminAuthorizer,
-                    teamCommands);
-            BukkitMoneyCommands commands = new BukkitMoneyCommands(controller);
-            for (String commandName : new String[] {"balance", "pay", "larp"}) {
+                    teamCommands,
+                    teamService,
+                    balanceDisplay,
+                    accountAdmins);
+            BukkitMoneyCommands commands = new BukkitMoneyCommands(controller, accountAdmins);
+            for (String commandName : new String[] {"balance", "pay", "top", "larp"}) {
                 var command = Objects.requireNonNull(getCommand(commandName),
                         "Command missing from plugin.yml: " + commandName);
                 command.setExecutor(commands);
@@ -288,9 +326,10 @@ public final class MoneyEventPlugin extends JavaPlugin {
             getServer().getPluginManager().registerEvents(
                     new MoneyJoinListener(moneyService, notifications,
                             message -> getLogger().severe(message), balanceDisplay), this);
-            getLogger().warning("Using temporary console/operator money authorizer; replace it with Azeem's adapter.");
-            getLogger().info("Account-linked wallets ready (starting balance $"
-                    + MoneyService.STARTING_BALANCE + ").");
+            getLogger().info("Plugin admins are LarpSMP-account based. Grant with: /larp op <username>");
+            getLogger().info("Account-linked wallets ready (competitor starting balance $"
+                    + MoneyService.STARTING_BALANCE + " on first team assignment).");
+            getLogger().info("Economy settlement APIs ready (split/death/rescue/kill-money).");
             getLogger().info("Teams administration ready (dialog UI + /larp team|captain|tier|teams).");
             getLogger().info("Account-keyed player bodies enabled (autosave "
                     + playerStateConfig.autosaveSeconds() + "s).");

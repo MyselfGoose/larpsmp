@@ -4,7 +4,12 @@ import com.larpsmp.moneyevent.command.CommandSource;
 import com.larpsmp.moneyevent.team.TeamAdminAction;
 import com.larpsmp.moneyevent.team.TeamAdminAuthorizer;
 
-/** Temporary local-development fallback. Replace this adapter with Azeem's authorization adapter. */
+/**
+ * Allows the server console and LarpSMP account admins.
+ *
+ * <p>Player {@link CommandSource#isOperator()} must be wired to
+ * {@link AccountAdminService#isAdminMinecraftUuid(java.util.UUID)} (not Paper's client-UUID ops list).
+ */
 public final class DevelopmentConsoleOpAuthorizer implements MoneyAdminAuthorizer, TeamAdminAuthorizer {
     @Override
     public boolean isAllowed(CommandSource sender, MoneyAdminAction action) {

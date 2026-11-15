@@ -24,6 +24,13 @@ class TeamWealthTest {
                     fixture.accounts(),
                     message -> {
                     });
+            teams.setCompetitorEnrollmentListener(accountId -> {
+                try {
+                    fixture.money().grantCompetitorStartingBalanceIfNeeded(accountId);
+                } catch (Exception exception) {
+                    throw new RuntimeException(exception);
+                }
+            });
             // Isolated team so leftover Blue/Red/Yellow roster from other tests cannot interfere.
             TeamMutationResult created = teams.createTeam("WealthProbe", TeamColor.GREEN);
             assertTrue(created.success());
@@ -38,7 +45,7 @@ class TeamWealthTest {
             assertTrue(teams.assignMember(alphaAccount.id(), team.id()).success());
             assertTrue(teams.assignMember(betaAccount.id(), team.id()).success());
 
-            // Starting balance is $200 each → team wealth $400 before adjustments.
+            // Starting balance is $200 each on first assignment → team wealth $400 before adjustments.
             assertEquals(400L, fixture.money().teamWealth(team.id()));
 
             TransactionResult add = fixture.money().add(

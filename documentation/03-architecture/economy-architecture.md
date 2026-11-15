@@ -1,6 +1,6 @@
 # Economy architecture
 
-**Status:** Core wallet service **Implemented**. Settlement/split/rescue APIs **Planned**.
+**Status:** Core wallet service **Implemented**. Settlement/split/rescue APIs **Implemented** on `feature/economy-settlement` (callers for kills/captures still queued).
 
 ## Authoritative entry point
 
@@ -11,15 +11,19 @@
 | Method | Purpose |
 |--------|---------|
 | `balance` / `account` / `accountByAccountId` | Read |
-| `registeredAccounts` | List wallets with Minecraft identity |
+| `registeredAccounts` / `competitorStandings` | List wallets |
 | `teamWealth(teamId)` | Sum roster balances (offline included) |
 | `add` / `remove` / `set` | Admin-style single-wallet mutations |
 | `transfer` | Player `/pay` and similar |
+| `grantCompetitorStartingBalanceIfNeeded` | One-time `$200` on first team assignment |
+| `splitReward` / `processCaptureReward` | Rotating whole-dollar team credits; idempotent external ids |
+| `processDeathPayment` | Victim + teammate cover + killer payout; rescue; idempotent `deathId` |
+| Kill-money / killreward / visibility setters | Admin scopes and death prices |
 | `transaction` / `allTransactions` | Ledger reads |
 | `touchIdentityOnJoin` | Update last-seen name; does not create wallets |
-| Balance change listeners | Drive sidebar updates |
+| Balance / settlement notice listeners | Drive sidebar + contributor messages |
 
-Constants: `STARTING_BALANCE = 200`.
+Constants: [`EconomyRules`](../../src/main/java/com/larpsmp/moneyevent/wallet/EconomyRules.java) (`STARTING_BALANCE = 200`, death/rescue/capture amounts).
 
 Public identifiers in the command layer are Minecraft UUIDs; persistence keys are **account IDs**.
 
@@ -27,13 +31,10 @@ Public identifiers in the command layer are Minecraft UUIDs; persistence keys ar
 
 [`TransactionType`](../../src/main/java/com/larpsmp/moneyevent/wallet/TransactionType.java):
 
-- `STARTING_BALANCE`
-- `ADD`
-- `REMOVE`
-- `SET`
-- `TRANSFER`
+- `STARTING_BALANCE`, `ADD`, `REMOVE`, `SET`, `TRANSFER`
+- `DEATH_PAYMENT`, `TEAM_REWARD`, `CAPTURE_REWARD`, `EVENT_REWARD`, `RESCUE_PAYMENT`, `AUCTION_PAYMENT`, `REVERSAL`
 
-Ledger columns (migration `V003`) include type, status, amount, reason, actor/source/destination account IDs, before/after balances, failure reason, and audit fields (`authorization_action`, `command`, `actor_username`, `sender_type`).
+Ledger columns (migrations `V003` + `V007`) include type, status, amount, reason, actor/source/destination account IDs, before/after balances, failure reason, audit fields, `parent_transaction_id`, and external refs.
 
 ### Commands
 
@@ -42,27 +43,16 @@ Ledger columns (migration `V003`) include type, status, amount, reason, actor/so
 | `/balance`, `/balance <player>` | Implemented |
 | `/pay <player> <amount>` | Implemented (offline OK; combat OK) |
 | `/larp money give\|take\|set` | Implemented |
-| `/top money`, `/top teams` | Planned |
+| `/top money`, `/top teams` | Implemented |
+| `/larp visibility teamtotals show\|hide` | Implemented |
+| `/larp killmoney …`, `/larp killreward set` | Implemented |
 | `/larp money history` | Planned |
-| `/larp visibility teamtotals` | Deferred |
-| `/larp killmoney …`, `/larp killreward …` | Deferred / Planned |
 
 Offline payment notifications: [`PaymentNotificationStore`](../../src/main/java/com/larpsmp/moneyevent/notification/PaymentNotificationStore.java) under the plugin data folder.
 
-Sidebar: [`BukkitBalanceSidebar`](../../src/main/java/com/larpsmp/moneyevent/display/BukkitBalanceSidebar.java) — stacked Team Money + Wallet.
+Sidebar: [`BukkitBalanceSidebar`](../../src/main/java/com/larpsmp/moneyevent/display/BukkitBalanceSidebar.java) — stacked Team Money + Wallet (Team Money hidden when visibility is off).
 
-## Planned economy service surface
-
-Future callers (kills, captures, auctions, events) must **not** write wallet fields directly. Planned operations from the economy phase plan:
-
-| Operation | Intent |
-|-----------|--------|
-| `splitReward` | Rotating whole-dollar team split; persist rotation index |
-| `processDeathPayment` | Victim + teammate cover + killer payout; idempotent on `deathId` |
-| `processRescue` | $25 × 4 × 3 teams; linked to death; no recursion |
-| Stronger audit types | `DEATH_PAYMENT`, `CAPTURE_REWARD`, `RESCUE_PAYMENT`, `AUCTION_PAYMENT`, … |
-
-### Invariants for future mutations
+### Mutation invariants
 
 1. Validate the complete operation.
 2. Compute every balance change.
