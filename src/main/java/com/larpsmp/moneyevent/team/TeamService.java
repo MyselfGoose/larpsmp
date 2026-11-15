@@ -255,7 +255,7 @@ public final class TeamService {
                 String name = existing.get().displayName();
                 repository.deleteTeam(connection, teamId);
                 connection.commit();
-                notifyRosterChanged(Set.of(teamId));
+                notifyRosterChanged(Set.of(teamId), Set.of());
                 return TeamMutationResult.ok("Deleted team " + name + ".", null, rosterWarnings());
             } catch (Exception exception) {
                 connection.rollback();
@@ -300,7 +300,7 @@ public final class TeamService {
                 repository.insertMembership(connection, teamId, accountId, sortOrder, Instant.now());
                 connection.commit();
                 Team refreshed = repository.findById(teamId).orElse(team.get());
-                notifyRosterChanged(affected);
+                notifyRosterChanged(affected, Set.of(accountId));
                 notifyCompetitorEnrolled(accountId);
                 String message = existing.isPresent()
                         ? "Moved " + username + " to " + refreshed.displayName() + "."
@@ -332,7 +332,7 @@ public final class TeamService {
                 repository.clearCaptainIf(connection, member.teamId(), accountId);
                 repository.deleteMembership(connection, accountId);
                 connection.commit();
-                notifyRosterChanged(Set.of(member.teamId()));
+                notifyRosterChanged(Set.of(member.teamId()), Set.of(accountId));
                 Team refreshed = team.flatMap(value -> {
                     try {
                         return repository.findById(value.id());
@@ -616,13 +616,14 @@ public final class TeamService {
         return warnings;
     }
 
-    private void notifyRosterChanged(Set<UUID> affectedTeamIds) {
-        if (affectedTeamIds.isEmpty()) {
+    private void notifyRosterChanged(Set<UUID> affectedTeamIds, Set<UUID> affectedAccountIds) {
+        if (affectedTeamIds.isEmpty() && affectedAccountIds.isEmpty()) {
             return;
         }
-        Set<UUID> immutable = Set.copyOf(affectedTeamIds);
+        Set<UUID> teams = Set.copyOf(affectedTeamIds);
+        Set<UUID> accounts = Set.copyOf(affectedAccountIds);
         for (RosterChangeListener listener : rosterChangeListeners) {
-            listener.rosterChanged(immutable);
+            listener.rosterChanged(teams, accounts);
         }
     }
 

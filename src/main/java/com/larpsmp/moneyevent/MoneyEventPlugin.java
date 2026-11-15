@@ -299,10 +299,11 @@ public final class MoneyEventPlugin extends JavaPlugin {
                             + exception.getMessage());
                 }
             });
-            teamService.addRosterChangeListener(teamIds -> {
+            teamService.addRosterChangeListener((teamIds, accountIds) -> {
                 for (UUID teamId : teamIds) {
                     balanceDisplay.refreshTeam(teamId);
                 }
+                balanceDisplay.refreshAccounts(accountIds);
             });
             MoneyCommandController controller = new MoneyCommandController(
                     moneyService,

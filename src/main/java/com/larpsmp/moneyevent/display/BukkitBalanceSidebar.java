@@ -10,6 +10,7 @@ import com.larpsmp.moneyevent.wallet.MoneyService;
 import io.papermc.paper.scoreboard.numbers.NumberFormat;
 import java.io.IOException;
 import java.sql.SQLException;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
@@ -176,6 +177,16 @@ public final class BukkitBalanceSidebar implements BalanceDisplayControl {
         for (TeamMember member : teams.membersOf(teamId)) {
             Optional<UUID> minecraftUuid = minecraftUuidOf(member.accountId());
             minecraftUuid.ifPresent(this::refresh);
+        }
+    }
+
+    @Override
+    public void refreshAccounts(Collection<UUID> accountIds) {
+        if (accountIds == null || accountIds.isEmpty()) {
+            return;
+        }
+        for (UUID accountId : accountIds) {
+            minecraftUuidOf(accountId).ifPresent(this::refresh);
         }
     }
 

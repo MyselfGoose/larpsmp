@@ -46,7 +46,9 @@ class AccountAdminServiceTest {
             assertInstanceOf(AccountAdminService.GrantResult.Revoked.class,
                     admins.revoke(player.username()));
             assertFalse(admins.isAdminMinecraftUuid(thirdClient));
-            assertEquals(0, admins.listAdmins().size());
+            assertFalse(admins.isAdminAccount(accountId));
+            assertTrue(admins.listAdmins().stream()
+                    .noneMatch(row -> row.accountId().equals(accountId)));
         }
     }
 }

@@ -320,6 +320,10 @@ class MoneyCommandControllerTest {
         }
 
         @Override
+        public void refreshAccounts(java.util.Collection<UUID> accountIds) {
+        }
+
+        @Override
         public void refreshPlayerAndTeammates(UUID playerId) {
             refresh(playerId);
         }
