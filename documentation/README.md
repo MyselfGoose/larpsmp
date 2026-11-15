@@ -12,6 +12,7 @@ Older paths under [`docs/`](../docs/) redirect here. Prefer these pages when rea
 | Confirmed gameplay rules | [Competition rules](02-competition-rules/economy.md) |
 | How the plugin is built | [System overview](03-architecture/system-overview.md) |
 | Running a local server | [Getting started](04-development/getting-started.md) |
+| Refresh / test what already works (2 clients) | [Manual testing refresher](04-development/manual-testing-refresher.md) |
 | What is coded vs still planned | [Implementation status](05-status/implementation-status.md) |
 | What to build next (by branch) | [Roadmap](05-status/roadmap.md) |
 | Unresolved decisions | [Open questions](05-status/open-questions.md) |
@@ -66,6 +67,7 @@ Do not treat **Confirmed** as **Implemented**. Game rules and code often diverge
 ### 04 — Development
 
 - [Getting started](04-development/getting-started.md)
+- [Manual testing refresher](04-development/manual-testing-refresher.md)
 - [Project layout](04-development/project-layout.md)
 - [Configuration and secrets](04-development/configuration-and-secrets.md)
 - [Testing](04-development/testing.md)

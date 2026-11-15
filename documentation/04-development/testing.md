@@ -24,7 +24,10 @@ No automated tests yet for Bukkit sidebar UI, death/rescue/kill/auction gameplay
 
 ## Manual / local Paper
 
-Use `./scripts/dev-server.sh`, then exercise:
+Full two-client refresher (boot steps + every Implemented feature):  
+**[Manual testing refresher](manual-testing-refresher.md)**.
+
+Quick smoke after `./scripts/dev-server.sh`:
 
 1. Sign up + email verify + wallet $200
 2. Reconnect + log in (no second grant of a *new* wallet row — balance preserved)
