@@ -25,6 +25,8 @@ dependencies {
 
     testImplementation(platform("org.junit:junit-bom:5.11.4"))
     testImplementation("org.junit.jupiter:junit-jupiter")
+    // Adventure / Paper APIs used by CommandSource.send(Component) and standings formatting.
+    testImplementation("io.papermc.paper:paper-api:1.21.11-R0.1-SNAPSHOT")
     testImplementation("org.postgresql:postgresql:$postgresqlVersion")
     testImplementation("com.zaxxer:HikariCP:$hikariCpVersion")
     testImplementation("org.bouncycastle:bcprov-jdk18on:$bouncyCastleVersion")

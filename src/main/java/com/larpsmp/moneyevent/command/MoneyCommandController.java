@@ -346,11 +346,10 @@ public final class MoneyCommandController {
         }
         standings.sort(Comparator.comparingLong(TeamStanding::wealth).reversed()
                 .thenComparing(TeamStanding::name, String.CASE_INSENSITIVE_ORDER));
-        source.send("— Team wealth —", MessageKind.INFO);
+        source.send(StandingsMessages.title("Team wealth"));
         int rank = 1;
         for (TeamStanding standing : standings) {
-            source.send(rank + ". " + standing.name() + " — " + MoneyFormats.currency(standing.wealth()),
-                    MessageKind.INFO);
+            source.send(StandingsMessages.entry(rank, standing.name(), standing.wealth()));
             rank++;
         }
     }
@@ -361,11 +360,10 @@ public final class MoneyCommandController {
             source.send("No competitor balances yet.", MessageKind.INFO);
             return;
         }
-        source.send("— Personal wealth —", MessageKind.INFO);
+        source.send(StandingsMessages.title("Personal wealth"));
         int rank = 1;
         for (WalletAccount wallet : standings) {
-            source.send(rank + ". " + wallet.lastKnownUsername() + " — "
-                    + MoneyFormats.currency(wallet.balance()), MessageKind.INFO);
+            source.send(StandingsMessages.entry(rank, wallet.lastKnownUsername(), wallet.balance()));
             rank++;
         }
     }

@@ -4,6 +4,7 @@ import com.larpsmp.moneyevent.auth.AccountAdminService;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Predicate;
+import net.kyori.adventure.text.Component;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.jetbrains.annotations.Nullable;
@@ -53,6 +54,11 @@ public final class CommandSources {
             @Override
             public void send(String message, MessageKind kind) {
                 sender.sendMessage(BukkitOnlinePlayerAccess.component(message, kind));
+            }
+
+            @Override
+            public void send(Component message) {
+                sender.sendMessage(message);
             }
         };
     }
