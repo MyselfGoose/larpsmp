@@ -1,6 +1,6 @@
 # Persistence and schema
 
-**Status:** Migrations **V001–V007 Implemented** (`V007` on `feature/economy-settlement`).
+**Status:** Migrations **V001–V009 Implemented** (`V009` on `feature/kill-attribution`).
 
 Migrations live under `src/main/resources/db/migrations/` and run via `MigrationRunner` on plugin enable when auth/DB is available.
 
@@ -15,6 +15,8 @@ Migrations live under `src/main/resources/db/migrations/` and run via `Migration
 | 005 | `V005__teams.sql` | `teams`, `team_memberships`; seed Blue/Red/Yellow |
 | 006 | `V006__competitor_tiers.sql` | `competitor_tiers` |
 | 007 | `V007__economy_settlement.sql` | starting-balance flag, settings, kill money/prices, settlements, parent/child ledger cols |
+| 008 | `V008__account_plugin_admins.sql` | account-based plugin admins |
+| 009 | `V009__combat_kills.sql` | attributed kills ledger (`event_kill` for future `/top kills`) |
 
 Also: `schema_migrations` tracks applied versions.
 
@@ -36,6 +38,8 @@ Also: `schema_migrations` tracks applied versions.
 | `teams` | Team definitions + captain |
 | `team_memberships` | Roster links |
 | `competitor_tiers` | Tier 1–4 per account |
+| `account_plugin_admins` | LarpSMP-account plugin ops |
+| `combat_kills` | Attributed deaths (`death_id`, cause, `event_kill`, settlement outcome) |
 | `schema_migrations` | Applied versions |
 
 ## Economy persistence notes

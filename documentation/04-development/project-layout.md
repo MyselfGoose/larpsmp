@@ -12,6 +12,7 @@ LarpSMP/
   src/main/java/com/larpsmp/moneyevent/
     MoneyEventPlugin.java
     auth/
+    combat/                 # Kill attribution (60s last-attacker → death settlement)
     command/
     config/
     db/
@@ -24,7 +25,7 @@ LarpSMP/
   src/main/resources/
     plugin.yml
     config.yml
-    db/migrations/          # V001–V006
+    db/migrations/          # V001–V009
   src/test/java/…           # JUnit 5 tests
   docker/
     docker-compose.yml      # Postgres + pgAdmin

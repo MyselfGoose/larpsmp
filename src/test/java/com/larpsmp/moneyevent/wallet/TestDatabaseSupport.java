@@ -146,6 +146,16 @@ public final class TestDatabaseSupport {
                 for (String username : usernames) {
                     try (PreparedStatement statement = connection.prepareStatement(
                             """
+                            DELETE FROM combat_kills
+                            WHERE victim_account_id IN (SELECT id FROM accounts WHERE username = ?)
+                               OR killer_account_id IN (SELECT id FROM accounts WHERE username = ?)
+                            """)) {
+                        statement.setString(1, username);
+                        statement.setString(2, username);
+                        statement.executeUpdate();
+                    }
+                    try (PreparedStatement statement = connection.prepareStatement(
+                            """
                             DELETE FROM account_plugin_admins
                             WHERE account_id IN (SELECT id FROM accounts WHERE username = ?)
                             """)) {

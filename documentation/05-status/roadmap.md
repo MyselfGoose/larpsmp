@@ -1,7 +1,7 @@
 # Development roadmap (by branch)
 
-You are here: **`main`** contains everything through documentation + teams.  
-**Next branch to open:** [`feature/economy-settlement`](#5-featureeconomy-settlement--next-do-this-now) (Amira / economy owner).
+You are here: **`main`** contains everything through economy settlement; kill attribution lives on `feature/kill-attribution`.  
+**Next branch to open:** [`feature/capture-points`](#7-featurecapture-points--queued) (Azeem) or [`feature/display-and-leaderboards`](#8-featuredisplay-and-leaderboards--queued) once attribution is merged.
 
 Status key on this page:
 
@@ -27,7 +27,7 @@ DONE     feature/teams            → teams, captains, tiers, team wealth HUD
 DONE     documentation            → documentation/ tree on main
 ────────────────────────────────────────────────────────────────
 DONE     feature/economy-settlement
-QUEUED   feature/kill-attribution          (PARALLEL with settlement APIs)
+DONE     feature/kill-attribution
 QUEUED   feature/capture-points
 QUEUED   feature/spawn-protection
 QUEUED   feature/display-and-leaderboards
@@ -143,22 +143,21 @@ OPS      roster, calendar, map, hosting, playtest
 
 ---
 
-## 6. `feature/kill-attribution` — QUEUED (PARALLEL)
+## 6. `feature/kill-attribution` — DONE
 
 **Owner:** Azeem.  
-**Can start after** economy exposes `processDeathPayment` (or a stub interface agreed in [integration contracts](../03-architecture/integration-contracts.md)).  
-**May run in parallel** once the settlement API shape is agreed.
+**Depends on:** `processDeathPayment` (landed with economy-settlement).
 
-| # | Work item |
-|---|-----------|
-| 1 | Last-attacker window **60 seconds** |
-| 2 | Melee, projectiles, pets, TNT, lava/fire, falls after hit, traps |
-| 3 | Friendly fire: attribute if needed for logs, but **no money** (economy enforces) |
-| 4 | Unknown trap ownership → environmental, no money |
-| 5 | Emit stable `deathId` + evidence string into economy |
-| 6 | Respect kill-money scopes from economy |
-| 7 | Event kills **do not** count on normal kill leaderboard (wire when `/top kills` exists) |
-| 8 | No automatic combat-log punishment |
+| # | Work item | Status |
+|---|-----------|--------|
+| 1 | Last-attacker window **60 seconds** | Done |
+| 2 | Melee, projectiles, pets, TNT, lava/fire, falls after hit, traps | Done |
+| 3 | Friendly fire: attribute if needed for logs, but **no money** (economy enforces) | Done |
+| 4 | Unknown trap ownership → environmental, no money | Done |
+| 5 | Emit stable `deathId` + evidence string into economy | Done |
+| 6 | Respect kill-money scopes from economy | Done (economy gates; attribution always calls) |
+| 7 | Event kills **do not** count on normal kill leaderboard (wire when `/top kills` exists) | Done (`combat_kills.event_kill` + `EventCombatScope`) |
+| 8 | No automatic combat-log punishment | Done |
 
 **Done when:** a real in-game kill produces exactly one correct money settlement (or none).
 
@@ -302,7 +301,7 @@ Not branches, but blockers for “event ready”:
 ## Recommended working order (what you do next)
 
 1. **Now:** create `feature/economy-settlement` from `main` → constants + competitor starting balance → split → death/rescue → kill-money scopes → `/top` + visibility → tests.  
-2. **Then / parallel:** `feature/kill-attribution` once settlement API is callable.  
+2. **Then / parallel:** `feature/kill-attribution` — Done.  
 3. **Then:** `feature/capture-points`.  
 4. **Whenever small:** `feature/spawn-protection`.  
 5. **Then:** display polish, auctions (manual first), Ace Hunt, Gladiators as needed.  
