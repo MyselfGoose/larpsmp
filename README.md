@@ -1,18 +1,73 @@
 # LarpSMP Money Event
 
-Private Minecraft Java Edition event project foundation.
+Private Minecraft Java Edition competition project: a five-day event for twelve friends, powered by the **MoneyEvent** Paper plugin.
 
-This repository currently contains only the **Paper plugin + local development server** infrastructure. Game mechanics are intentionally not implemented yet.
+This repository contains the **Paper plugin + local development server** with:
 
-## Prerequisites
+- **PostgreSQL-backed pre-join authentication**
+- **Account-linked wallets** (starting balance, `/balance`, `/pay`, admin money commands, Wallet HUD)
+- **Account-keyed player bodies** (inventory/location/vitals persist per LarpSMP account)
+- **Teams administration** (Blue/Red/Yellow seed, captains, tiers 1–4, team wealth on the sidebar)
 
-- **Java 21+** (required by Paper 1.21.11; Java 25 works)
-  - Preferred on Arch/CachyOS: `sudo pacman -S --needed jdk21-openjdk`
-  - Or use a JDK under `tools/jdk-25` (gitignored; used automatically by `scripts/dev-server.sh`)
-- Git
-- curl / python3 (used by the dev-server bootstrap script)
+Full product rules, architecture, status, and recovery notes live in **[documentation/](documentation/README.md)**.
 
-## Build the plugin
+## One-command setup (CachyOS / Arch)
+
+On a fresh machine (or after pulling this branch):
+
+```bash
+./scripts/dev-server.sh
+```
+
+That script:
+
+1. Ensures project-root `.env` exists (copies from `.env.example` if needed)
+2. Audits the machine (Java, Docker, curl, python, git, ports, Compose files)
+3. Installs missing packages via `pacman` (may prompt for `sudo`)
+4. Starts Postgres + pgAdmin with Docker Compose using `.env`
+5. Syncs `dev-server/plugins/MoneyEvent/config.yml` from `.env`
+6. Runs `./gradlew build` (compile + tests)
+7. Downloads Paper 1.21.11 if needed and starts the server on `localhost:25565`
+
+**Secrets:** put DB passwords, Resend keys, storage URLs, etc. in `.env` (gitignored). Share that file with coworkers, or start from the committed template:
+
+```bash
+cp .env.example .env
+```
+
+When it finishes the readiness report, join Minecraft and use **Sign up**. New accounts automatically receive a **$200** wallet. Set `LARPSMP_RESEND_API_KEY` and `LARPSMP_RESEND_FROM_EMAIL` in `.env` so the verification email can be delivered.
+
+| Service | Address | Credentials (from `.env` defaults) |
+|---------|---------|-------------|
+| Paper | `localhost:25565` | Sign up / Log in in-game |
+| Postgres | `127.0.0.1:5433` | `larpsmp` / `larpsmp` |
+| pgAdmin | http://localhost:5050 | `admin@larpsmp.dev` / `admin` |
+
+Stop Paper by typing `stop` in the server console. Docker Postgres + pgAdmin keep running.
+
+## Documentation
+
+| Doc | Contents |
+|-----|----------|
+| [documentation/README.md](documentation/README.md) | Index, status legend, full map |
+| [Getting started](documentation/04-development/getting-started.md) | Bootstrap and versions |
+| [Auth and identity](documentation/03-architecture/auth-and-identity.md) | Signup, Postgres, pgAdmin |
+| [Implementation status](documentation/05-status/implementation-status.md) | What is coded vs planned |
+| [Competition economy rules](documentation/02-competition-rules/economy.md) | Confirmed money rules |
+
+Legacy paths under [`docs/`](docs/) redirect into `documentation/`.
+
+## Prerequisites (installed automatically on CachyOS/Arch)
+
+The bootstrap script installs these if missing:
+
+- **Java 21+** (`jdk21-openjdk`)
+- **Docker Engine + Compose** (`docker`, `docker-compose`)
+- **git**, **curl**, **python**
+
+You still need a **Minecraft Java Edition 1.21.11** client (not installed by the script).
+
+## Manual build only
 
 ```bash
 ./gradlew build
@@ -20,30 +75,14 @@ This repository currently contains only the **Paper plugin + local development s
 
 The plugin JAR is written to `build/libs/` (for example `money-event-0.1.0.jar`).
 
-## Start the development server
-
-```bash
-./scripts/dev-server.sh
-```
-
-This script:
-
-1. Resolves Java 21+
-2. Builds the plugin with Gradle
-3. Downloads the Paper 1.21.11 server JAR into `dev-server/` if needed
-4. Accepts the Minecraft EULA for local development
-5. Ensures offline mode (`online-mode=false`) for cracked/offline clients
-6. Copies the plugin JAR into `dev-server/plugins/`
-7. Starts Paper (`localhost:25565`)
-
-Stop the server by typing `stop` in the console.
-
 ## Connect with Minecraft
 
-1. Start a **Minecraft Java Edition 1.21.11** client (official or cracked launcher).
-2. Multiplayer → Direct Connection → `localhost` (or `127.0.0.1`).
+1. Run `./scripts/dev-server.sh` and wait for the ready report.
+2. Start a **Minecraft Java Edition 1.21.11** client.
+3. Multiplayer → Direct Connection → `localhost`.
+4. Use **Sign up**, enter the email verification code, then later **Log in** on reconnect.
 
-Offline mode is enabled, so cracked/unauthenticated clients can join.
+Offline mode is enabled so cracked clients can reach the auth dialog; the plugin still requires a real database-backed account.
 
 ## Local server files
 
@@ -57,5 +96,3 @@ Generated worlds, logs, caches, Paper JARs, and plugin JARs are **not** tracked 
 ## What Git ignores
 
 Gradle output (`.gradle/`, `build/`), IDE metadata, OS junk, secrets, and development-server runtime data (worlds, logs, cache, libraries, plugins, Paper JAR, generated configs).
-
-See [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) for a short developer workflow.

@@ -1,0 +1,65 @@
+# Local development stack for LarpSMP account authentication.
+# Secrets come from the project-root .env (see .env.example).
+#
+# Start:  docker compose --env-file .env -f docker/docker-compose.yml up -d
+# Stop:   docker compose --env-file .env -f docker/docker-compose.yml down
+# Wipe:   docker compose --env-file .env -f docker/docker-compose.yml down -v
+#
+# Requires Docker (rootless works). Compose plugin must be available.
+# Postgres is published on host port LARPSMP_POSTGRES_PORT (default 5433).
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: larpsmp-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${LARPSMP_POSTGRES_DB:-larpsmp}
+      POSTGRES_USER: ${LARPSMP_POSTGRES_USER:-larpsmp}
+      POSTGRES_PASSWORD: ${LARPSMP_POSTGRES_PASSWORD:-larpsmp}
+    ports:
+      # Host port avoids conflicts with a system Postgres already on 5432.
+      # Inside the Compose network the DB is still postgres:5432.
+      - "${LARPSMP_POSTGRES_PORT:-5433}:5432"
+    volumes:
+      - larpsmp_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - larpsmp-net
+
+  pgadmin:
+    image: dpage/pgadmin4:8
+    container_name: larpsmp-pgadmin
+    restart: unless-stopped
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${LARPSMP_PGADMIN_EMAIL:-admin@larpsmp.dev}
+      PGADMIN_DEFAULT_PASSWORD: ${LARPSMP_PGADMIN_PASSWORD:-admin}
+      # Allow .dev addresses if deliverability checks change in future images.
+      PGADMIN_CONFIG_CHECK_EMAIL_DELIVERABILITY: "False"
+      # True = normal browser login UI (False/desktop mode returns HTTP 401).
+      PGADMIN_CONFIG_SERVER_MODE: "True"
+      PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED: "False"
+      PGADMIN_SERVER_JSON_FILE: /pgadmin4/servers.json
+    ports:
+      - "${LARPSMP_PGADMIN_PORT:-5050}:80"
+    volumes:
+      - larpsmp_pgadmin:/var/lib/pgadmin
+      - ./pgadmin/servers.json:/pgadmin4/servers.json:ro
+      - ./pgadmin/pgpass:/pgpass:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - larpsmp-net
+
+volumes:
+  larpsmp_pgdata:
+  larpsmp_pgadmin:
+
+networks:
+  larpsmp-net:
+    driver: bridge
