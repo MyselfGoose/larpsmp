@@ -1,5 +1,7 @@
 package com.larpsmp.moneyevent.command;
 
+import com.larpsmp.moneyevent.auth.AccountAdminRepository;
+import com.larpsmp.moneyevent.auth.AccountAdminService;
 import com.larpsmp.moneyevent.auth.MoneyAdminAction;
 import com.larpsmp.moneyevent.auth.MoneyAdminAuthorizer;
 import com.larpsmp.moneyevent.display.BalanceDisplayControl;
@@ -21,6 +23,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Consumer;
+import org.bukkit.Bukkit;
+import org.bukkit.entity.Player;
 import org.jetbrains.annotations.Nullable;
 
 public final class MoneyCommandController {
@@ -33,6 +37,7 @@ public final class MoneyCommandController {
     private final @Nullable TeamCommandController teamCommands;
     private final @Nullable TeamService teams;
     private final @Nullable BalanceDisplayControl balanceDisplay;
+    private final @Nullable AccountAdminService accountAdmins;
 
     public MoneyCommandController(
             MoneyService money,
@@ -41,7 +46,7 @@ public final class MoneyCommandController {
             PaymentNotificationStore notifications,
             Consumer<String> errorLogger,
             MoneyAdminAuthorizer authorizer) {
-        this(money, lookup, onlinePlayers, notifications, errorLogger, authorizer, null, null, null);
+        this(money, lookup, onlinePlayers, notifications, errorLogger, authorizer, null, null, null, null);
     }
 
     public MoneyCommandController(
@@ -52,7 +57,7 @@ public final class MoneyCommandController {
             Consumer<String> errorLogger,
             MoneyAdminAuthorizer authorizer,
             @Nullable TeamCommandController teamCommands) {
-        this(money, lookup, onlinePlayers, notifications, errorLogger, authorizer, teamCommands, null, null);
+        this(money, lookup, onlinePlayers, notifications, errorLogger, authorizer, teamCommands, null, null, null);
     }
 
     public MoneyCommandController(
@@ -65,6 +70,21 @@ public final class MoneyCommandController {
             @Nullable TeamCommandController teamCommands,
             @Nullable TeamService teams,
             @Nullable BalanceDisplayControl balanceDisplay) {
+        this(money, lookup, onlinePlayers, notifications, errorLogger, authorizer, teamCommands, teams,
+                balanceDisplay, null);
+    }
+
+    public MoneyCommandController(
+            MoneyService money,
+            PlayerLookup lookup,
+            OnlinePlayerAccess onlinePlayers,
+            PaymentNotificationStore notifications,
+            Consumer<String> errorLogger,
+            MoneyAdminAuthorizer authorizer,
+            @Nullable TeamCommandController teamCommands,
+            @Nullable TeamService teams,
+            @Nullable BalanceDisplayControl balanceDisplay,
+            @Nullable AccountAdminService accountAdmins) {
         this.money = money;
         this.lookup = lookup;
         this.onlinePlayers = onlinePlayers;
@@ -74,6 +94,7 @@ public final class MoneyCommandController {
         this.teamCommands = teamCommands;
         this.teams = teams;
         this.balanceDisplay = balanceDisplay;
+        this.accountAdmins = accountAdmins;
     }
 
     public void balance(CommandSource source, String[] arguments) {
@@ -194,7 +215,7 @@ public final class MoneyCommandController {
             return;
         }
         if (arguments.length < 1) {
-            source.send("Usage: /larp <money|killmoney|killreward|visibility|teams|team|captain|tier> ...",
+            source.send("Usage: /larp <money|killmoney|killreward|visibility|op|deop|ops|teams|team|captain|tier> ...",
                     MessageKind.ERROR);
             return;
         }
@@ -204,10 +225,109 @@ public final class MoneyCommandController {
             case "killmoney" -> larpKillMoney(source, arguments);
             case "killreward" -> larpKillReward(source, arguments);
             case "visibility" -> larpVisibility(source, arguments);
+            case "op" -> larpOp(source, arguments);
+            case "deop" -> larpDeop(source, arguments);
+            case "ops" -> larpOps(source);
             default -> source.send(
-                    "Usage: /larp <money|killmoney|killreward|visibility|teams|team|captain|tier> ...",
+                    "Usage: /larp <money|killmoney|killreward|visibility|op|deop|ops|teams|team|captain|tier> ...",
                     MessageKind.ERROR);
         }
+    }
+
+    private void larpOp(CommandSource source, String[] arguments) {
+        if (!requireAccountAdminService(source) || !allowedPluginAdminManage(source)) {
+            return;
+        }
+        if (arguments.length < 2) {
+            source.send("Usage: /larp op <larpsmp-username>", MessageKind.ERROR);
+            return;
+        }
+        String username = arguments[1].trim();
+        AccountAdminService.GrantResult result = accountAdmins.grant(username, source.name());
+        switch (result) {
+            case AccountAdminService.GrantResult.Granted granted -> {
+                syncOnlineOp(granted.account().id());
+                source.send("Granted plugin admin to account '" + granted.account().username() + "'.",
+                        MessageKind.SUCCESS);
+            }
+            case AccountAdminService.GrantResult.Already already ->
+                    source.send("Account '" + already.account().username() + "' is already a plugin admin.",
+                            MessageKind.INFO);
+            case AccountAdminService.GrantResult.NotFound ignored ->
+                    source.send("No LarpSMP account named '" + username + "'.", MessageKind.ERROR);
+            case AccountAdminService.GrantResult.Failed failed ->
+                    source.send("Could not grant admin: " + failed.message(), MessageKind.ERROR);
+            default -> source.send("Could not grant admin.", MessageKind.ERROR);
+        }
+    }
+
+    private void larpDeop(CommandSource source, String[] arguments) {
+        if (!requireAccountAdminService(source) || !allowedPluginAdminManage(source)) {
+            return;
+        }
+        if (arguments.length < 2) {
+            source.send("Usage: /larp deop <larpsmp-username>", MessageKind.ERROR);
+            return;
+        }
+        String username = arguments[1].trim();
+        AccountAdminService.GrantResult result = accountAdmins.revoke(username);
+        switch (result) {
+            case AccountAdminService.GrantResult.Revoked revoked -> {
+                syncOnlineOp(revoked.account().id());
+                source.send("Removed plugin admin from account '" + revoked.account().username() + "'.",
+                        MessageKind.SUCCESS);
+            }
+            case AccountAdminService.GrantResult.NotAdmin notAdmin ->
+                    source.send("Account '" + notAdmin.account().username() + "' is not a plugin admin.",
+                            MessageKind.INFO);
+            case AccountAdminService.GrantResult.NotFound ignored ->
+                    source.send("No LarpSMP account named '" + username + "'.", MessageKind.ERROR);
+            case AccountAdminService.GrantResult.Failed failed ->
+                    source.send("Could not revoke admin: " + failed.message(), MessageKind.ERROR);
+            default -> source.send("Could not revoke admin.", MessageKind.ERROR);
+        }
+    }
+
+    private void larpOps(CommandSource source) {
+        if (!requireAccountAdminService(source) || !allowedPluginAdminManage(source)) {
+            return;
+        }
+        List<AccountAdminRepository.AdminRow> admins = accountAdmins.listAdmins();
+        if (admins.isEmpty()) {
+            source.send("No plugin admins yet. From console: /larp op <larpsmp-username>", MessageKind.INFO);
+            return;
+        }
+        source.send("— Plugin admins (LarpSMP accounts) —", MessageKind.INFO);
+        for (AccountAdminRepository.AdminRow row : admins) {
+            source.send("- " + row.username(), MessageKind.INFO);
+        }
+    }
+
+    private boolean requireAccountAdminService(CommandSource source) {
+        if (accountAdmins != null) {
+            return true;
+        }
+        source.send("Account admin service is not available.", MessageKind.ERROR);
+        return false;
+    }
+
+    private boolean allowedPluginAdminManage(CommandSource source) {
+        // Console always; in-game only existing account admins.
+        if (source.isConsole() || source.isOperator()) {
+            return true;
+        }
+        source.send("You are not authorized to perform that action.", MessageKind.ERROR);
+        return false;
+    }
+
+    private void syncOnlineOp(UUID accountId) {
+        if (accountAdmins == null) {
+            return;
+        }
+        accountAdmins.syncBukkitOperatorIfOnline(accountId, uuid -> {
+            Player player = Bukkit.getPlayer(uuid);
+            return player != null && player.isOnline() ? player : null;
+        });
     }
 
     private void topTeams(CommandSource source) throws IOException {
@@ -553,8 +673,19 @@ public final class MoneyCommandController {
                 if (authorizer.isAllowed(source, MoneyAdminAction.VISIBILITY)) {
                     candidates.add("visibility");
                 }
+                if (source.isConsole() || source.isOperator()) {
+                    candidates.add("op");
+                    candidates.add("deop");
+                    candidates.add("ops");
+                }
                 if (teamCommands != null) {
                     candidates.addAll(teamCommands.tabComplete(source, arguments));
+                }
+            } else if (arguments[0].equalsIgnoreCase("op") || arguments[0].equalsIgnoreCase("deop")) {
+                if (arguments.length == 2) {
+                    candidates = lookup.suggestions();
+                } else {
+                    return List.of();
                 }
             } else if (arguments[0].equalsIgnoreCase("money")) {
                 if (arguments.length == 2) {

@@ -1,5 +1,7 @@
 package com.larpsmp.moneyevent;
 
+import com.larpsmp.moneyevent.auth.AccountAdminRepository;
+import com.larpsmp.moneyevent.auth.AccountAdminService;
 import com.larpsmp.moneyevent.auth.AccountRepository;
 import com.larpsmp.moneyevent.auth.AuthConfig;
 import com.larpsmp.moneyevent.auth.AuthConnectionListener;
@@ -249,6 +251,11 @@ public final class MoneyEventPlugin extends JavaPlugin {
                             + ": " + exception.getMessage());
                 }
             });
+            AccountAdminService accountAdmins = new AccountAdminService(
+                    new AccountAdminRepository(dataSource),
+                    moneyAccounts,
+                    accountSessionManager,
+                    message -> getLogger().severe(message));
             TeamAdminTool teamAdminTool = new TeamAdminTool(this);
             playerStateService.setCaptureExcludedItem(teamAdminTool::isTool);
             TeamAdminSession teamAdminSessions = new TeamAdminSession();
@@ -260,7 +267,8 @@ public final class MoneyEventPlugin extends JavaPlugin {
                     teamDialogs,
                     teamAdminSessions,
                     teamAdminTool,
-                    adminAuthorizer
+                    adminAuthorizer,
+                    accountAdmins
             );
             getServer().getPluginManager().registerEvents(teamAdminListener, this);
             TeamCommandController teamCommands = new TeamCommandController(
@@ -305,8 +313,9 @@ public final class MoneyEventPlugin extends JavaPlugin {
                     adminAuthorizer,
                     teamCommands,
                     teamService,
-                    balanceDisplay);
-            BukkitMoneyCommands commands = new BukkitMoneyCommands(controller);
+                    balanceDisplay,
+                    accountAdmins);
+            BukkitMoneyCommands commands = new BukkitMoneyCommands(controller, accountAdmins);
             for (String commandName : new String[] {"balance", "pay", "top", "larp"}) {
                 var command = Objects.requireNonNull(getCommand(commandName),
                         "Command missing from plugin.yml: " + commandName);
@@ -316,7 +325,7 @@ public final class MoneyEventPlugin extends JavaPlugin {
             getServer().getPluginManager().registerEvents(
                     new MoneyJoinListener(moneyService, notifications,
                             message -> getLogger().severe(message), balanceDisplay), this);
-            getLogger().warning("Using temporary console/operator money authorizer; replace it with Azeem's adapter.");
+            getLogger().info("Plugin admins are LarpSMP-account based. Grant with: /larp op <username>");
             getLogger().info("Account-linked wallets ready (competitor starting balance $"
                     + MoneyService.STARTING_BALANCE + " on first team assignment).");
             getLogger().info("Economy settlement APIs ready (split/death/rescue/kill-money).");

@@ -45,6 +45,23 @@ public final class AccountRepository {
         }
     }
 
+    public Optional<Account> findByUsernameIgnoreCase(String username) throws SQLException {
+        if (username == null || username.isBlank()) {
+            return Optional.empty();
+        }
+        String sql = "SELECT " + ACCOUNT_COLUMNS + " FROM accounts WHERE LOWER(username) = LOWER(?)";
+        try (Connection connection = dataSource.getConnection();
+             PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setString(1, username.trim());
+            try (ResultSet resultSet = statement.executeQuery()) {
+                if (!resultSet.next()) {
+                    return Optional.empty();
+                }
+                return Optional.of(mapAccount(resultSet));
+            }
+        }
+    }
+
     public Optional<Account> findByEmail(String email) throws SQLException {
         String sql = "SELECT " + ACCOUNT_COLUMNS + " FROM accounts WHERE email = ?";
         try (Connection connection = dataSource.getConnection();

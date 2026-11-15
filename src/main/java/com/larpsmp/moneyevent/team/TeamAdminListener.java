@@ -1,7 +1,8 @@
 package com.larpsmp.moneyevent.team;
 
+import com.larpsmp.moneyevent.auth.AccountAdminService;
 import com.larpsmp.moneyevent.command.CommandSource;
-import com.larpsmp.moneyevent.command.MessageKind;
+import com.larpsmp.moneyevent.command.CommandSources;
 import io.papermc.paper.connection.PlayerGameConnection;
 import io.papermc.paper.dialog.Dialog;
 import io.papermc.paper.dialog.DialogResponseView;
@@ -43,6 +44,7 @@ public final class TeamAdminListener implements Listener {
     private final TeamAdminSession sessions;
     private final TeamAdminTool tool;
     private final TeamAdminAuthorizer authorizer;
+    private final AccountAdminService accountAdmins;
 
     public TeamAdminListener(
             Plugin plugin,
@@ -50,7 +52,8 @@ public final class TeamAdminListener implements Listener {
             TeamAdminDialogFactory dialogs,
             TeamAdminSession sessions,
             TeamAdminTool tool,
-            TeamAdminAuthorizer authorizer
+            TeamAdminAuthorizer authorizer,
+            AccountAdminService accountAdmins
     ) {
         this.plugin = plugin;
         this.teams = teams;
@@ -58,6 +61,7 @@ public final class TeamAdminListener implements Listener {
         this.sessions = sessions;
         this.tool = tool;
         this.authorizer = authorizer;
+        this.accountAdmins = accountAdmins;
     }
 
     public void openHub(Player player, @Nullable String statusMessage) {
@@ -130,7 +134,9 @@ public final class TeamAdminListener implements Listener {
             if (!player.isOnline()) {
                 return;
             }
-            if (!player.isOp() || !isAuthorized(player, TeamAdminAction.TEAM_OPEN_UI)) {
+            // Force Paper op from LarpSMP account admin list (ignore client UUID ops.json).
+            accountAdmins.syncBukkitOperator(player);
+            if (!isAuthorized(player, TeamAdminAction.TEAM_OPEN_UI)) {
                 tool.stripAll(player.getInventory());
                 return;
             }
@@ -168,7 +174,7 @@ public final class TeamAdminListener implements Listener {
         event.setCancelled(true);
         event.setUseItemInHand(Event.Result.DENY);
         event.setUseInteractedBlock(Event.Result.DENY);
-        if (!player.isOp() || !isAuthorized(player, TeamAdminAction.TEAM_OPEN_UI)) {
+        if (!isAuthorized(player, TeamAdminAction.TEAM_OPEN_UI)) {
             tool.stripAll(player.getInventory());
             player.sendMessage(Component.text("You are not allowed to manage teams.", NamedTextColor.RED));
             return;
@@ -661,32 +667,7 @@ public final class TeamAdminListener implements Listener {
         return result.allFeedback().stream().collect(Collectors.joining(" "));
     }
 
-    private static CommandSource playerSource(Player player) {
-        return new CommandSource() {
-            @Override
-            public Optional<UUID> playerId() {
-                return Optional.of(player.getUniqueId());
-            }
-
-            @Override
-            public String name() {
-                return player.getName();
-            }
-
-            @Override
-            public boolean isConsole() {
-                return false;
-            }
-
-            @Override
-            public boolean isOperator() {
-                return player.isOp();
-            }
-
-            @Override
-            public void send(String message, MessageKind kind) {
-                player.sendMessage(Component.text(message));
-            }
-        };
+    private CommandSource playerSource(Player player) {
+        return CommandSources.ofPlayer(player, accountAdmins);
     }
 }

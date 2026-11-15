@@ -19,5 +19,5 @@ commands:
     description: Shows public team or personal wealth standings.
     usage: /top <teams|money>
   larp:
-    description: Protected LarpSMP administration commands (money, kill money, visibility, teams).
-    usage: /larp <money|killmoney|killreward|visibility|teams|team|captain|tier> ...
+    description: Protected LarpSMP administration commands (money, kill money, visibility, account ops, teams).
+    usage: /larp <money|killmoney|killreward|visibility|op|deop|ops|teams|team|captain|tier> ...
