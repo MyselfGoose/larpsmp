@@ -1,6 +1,6 @@
 # Combat and kills
 
-**Status:** Rules **Confirmed**. Kill attribution and death-money settlement **not Implemented** (economy endpoint planned; attribution owned by Azeem’s systems).
+**Status:** Rules **Confirmed**. Kill attribution **Implemented** (`combat/` → `processDeathPayment`). Death-money settlement **Implemented** in economy.
 
 ## Money on kills
 

@@ -5,7 +5,7 @@
 | Gap | Rules | Code today | Risk |
 |-----|-------|------------|------|
 | Competitor role flag | Needed by contracts | Deferred — roster + `starting_balance_granted` used as proxy | Hard to exclude non-competitors systematically once roles land |
-| Kill attribution → death API | Attribution must call `processDeathPayment` | Settlement API Done; attribution Not started | No automatic in-world PvP payouts yet |
+| Kill attribution → death API | Attribution must call `processDeathPayment` | Done (`KillAttributionService` + combat listeners) | — |
 | Capture → split API | Capture must call `processCaptureReward` | Settlement API Done; capture engine Not started | No automatic capture payouts yet |
 | Spawn protection | Confirmed respawn-only | Not implemented | Manual admin enforcement only |
 | `plugin.yml` usage | Should list `tier` | Omits `tier` | Minor docs/UX mismatch |

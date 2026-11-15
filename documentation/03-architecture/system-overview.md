@@ -26,6 +26,7 @@ Root: `src/main/java/com/larpsmp/moneyevent/`
 |---------|----------------|
 | `(root)` `MoneyEventPlugin` | Lifecycle, wiring, autosave task |
 | `auth` | Pre-join dialogs, accounts, UUID binding, rate limits, admin authorizers |
+| `combat` | Kill attribution (60s last-attacker, traps/hazards) → death settlement |
 | `command` | `/balance`, `/pay`, `/larp` bridge; join listener; player lookup |
 | `config` | `.env` / `EnvSettings` |
 | `db` | Datasource factory, migration runner |
@@ -44,15 +45,16 @@ flowchart TD
   env[Load EnvSettings + config]
   authCfg[AuthConfig / PlayerStateConfig]
   db{auth.enabled and DB up?}
-  migrate[Run migrations V001-V006]
+  migrate[Run migrations V001-V009]
   authSvc[AuthService + listeners]
   money[MoneyService + TeamService]
+  combat[Kill attribution listeners]
   cmds[Register balance pay larp]
   sidebar[Balance sidebar]
   fail[Auth fails closed - no world join]
 
   enable --> env --> authCfg --> db
-  db -->|yes| migrate --> authSvc --> money --> cmds --> sidebar
+  db -->|yes| migrate --> authSvc --> money --> combat --> cmds --> sidebar
   db -->|no| fail
 ```
 
@@ -79,4 +81,4 @@ Note: `plugin.yml` usage text currently omits `tier`; the command is Implemented
 
 ## Intentionally not in this codebase yet
 
-Capture progress engine, kill attribution, death/rescue settlement, auctions, Ace Hunt, Gladiators automation, `/top` leaderboards, competitor role flags, production permission model.
+Capture progress engine, auctions, Ace Hunt, Gladiators automation, `/top kills` UI (kill ledger ready), competitor role flags, production permission model.

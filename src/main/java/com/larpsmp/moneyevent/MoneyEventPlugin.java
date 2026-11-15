@@ -14,6 +14,14 @@ import com.larpsmp.moneyevent.auth.EmailChallengeRepository;
 import com.larpsmp.moneyevent.auth.EmailChallengeService;
 import com.larpsmp.moneyevent.auth.PasswordHasher;
 import com.larpsmp.moneyevent.auth.VerificationCodeHasher;
+import com.larpsmp.moneyevent.combat.AttackMemory;
+import com.larpsmp.moneyevent.combat.BlockOwnershipListener;
+import com.larpsmp.moneyevent.combat.BlockOwnershipTracker;
+import com.larpsmp.moneyevent.combat.CombatDamageListener;
+import com.larpsmp.moneyevent.combat.EventCombatScope;
+import com.larpsmp.moneyevent.combat.JdbcCombatKillRepository;
+import com.larpsmp.moneyevent.combat.KillAttributionService;
+import com.larpsmp.moneyevent.combat.KillDeathListener;
 import com.larpsmp.moneyevent.command.BukkitMoneyCommands;
 import com.larpsmp.moneyevent.command.BukkitOnlinePlayerAccess;
 import com.larpsmp.moneyevent.command.MessageKind;
@@ -326,10 +334,30 @@ public final class MoneyEventPlugin extends JavaPlugin {
             getServer().getPluginManager().registerEvents(
                     new MoneyJoinListener(moneyService, notifications,
                             message -> getLogger().severe(message), balanceDisplay), this);
+
+            AttackMemory attackMemory = new AttackMemory();
+            BlockOwnershipTracker blockOwnership = new BlockOwnershipTracker();
+            KillAttributionService killAttribution = new KillAttributionService(
+                    attackMemory,
+                    accountSessionManager,
+                    moneyAccounts,
+                    teamService,
+                    moneyService,
+                    new JdbcCombatKillRepository(dataSource),
+                    EventCombatScope.NEVER,
+                    message -> getLogger().severe(message)
+            );
+            getServer().getPluginManager().registerEvents(new BlockOwnershipListener(blockOwnership), this);
+            getServer().getPluginManager().registerEvents(
+                    new CombatDamageListener(attackMemory, blockOwnership), this);
+            getServer().getPluginManager().registerEvents(
+                    new KillDeathListener(killAttribution, getLogger()), this);
+
             getLogger().info("Plugin admins are LarpSMP-account based. Grant with: /larp op <username>");
             getLogger().info("Account-linked wallets ready (competitor starting balance $"
                     + MoneyService.STARTING_BALANCE + " on first team assignment).");
             getLogger().info("Economy settlement APIs ready (split/death/rescue/kill-money).");
+            getLogger().info("Kill attribution ready (60s last-attacker window → death settlement).");
             getLogger().info("Teams administration ready (dialog UI + /larp team|captain|tier|teams).");
             getLogger().info("Account-keyed player bodies enabled (autosave "
                     + playerStateConfig.autosaveSeconds() + "s).");

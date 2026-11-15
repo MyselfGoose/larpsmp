@@ -54,7 +54,7 @@ For ordered “what to build next,” see [roadmap.md](roadmap.md). Labels: **Do
 | Spawn protection (respawn-only) | Not started |
 | Capture points engine | Not started |
 | Capture temporary blocks | Not started |
-| Kill attribution | Not started |
+| Kill attribution | Done (`combat/` → `processDeathPayment`; `combat_kills` ledger) |
 | Auctions automation | Not started |
 | Ace Hunt systems | Not started |
 | Gladiators automation | Not started |
@@ -68,6 +68,6 @@ For ordered “what to build next,” see [roadmap.md](roadmap.md). Labels: **Do
 | 3–7 | Rules constants, wallets, service, logs, `/balance` `/pay` | Mostly Done for basics |
 | 8–9 | Admin money + team wealth/leaderboards | Done (`/top teams\|money`) |
 | 10–13 | Split, death, rescue, kill-money | Done on `feature/economy-settlement` |
-| 14–16 | Kill/capture/auction connections | Not started (APIs ready; callers not built) |
+| 14–16 | Kill/capture/auction connections | Partial (kill attribution Done; capture/auction callers Not started) |
 | 17–18 | Money UI polish + restart protection extras | Partial (sidebar + visibility done) |
 | 19–20 | Full automated + multiplayer battery | Partial (settlement unit/integration tests exist) |
