@@ -1,62 +1,328 @@
-# Roadmap
+# Development roadmap (by branch)
 
-Practical continuation order based on the economy phase plan and confirmed events. Adjust ownership with Amira/Azeem as needed.
+You are here: **`main`** contains everything through documentation + teams.  
+**Next branch to open:** [`feature/economy-settlement`](#5-featureeconomy-settlement--next-do-this-now) (Amira / economy owner).
 
-## Near-term foundation (economy)
+Status key on this page:
 
-1. Integration contracts stay current ([Integration contracts](../03-architecture/integration-contracts.md)).
-2. Authoritative rules/constants module (starting balance, death prices, rescue threshold/amounts, capture reward).
-3. Centralize competitor-only starting balance (fix signup-for-all gap).
-4. Expand ledger types + parent/child death transactions.
-5. `splitReward` with persisted rotation.
-6. `processDeathPayment` + `processRescue` with idempotent IDs.
-7. Kill-money scope commands.
-8. `/top teams` / `/top money` (+ kills when attribution exists).
-9. Team-totals visibility toggle.
-10. Restart/idempotency tests for every payout path.
+| Marker | Meaning |
+|--------|---------|
+| **DONE** | Merged into `main`; do not rebuild |
+| **NEXT** | Start this branch now |
+| **QUEUED** | After the previous branch lands |
+| **PARALLEL** | Can run alongside another branch if ownership is clear |
+| **OPS / NON-CODE** | Needed for launch; not a feature branch |
 
-**First usable economy milestone historically:** wallets + `/pay` + admin money + logs — **largely done**. Next milestone: death + rescue + split.
+Branch from **`main`** every time. Merge back to **`main`** when a branch is done. One feature theme per branch.
 
-## Parallel complex systems (Azeem)
+---
 
-1. Kill attribution (60s window, projectiles, pets, TNT, lava/fire, traps).
-2. Capture detection (areas, advantage, boss bar, temp blocks, liquids allowed).
-3. Call economy with stable IDs only after attribution/capture completion is authoritative.
-4. Event setting apply/restore helpers (`killmoney`, keep inventory).
+## Progress at a glance
 
-## Events (by calendar priority)
+```text
+DONE     feature/authentication   → auth, Resend, .env, bootstrap
+DONE     feat/money               → wallets, /pay, admin money, HUD basics
+DONE     (account bodies)         → account-keyed inventory/location on main
+DONE     feature/teams            → teams, captains, tiers, team wealth HUD
+DONE     documentation            → documentation/ tree on main
+────────────────────────────────────────────────────────────────
+NEXT     feature/economy-settlement
+QUEUED   feature/kill-attribution          (PARALLEL with settlement APIs)
+QUEUED   feature/capture-points
+QUEUED   feature/spawn-protection
+QUEUED   feature/display-and-leaderboards
+QUEUED   feature/auctions
+QUEUED   feature/ace-hunt
+QUEUED   feature/gladiators          (light automation; admin-first OK)
+QUEUED   feature/roles-and-authz
+OPS      roster, calendar, map, hosting, playtest
+```
 
-| Priority | Event | Automation urgency |
-|----------|-------|--------------------|
-| High | Daily captures | Needs real plugin for fair contested play |
-| Medium | Auctions | Can start manual with `/pay`; automate bid validation later |
-| Medium | Ace Hunt | Needs points, respawn boxes, spectator rules, territory design |
-| Medium | Gladiators Day 4 | Karim: admin + command blocks may suffice; automate if time |
-| Low | Natural disasters | Unconfirmed |
+---
 
-## Display / UX
+## 1. `feature/authentication` — DONE
 
-- Coordinate any new scoreboard with existing sidebar.
-- Colored nametags and team-grouped player list.
-- Optional `/team`, `/help`, `/capture` info commands if not redundant.
+**Merged into `main`.** Pre-join Paper dialogs + Postgres accounts.
 
-## Ops before invite
+| Work item | Status |
+|-----------|--------|
+| Signup / login / email verify / recovery | DONE |
+| Argon2id passwords, rate limits | DONE |
+| Portable Minecraft UUID rebind | DONE |
+| Resend email delivery | DONE |
+| `.env` secrets + Docker Postgres/pgAdmin | DONE |
+| `dev-server.sh` bootstrap | DONE |
 
-- Final roster from Karim.
-- Dates / timezone / cutoff.
-- Host + backups + who has access.
-- Production authz replacing `DevelopmentConsoleOpAuthorizer`.
-- Playtest: poor victim death, rescue, capture ties, restart mid-reward, auction unpaid winner.
+**Do not reopen** unless fixing auth bugs.
 
-## Suggested suggested capture speed starting point
+---
 
-Configurable playtest defaults:
+## 2. `feat/money` — DONE (foundation)
 
-| Advantage | Time |
-|-----------|------|
-| 1 | 10m |
-| 2 | 7m |
-| 3 | 5m |
-| 4 | 3m 30s |
+**Merged into `main`.** Personal wallets and basic money commands.
 
-Empty decay: start at ~2× one-player capture speed; tune to “pretty quick.”
+| Work item | Status |
+|-----------|--------|
+| Wallet per account, `$200` on signup | DONE |
+| `MoneyService` add/remove/set/transfer | DONE |
+| Ledger types: `STARTING_BALANCE`, `ADD`, `REMOVE`, `SET`, `TRANSFER` | DONE |
+| `/balance`, `/balance <player>`, `/pay` (offline OK) | DONE |
+| `/larp money give\|take\|set` | DONE |
+| Offline payment notifications | DONE |
+| Personal Wallet sidebar section | DONE |
+
+**Known leftover (fix later in economy-settlement):** every signup gets `$200`, not only competitors.
+
+---
+
+## 3. Account-keyed bodies — DONE
+
+**On `main`** (landed via the money/bodies line before teams).
+
+| Work item | Status |
+|-----------|--------|
+| `account_player_states` persist inventory/location/vitals | DONE |
+| Autosave + quit wipe of vanilla shell | DONE |
+| Concurrent-login reject | DONE |
+| GameProfile / display name → LarpSMP username | DONE |
+
+---
+
+## 4. `feature/teams` — DONE
+
+**Merged into `main`.** Roster administration + team wealth display.
+
+| Work item | Status |
+|-----------|--------|
+| Team CRUD, Blue/Red/Yellow seed | DONE |
+| Membership assign/move/remove | DONE |
+| Captains set/clear | DONE |
+| Tiers 1–4 | DONE |
+| Soft roster warnings | DONE |
+| Dialog admin UI + Nether Star | DONE |
+| `MoneyService.teamWealth` | DONE |
+| Sidebar Team Money + Wallet | DONE |
+| Competitor / admin / spectator roles | Not in this branch → see roles branch |
+| `/larp visibility teamtotals` | Not in this branch → economy/display |
+| Colored nametags / tab grouping | Not in this branch → display branch |
+
+---
+
+## 5. `feature/economy-settlement` — NEXT (do this now)
+
+**Owner:** Amira (economy).  
+**Branch from:** `main`.  
+**Goal:** Every confirmed money rule that does not need kill/capture world logic yet — plus the APIs those systems will call.
+
+### Must ship on this branch
+
+| # | Work item | Notes |
+|---|-----------|-------|
+| 1 | Economy rules/constants module | `$200`, death prices 40/30/20/15, rescue `$40` / `$100`/`$25`, capture `$50` |
+| 2 | Competitor-only starting balance | Stop granting `$200` to every auth account; grant once to competitors |
+| 3 | Expand transaction types | e.g. `DEATH_PAYMENT`, `TEAM_REWARD`, `CAPTURE_REWARD`, `RESCUE_PAYMENT`, `AUCTION_PAYMENT`, `REVERSAL` |
+| 4 | `splitReward` + persisted remainder rotation | `$13/$13/$12/$12` pattern; offline members included |
+| 5 | `processDeathPayment` | Victim pay → teammate cover → killer credit; friendly fire = no money; idempotent `deathId` |
+| 6 | `processRescue` | Before unaffordable death drops team below `$40`; `$25`×4×3; no recursion; multi-rescue OK |
+| 7 | Kill-money scopes | Global / event / player override + `/larp killmoney` + `/larp killreward set` |
+| 8 | `/top teams`, `/top money` | Public standings |
+| 9 | `/larp visibility teamtotals show\|hide` | Confirmed policy |
+| 10 | Parent-rich death/rescue logging | Parent transaction + contributions |
+| 11 | Tests | Split rotation, death shortfall, offline cover, rescue, duplicate IDs, restart |
+
+### Explicitly out of this branch
+
+- Detecting who caused a death (that is kill-attribution)
+- Capture area/progress (that is capture-points)
+- Auction UI / shulker delivery
+- Ace Hunt / Gladiators match flow
+
+**Done when:** another system can call economy with a confirmed death or capture ID and get a correct, logged, restart-safe money result — and players can see `/top` standings.
+
+**Suggested first commit on the branch:** constants module + competitor starting-balance fix (unblocks clean standings).
+
+---
+
+## 6. `feature/kill-attribution` — QUEUED (PARALLEL)
+
+**Owner:** Azeem.  
+**Can start after** economy exposes `processDeathPayment` (or a stub interface agreed in [integration contracts](../03-architecture/integration-contracts.md)).  
+**May run in parallel** once the settlement API shape is agreed.
+
+| # | Work item |
+|---|-----------|
+| 1 | Last-attacker window **60 seconds** |
+| 2 | Melee, projectiles, pets, TNT, lava/fire, falls after hit, traps |
+| 3 | Friendly fire: attribute if needed for logs, but **no money** (economy enforces) |
+| 4 | Unknown trap ownership → environmental, no money |
+| 5 | Emit stable `deathId` + evidence string into economy |
+| 6 | Respect kill-money scopes from economy |
+| 7 | Event kills **do not** count on normal kill leaderboard (wire when `/top kills` exists) |
+| 8 | No automatic combat-log punishment |
+
+**Done when:** a real in-game kill produces exactly one correct money settlement (or none).
+
+---
+
+## 7. `feature/capture-points` — QUEUED
+
+**Owner:** Azeem (detection) + economy already has `splitReward`.  
+**Depends on:** economy settlement (reward payout).
+
+| # | Work item |
+|---|-----------|
+| 1 | 2–4 named points; one active at a time |
+| 2 | Advantage = lead − runner-up; ties freeze |
+| 3 | Base 10 min / 1 uncontested player; configurable faster multipliers |
+| 4 | Neutralize then build; resume remaining progress if original team returns |
+| 5 | Empty decay (“pretty quick”; tune in playtest) |
+| 6 | Height: platform + 3 blocks; boats/minecarts OK; no spectators/respawn screen/mid-teleport |
+| 7 | Platform unbreakable; temp blocks 30s; other players can break temp blocks; liquids **allowed** |
+| 8 | Boss bar + chat at 25/50/75/100% |
+| 9 | Admin start/pause/resume/stop |
+| 10 | On complete: call economy once with `captureId` for `$50` split |
+| 11 | Persist active point / progress / temp blocks across restart |
+
+**Done when:** a contested capture pays exactly once and survives restart.
+
+---
+
+## 8. `feature/spawn-protection` — QUEUED (can PARALLEL early)
+
+**Smaller branch.** Confirmed rules already documented.
+
+| # | Work item |
+|---|-----------|
+| 1 | Protect **newly respawned** players only (not “anyone inside spawn”) |
+| 2 | Block player-caused damage only; env damage stays |
+| 3 | Spawn blocks unbreakable |
+| 4 | Clear boundary / duration of “newly respawned” protection |
+
+Can land anytime after teams; does not block economy settlement.
+
+---
+
+## 9. `feature/display-and-leaderboards` — QUEUED
+
+**Coordinate with whoever owns the sidebar** (scoreboards overwrite each other).
+
+| # | Work item |
+|---|-----------|
+| 1 | Keep single sidebar: Team Money + Wallet (already DONE) |
+| 2 | Wire visibility hide into sidebar (needs economy visibility flag) |
+| 3 | `/top kills` once attribution exists (exclude event kills) |
+| 4 | Colored nametags by team |
+| 5 | Player list grouped by team + tier (density playtest) |
+| 6 | Optional `/team`, `/help`, `/capture` info if still useful |
+
+Prefer after economy `/top` + visibility, and after teams colors are stable.
+
+---
+
+## 10. `feature/auctions` — QUEUED
+
+**Can stay thin:** wallets + `/pay` already work for a manual auction.
+
+| # | Work item | Priority |
+|---|-----------|----------|
+| 1 | `/bid`, lot open/close, reject over-balance bids | Nice |
+| 2 | Register fixed representatives per session | Nice |
+| 3 | Prove payment to `akiracreates` for exact amount | Important if automated |
+| 4 | Previous-bidder fallback if winner cannot pay | Important if automated |
+| 5 | Item delivery | **Open** — manual OK for v1 |
+| 6 | Mid-bid teammate `/pay` | **Open** — ask Karim |
+
+**Launch path:** run first auction manually; automate only if pain shows up.
+
+---
+
+## 11. `feature/ace-hunt` — QUEUED (Day 3)
+
+**Depends on:** event apply/restore helpers (keep inventory, spectator, maybe kill-money off), map territories.
+
+| # | Work item |
+|---|-----------|
+| 1 | Ace nomination / teleport to prep territories (2–3 h prep window is ops/schedule) |
+| 2 | Points: hunt placement + ace survival placement; on-screen counter |
+| 3 | Non-ace 3-minute bedrock-box respawn; keep inventory on |
+| 4 | Dead ace → spectator; successful hunters → spectator |
+| 5 | No skybase rule (enforce as designed) |
+| 6 | Surface minute / underground ban near end |
+| 7 | Territory vs world border solution (**Open** design) |
+| 8 | Exact point table (**Open** — ask Karim) |
+
+---
+
+## 12. `feature/gladiators` — QUEUED (Day 4, admin-first)
+
+Karim: **chat + admin + command blocks may be enough**.
+
+| # | Work item | Priority |
+|---|-----------|----------|
+| 1 | Arena TP + spectator barriers (map + admin) | Ops / map |
+| 2 | Kits (team mini-kit + 5 banable 1v1 kits) | Content from Karim |
+| 3 | Fight quota (max 4 fights / player) | Automate if time |
+| 4 | 3v3 schedule + 1v1 kit-ban flow | Automate if time |
+| 5 | Points board + placement payout via economy `splitReward` | When prizes confirmed |
+| 6 | Kill money off for event | Uses kill-money scopes |
+
+Do **not** block the roadmap on full automation.
+
+---
+
+## 13. `feature/roles-and-authz` — QUEUED
+
+| # | Work item |
+|---|-----------|
+| 1 | Competitor / admin / spectator flags on accounts |
+| 2 | Exclude non-competitors from standings / capture advantage / starting money |
+| 3 | Replace `DevelopmentConsoleOpAuthorizer` with production permissions |
+| 4 | Who gets full server ops vs plugin admin (**Open**) |
+
+Best after competitor-only starting balance is designed, or in the same PR series as that fix.
+
+---
+
+## 14. OPS / NON-CODE — before inviting players
+
+Not branches, but blockers for “event ready”:
+
+| Item | Status |
+|------|--------|
+| Final 12 roster, captains, tiers | Open — Karim |
+| Five dates, times, timezone, wealth cutoff | Open — Karim |
+| Map: spawn, captures, arena, ace territories | Build |
+| Hosting (Europe preference, ~8 GB idea, ~6000 RUB budget) | Open |
+| Backups (world + Postgres); who restores | Open |
+| Playtest battery (poor death, rescue, capture tie, restart mid-reward) | After settlement + capture |
+| Natural disasters | Unconfirmed — ignore until Karim says yes |
+
+---
+
+## Recommended working order (what you do next)
+
+1. **Now:** create `feature/economy-settlement` from `main` → constants + competitor starting balance → split → death/rescue → kill-money scopes → `/top` + visibility → tests.  
+2. **Then / parallel:** `feature/kill-attribution` once settlement API is callable.  
+3. **Then:** `feature/capture-points`.  
+4. **Whenever small:** `feature/spawn-protection`.  
+5. **Then:** display polish, auctions (manual first), Ace Hunt, Gladiators as needed.  
+6. **Throughout:** chase Karim on [open questions](open-questions.md).
+
+---
+
+## How to start the next branch
+
+```bash
+git checkout main
+git pull origin main
+git checkout -b feature/economy-settlement
+```
+
+Read before coding:
+
+- [Economy rules](../02-competition-rules/economy.md)
+- [Economy architecture](../03-architecture/economy-architecture.md)
+- [Integration contracts](../03-architecture/integration-contracts.md)
+- [Known gaps](known-gaps-and-debt.md)
+
+When the branch is merge-ready: PR → `main` → delete the feature branch → pick the next **QUEUED** item.

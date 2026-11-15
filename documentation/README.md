@@ -13,6 +13,7 @@ Older paths under [`docs/`](../docs/) redirect here. Prefer these pages when rea
 | How the plugin is built | [System overview](03-architecture/system-overview.md) |
 | Running a local server | [Getting started](04-development/getting-started.md) |
 | What is coded vs still planned | [Implementation status](05-status/implementation-status.md) |
+| What to build next (by branch) | [Roadmap](05-status/roadmap.md) |
 | Unresolved decisions | [Open questions](05-status/open-questions.md) |
 
 ## Status legend
@@ -21,7 +22,7 @@ Every substantive claim in these docs should be readable with one of these label
 
 | Label | Meaning |
 |-------|---------|
-| **Implemented** | Verified in source on branch `feature/teams` (or as otherwise noted) |
+| **Implemented** | Verified in source on `main` (or as otherwise noted) |
 | **Confirmed** | Decided with Karim or settled in the plugin plan; may not be coded yet |
 | **Planned** | Agreed direction; naming or exact UX may change |
 | **Suggestion** | Working recommendation until playtest or Karim decides |

@@ -1,6 +1,7 @@
 # Implementation status
 
-Branch reference: **`feature/teams`**. Labels: **Done** / **Partial** / **Not started**.
+Branch reference: **`main`** (includes merged auth, money, bodies, teams, documentation).  
+For ordered “what to build next,” see [roadmap.md](roadmap.md). Labels: **Done** / **Partial** / **Not started**.
 
 ## Platform
 
