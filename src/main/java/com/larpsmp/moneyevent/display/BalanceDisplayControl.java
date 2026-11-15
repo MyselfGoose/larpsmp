@@ -19,6 +19,9 @@ public interface BalanceDisplayControl extends AutoCloseable {
 
     void playerQuit(UUID playerId);
 
+    /** Refresh every currently tracked online sidebar (e.g. after visibility toggle). */
+    void refreshAll();
+
     @Override
     void close();
 }

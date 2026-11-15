@@ -19,20 +19,20 @@ For ordered “what to build next,” see [roadmap.md](roadmap.md). Labels: **Do
 
 | Feature | Status | Evidence |
 |---------|--------|----------|
-| Wallets + $200 on signup | Done | `V003`, AuthService / MoneyService |
+| Wallets (empty on signup) | Done | `V003` + `V007`; signup creates $0 wallet |
+| Competitor-only starting balance | Done | Grant `$200` once on first team assignment (`starting_balance_granted`) |
 | `/balance`, `/pay` | Done | `MoneyCommandController` |
 | Admin give/take/set | Done | `/larp money` |
-| Ledger for current types | Done | `wallet_transactions` |
+| Ledger for current + settlement types | Done | `wallet_transactions` (+ parent/child refs in `V007`) |
 | Offline pay notifications | Done | `PaymentNotificationStore` |
 | Team wealth calculation | Done | `MoneyService.teamWealth` |
-| Sidebar Team Money + Wallet | Done | `BukkitBalanceSidebar` |
-| `/top` leaderboards | Not started | — |
-| Rotating reward split | Not started | — |
-| Death payment settlement | Not started | — |
-| Rescue system | Not started | — |
-| Kill-money scopes / killreward commands | Not started | — |
-| Visibility hide/show team totals | Not started | Deferred in TEAMS |
-| Competitor-only starting balance | Not started | Gap vs rules |
+| Sidebar Team Money + Wallet | Done | `BukkitBalanceSidebar` (honors team-totals visibility) |
+| `/top teams`, `/top money` | Done | `MoneyCommandController.top` |
+| Rotating reward split | Done | `MoneyService.splitReward` + persisted rotation index |
+| Death payment settlement | Done | `MoneyService.processDeathPayment` (API; attribution not wired) |
+| Rescue system | Done | Linked from death settlement; `$25`×members×teams |
+| Kill-money scopes / killreward commands | Done | `/larp killmoney`, `/larp killreward set` |
+| Visibility hide/show team totals | Done | `/larp visibility teamtotals show\|hide` |
 
 ## Teams
 
@@ -66,8 +66,8 @@ For ordered “what to build next,” see [roadmap.md](roadmap.md). Labels: **Do
 |--------|-------|--------|
 | 1–2 | Integration note + branch inspect | Partial (this docs set + existing code) |
 | 3–7 | Rules constants, wallets, service, logs, `/balance` `/pay` | Mostly Done for basics |
-| 8–9 | Admin money + team wealth/leaderboards | Partial (`/top` missing) |
-| 10–13 | Split, death, rescue, kill-money | Not started |
-| 14–16 | Kill/capture/auction connections | Not started |
-| 17–18 | Money UI polish + restart protection extras | Partial (sidebar exists) |
-| 19–20 | Full automated + multiplayer battery | Partial (unit/integration for current money only) |
+| 8–9 | Admin money + team wealth/leaderboards | Done (`/top teams\|money`) |
+| 10–13 | Split, death, rescue, kill-money | Done on `feature/economy-settlement` |
+| 14–16 | Kill/capture/auction connections | Not started (APIs ready; callers not built) |
+| 17–18 | Money UI polish + restart protection extras | Partial (sidebar + visibility done) |
+| 19–20 | Full automated + multiplayer battery | Partial (settlement unit/integration tests exist) |

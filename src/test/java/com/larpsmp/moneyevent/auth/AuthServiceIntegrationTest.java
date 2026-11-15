@@ -134,18 +134,16 @@ final class AuthServiceIntegrationTest {
         try (Connection connection = dataSource.getConnection();
              PreparedStatement statement = connection.prepareStatement(
                      """
-                     SELECT w.balance, t.type, t.status
+                     SELECT w.balance, w.starting_balance_granted
                      FROM accounts a
                      INNER JOIN wallets w ON w.account_id = a.id
-                     INNER JOIN wallet_transactions t ON t.source_account_id = a.id
                      WHERE a.username = ?
-                       AND t.type = 'STARTING_BALANCE'
-                       AND t.status = 'SUCCESS'
                      """)) {
             statement.setString(1, USERNAME);
             try (ResultSet resultSet = statement.executeQuery()) {
                 assertTrue(resultSet.next());
-                assertEquals(200, resultSet.getLong("balance"));
+                assertEquals(0, resultSet.getLong("balance"));
+                assertFalse(resultSet.getBoolean("starting_balance_granted"));
             }
         }
     }
@@ -238,7 +236,7 @@ final class AuthServiceIntegrationTest {
             wallet.setString(1, SECOND_USERNAME);
             try (ResultSet resultSet = wallet.executeQuery()) {
                 assertTrue(resultSet.next());
-                assertEquals(200, resultSet.getLong("balance"));
+                assertEquals(0, resultSet.getLong("balance"));
             }
         }
 

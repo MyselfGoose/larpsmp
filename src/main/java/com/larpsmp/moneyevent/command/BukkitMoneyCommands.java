@@ -27,6 +27,7 @@ public final class BukkitMoneyCommands implements CommandExecutor, TabCompleter 
         switch (command.getName().toLowerCase(java.util.Locale.ROOT)) {
             case "balance" -> controller.balance(source, arguments);
             case "pay" -> controller.pay(source, arguments);
+            case "top" -> controller.top(source, arguments);
             case "larp" -> controller.larp(source, arguments);
             default -> { return false; }
         }

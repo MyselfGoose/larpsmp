@@ -135,6 +135,7 @@ class MoneyCommandControllerTest {
             FakeSource target = registered(context, "Target");
             UUID targetId = target.playerId().orElseThrow();
             FakeSource console = FakeSource.console(true);
+            long refreshesBefore = context.display().refreshes().stream().filter(targetId::equals).count();
 
             context.controller().larp(console, new String[] {"money", "give", target.name(), "25", "Event", "bonus"});
             assertEquals(225, context.money().balance(targetId).balance());
@@ -148,7 +149,8 @@ class MoneyCommandControllerTest {
                     .findFirst().orElseThrow();
             assertEquals("MONEY_GIVE", give.authorizationAction());
             assertEquals("CONSOLE", give.senderType());
-            assertEquals(3, context.display().refreshes().stream().filter(targetId::equals).count());
+            assertEquals(refreshesBefore + 3,
+                    context.display().refreshes().stream().filter(targetId::equals).count());
         }
     }
 
@@ -188,7 +190,8 @@ class MoneyCommandControllerTest {
             for (String operation : List.of("give", "take", "set")) {
                 context.controller().larp(player, new String[] {"money", operation, "x"});
             }
-            assertTrue(checked.containsAll(List.of(MoneyAdminAction.values())));
+            assertTrue(checked.containsAll(List.of(
+                    MoneyAdminAction.MONEY_GIVE, MoneyAdminAction.MONEY_TAKE, MoneyAdminAction.MONEY_SET)));
             assertTrue(context.controller().tabComplete("larp", player, new String[] {"money", ""}).isEmpty());
         }
     }
@@ -216,7 +219,7 @@ class MoneyCommandControllerTest {
     }
 
     private FakeSource registered(Context context, String name) throws Exception {
-        TestDatabaseSupport.RegisteredPlayer player = context.fixture().register(name);
+        TestDatabaseSupport.RegisteredPlayer player = context.fixture().registerCompetitor(name);
         context.online().add(player.minecraftUuid(), player.username());
         return FakeSource.player(player.minecraftUuid(), player.username());
     }
@@ -327,6 +330,10 @@ class MoneyCommandControllerTest {
 
         @Override
         public void playerQuit(UUID playerId) {
+        }
+
+        @Override
+        public void refreshAll() {
         }
 
         @Override

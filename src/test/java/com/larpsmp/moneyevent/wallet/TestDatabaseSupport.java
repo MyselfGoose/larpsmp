@@ -122,6 +122,21 @@ public final class TestDatabaseSupport {
             return new RegisteredPlayer(minecraftUuid, unique);
         }
 
+        /**
+         * Registers an account and grants the one-time competitor starting balance
+         * (simulates first team assignment without requiring a team).
+         */
+        public RegisteredPlayer registerCompetitor(String username) throws Exception {
+            RegisteredPlayer player = register(username);
+            var account = accounts.findByUsername(player.username()).orElseThrow();
+            money.grantCompetitorStartingBalanceIfNeeded(account.id());
+            return player;
+        }
+
+        public UUID accountId(RegisteredPlayer player) throws Exception {
+            return accounts.findByUsername(player.username()).orElseThrow().id();
+        }
+
         @Override
         public void close() throws Exception {
             money.close();
@@ -131,16 +146,44 @@ public final class TestDatabaseSupport {
                 for (String username : usernames) {
                     try (PreparedStatement statement = connection.prepareStatement(
                             """
+                            DELETE FROM economy_kill_money_event_participants
+                            WHERE account_id IN (SELECT id FROM accounts WHERE username = ?)
+                            """)) {
+                        statement.setString(1, username);
+                        statement.executeUpdate();
+                    }
+                    try (PreparedStatement statement = connection.prepareStatement(
+                            """
+                            DELETE FROM economy_kill_money_player_overrides
+                            WHERE account_id IN (SELECT id FROM accounts WHERE username = ?)
+                            """)) {
+                        statement.setString(1, username);
+                        statement.executeUpdate();
+                    }
+                    try (PreparedStatement statement = connection.prepareStatement(
+                            """
                             DELETE FROM wallet_transactions
                             WHERE source_account_id IN (SELECT id FROM accounts WHERE username = ?)
                                OR destination_account_id IN (SELECT id FROM accounts WHERE username = ?)
                                OR actor_account_id IN (SELECT id FROM accounts WHERE username = ?)
+                               OR parent_transaction_id IN (
+                                    SELECT id FROM wallet_transactions wt2
+                                    WHERE wt2.source_account_id IN (SELECT id FROM accounts WHERE username = ?)
+                                       OR wt2.destination_account_id IN (SELECT id FROM accounts WHERE username = ?)
+                               )
                             """)) {
                         statement.setString(1, username);
                         statement.setString(2, username);
                         statement.setString(3, username);
+                        statement.setString(4, username);
+                        statement.setString(5, username);
                         statement.executeUpdate();
                     }
+                }
+                try (PreparedStatement settlements = connection.prepareStatement(
+                        "DELETE FROM economy_settlements WHERE created_at > NOW() - INTERVAL '1 day'")) {
+                    // Best-effort: settlement rows are keyed by external ids, not accounts.
+                    settlements.executeUpdate();
                 }
                 for (UUID minecraftUuid : minecraftUuids) {
                     try (PreparedStatement statement = connection.prepareStatement(

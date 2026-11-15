@@ -128,25 +128,44 @@ public final class BukkitBalanceSidebar implements BalanceDisplayControl {
             ensureLines(sidebar.owned());
 
             long personal = account.orElseThrow().balance();
-            @Nullable Long teamWealth = resolveTeamWealth(account.orElseThrow().accountId());
+            boolean showTeamTotals = money.teamTotalsVisible();
+            @Nullable Long teamWealth = showTeamTotals
+                    ? resolveTeamWealth(account.orElseThrow().accountId())
+                    : null;
 
-            setLine(sidebar.owned(), TEAM_LABEL, ENTRY_TEAM_LABEL,
-                    Component.text("Team Money", TEAM_COLOR, TextDecoration.BOLD));
-            setLine(sidebar.owned(), TEAM_AMOUNT, ENTRY_TEAM_AMOUNT,
-                    Component.text(MoneyFormats.currencyOrDash(teamWealth), TEAM_COLOR));
-            setLine(sidebar.owned(), DIVIDER, ENTRY_DIVIDER,
-                    Component.text("··········", DIVIDER_COLOR));
-            setLine(sidebar.owned(), WALLET_LABEL, ENTRY_WALLET_LABEL,
-                    Component.text("Wallet", WALLET_COLOR, TextDecoration.BOLD));
-            setLine(sidebar.owned(), WALLET_AMOUNT, ENTRY_WALLET_AMOUNT,
-                    Component.text(MoneyFormats.currency(personal), WALLET_COLOR));
+            if (showTeamTotals) {
+                setLine(sidebar.owned(), TEAM_LABEL, ENTRY_TEAM_LABEL,
+                        Component.text("Team Money", TEAM_COLOR, TextDecoration.BOLD));
+                setLine(sidebar.owned(), TEAM_AMOUNT, ENTRY_TEAM_AMOUNT,
+                        Component.text(MoneyFormats.currencyOrDash(teamWealth), TEAM_COLOR));
+                setLine(sidebar.owned(), DIVIDER, ENTRY_DIVIDER,
+                        Component.text("··········", DIVIDER_COLOR));
+                setLine(sidebar.owned(), WALLET_LABEL, ENTRY_WALLET_LABEL,
+                        Component.text("Wallet", WALLET_COLOR, TextDecoration.BOLD));
+                setLine(sidebar.owned(), WALLET_AMOUNT, ENTRY_WALLET_AMOUNT,
+                        Component.text(MoneyFormats.currency(personal), WALLET_COLOR));
 
-            // Higher score = higher on screen. Two blocks separated by the divider.
-            objective.getScore(ENTRY_TEAM_LABEL).setScore(5);
-            objective.getScore(ENTRY_TEAM_AMOUNT).setScore(4);
-            objective.getScore(ENTRY_DIVIDER).setScore(3);
-            objective.getScore(ENTRY_WALLET_LABEL).setScore(2);
-            objective.getScore(ENTRY_WALLET_AMOUNT).setScore(1);
+                // Higher score = higher on screen. Two blocks separated by the divider.
+                objective.getScore(ENTRY_TEAM_LABEL).setScore(5);
+                objective.getScore(ENTRY_TEAM_AMOUNT).setScore(4);
+                objective.getScore(ENTRY_DIVIDER).setScore(3);
+                objective.getScore(ENTRY_WALLET_LABEL).setScore(2);
+                objective.getScore(ENTRY_WALLET_AMOUNT).setScore(1);
+            } else {
+                // Hide Team Money section while visibility is off.
+                setLine(sidebar.owned(), TEAM_LABEL, ENTRY_TEAM_LABEL, Component.empty());
+                setLine(sidebar.owned(), TEAM_AMOUNT, ENTRY_TEAM_AMOUNT, Component.empty());
+                setLine(sidebar.owned(), DIVIDER, ENTRY_DIVIDER, Component.empty());
+                setLine(sidebar.owned(), WALLET_LABEL, ENTRY_WALLET_LABEL,
+                        Component.text("Wallet", WALLET_COLOR, TextDecoration.BOLD));
+                setLine(sidebar.owned(), WALLET_AMOUNT, ENTRY_WALLET_AMOUNT,
+                        Component.text(MoneyFormats.currency(personal), WALLET_COLOR));
+                objective.getScore(ENTRY_TEAM_LABEL).setScore(0);
+                objective.getScore(ENTRY_TEAM_AMOUNT).setScore(0);
+                objective.getScore(ENTRY_DIVIDER).setScore(0);
+                objective.getScore(ENTRY_WALLET_LABEL).setScore(2);
+                objective.getScore(ENTRY_WALLET_AMOUNT).setScore(1);
+            }
         } catch (IOException exception) {
             errorLogger.accept("Could not refresh wallet display for " + playerId + ": " + exception.getMessage());
         }
@@ -191,6 +210,13 @@ public final class BukkitBalanceSidebar implements BalanceDisplayControl {
     @Override
     public void playerQuit(UUID playerId) {
         remove(playerId);
+    }
+
+    @Override
+    public void refreshAll() {
+        for (UUID playerId : sidebars.keySet().toArray(UUID[]::new)) {
+            refresh(playerId);
+        }
     }
 
     private @Nullable Long resolveTeamWealth(UUID accountId) throws IOException {

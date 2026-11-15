@@ -1,6 +1,7 @@
 package com.larpsmp.moneyevent.wallet;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
@@ -14,11 +15,11 @@ import org.junit.jupiter.api.Test;
 class MoneyServiceTest {
 
     @Test
-    void signupCreatesWalletWithStartingBalanceOnce() throws Exception {
+    void signupCreatesEmptyWalletWithoutStartingBalance() throws Exception {
         try (TestDatabaseSupport.Fixture fixture = open()) {
             TestDatabaseSupport.RegisteredPlayer player = fixture.register("StartPlayer");
             WalletAccount wallet = fixture.money().account(player.minecraftUuid()).orElseThrow();
-            assertEquals(MoneyService.STARTING_BALANCE, wallet.balance());
+            assertEquals(0L, wallet.balance());
             assertEquals(player.minecraftUuid(), wallet.playerId());
 
             long startingRecords = fixture.money().allTransactions().stream()
@@ -26,15 +27,29 @@ class MoneyServiceTest {
                             && record.status() == TransactionStatus.SUCCESS
                             && wallet.accountId().equals(record.sourceWalletId()))
                     .count();
-            assertEquals(1, startingRecords);
+            assertEquals(0, startingRecords);
+        }
+    }
+
+    @Test
+    void competitorGrantIsIdempotentOnce() throws Exception {
+        try (TestDatabaseSupport.Fixture fixture = open()) {
+            TestDatabaseSupport.RegisteredPlayer player = fixture.register("GrantOnce");
+            UUID accountId = fixture.accountId(player);
+            assertTrue(fixture.money().grantCompetitorStartingBalanceIfNeeded(accountId));
+            assertEquals(MoneyService.STARTING_BALANCE,
+                    fixture.money().account(player.minecraftUuid()).orElseThrow().balance());
+            assertFalse(fixture.money().grantCompetitorStartingBalanceIfNeeded(accountId));
+            assertEquals(MoneyService.STARTING_BALANCE,
+                    fixture.money().account(player.minecraftUuid()).orElseThrow().balance());
         }
     }
 
     @Test
     void transferAddRemoveSetPersistAcrossServiceReload() throws Exception {
         try (TestDatabaseSupport.Fixture fixture = open()) {
-            TestDatabaseSupport.RegisteredPlayer source = fixture.register("SourcePay");
-            TestDatabaseSupport.RegisteredPlayer destination = fixture.register("DestPay");
+            TestDatabaseSupport.RegisteredPlayer source = fixture.registerCompetitor("SourcePay");
+            TestDatabaseSupport.RegisteredPlayer destination = fixture.registerCompetitor("DestPay");
             UUID sourceId = source.minecraftUuid();
             UUID destinationId = destination.minecraftUuid();
 
@@ -62,8 +77,8 @@ class MoneyServiceTest {
     @Test
     void transferRejectsInsufficientFundsAndSameWallet() throws Exception {
         try (TestDatabaseSupport.Fixture fixture = open()) {
-            TestDatabaseSupport.RegisteredPlayer source = fixture.register("PoorSource");
-            TestDatabaseSupport.RegisteredPlayer destination = fixture.register("RichDest");
+            TestDatabaseSupport.RegisteredPlayer source = fixture.registerCompetitor("PoorSource");
+            TestDatabaseSupport.RegisteredPlayer destination = fixture.registerCompetitor("RichDest");
 
             TransactionResult insufficient = fixture.money().transfer(
                     source.minecraftUuid(), destination.minecraftUuid(), 201, "too much", source.minecraftUuid());
@@ -79,8 +94,8 @@ class MoneyServiceTest {
     @Test
     void concurrentTransfersDoNotOverdraft() throws Exception {
         try (TestDatabaseSupport.Fixture fixture = open()) {
-            TestDatabaseSupport.RegisteredPlayer source = fixture.register("ConcurrentSource");
-            TestDatabaseSupport.RegisteredPlayer destination = fixture.register("ConcurrentDest");
+            TestDatabaseSupport.RegisteredPlayer source = fixture.registerCompetitor("ConcurrentSource");
+            TestDatabaseSupport.RegisteredPlayer destination = fixture.registerCompetitor("ConcurrentDest");
             UUID sourceId = source.minecraftUuid();
             UUID destinationId = destination.minecraftUuid();
 

@@ -4,12 +4,9 @@
 
 | Gap | Rules | Code today | Risk |
 |-----|-------|------------|------|
-| Starting money eligibility | Only competitors get $200 once | Every auth signup gets $200 wallet + `STARTING_BALANCE` | Admins/spectators inflate or confuse standings if treated as competitors |
-| Death / rescue / kill money | Fully specified | Not implemented | No automatic PvP economy yet |
-| Reward split rotation | Required for $50 captures etc. | Not implemented | Cannot pay capture/event team rewards safely yet |
-| `/top` leaderboards | Planned | Missing | Players lack standings commands (HUD helps for self/team) |
-| Team total hide/show | Confirmed policy | Deferred | Cannot hide scores mid-event |
-| Competitor role flag | Needed by contracts | Deferred | Hard to exclude non-competitors systematically |
+| Competitor role flag | Needed by contracts | Deferred — roster + `starting_balance_granted` used as proxy | Hard to exclude non-competitors systematically once roles land |
+| Kill attribution → death API | Attribution must call `processDeathPayment` | Settlement API Done; attribution Not started | No automatic in-world PvP payouts yet |
+| Capture → split API | Capture must call `processCaptureReward` | Settlement API Done; capture engine Not started | No automatic capture payouts yet |
 | Spawn protection | Confirmed respawn-only | Not implemented | Manual admin enforcement only |
 | `plugin.yml` usage | Should list `tier` | Omits `tier` | Minor docs/UX mismatch |
 

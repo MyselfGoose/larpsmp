@@ -37,6 +37,7 @@ public final class TeamService {
     private final AccountRepository accounts;
     private final Consumer<String> errorLogger;
     private final List<RosterChangeListener> rosterChangeListeners = new CopyOnWriteArrayList<>();
+    private volatile @Nullable Consumer<UUID> competitorEnrollmentListener;
 
     public TeamService(
             JdbcTeamRepository repository,
@@ -50,6 +51,14 @@ public final class TeamService {
 
     public void addRosterChangeListener(RosterChangeListener listener) {
         rosterChangeListeners.add(listener);
+    }
+
+    /**
+     * Invoked after a successful first-time-or-move team assignment so economy can grant
+     * the one-time competitor starting balance.
+     */
+    public void setCompetitorEnrollmentListener(@Nullable Consumer<UUID> listener) {
+        this.competitorEnrollmentListener = listener;
     }
 
     public List<Team> listTeams() {
@@ -292,6 +301,7 @@ public final class TeamService {
                 connection.commit();
                 Team refreshed = repository.findById(teamId).orElse(team.get());
                 notifyRosterChanged(affected);
+                notifyCompetitorEnrolled(accountId);
                 String message = existing.isPresent()
                         ? "Moved " + username + " to " + refreshed.displayName() + "."
                         : "Assigned " + username + " to " + refreshed.displayName() + ".";
@@ -613,6 +623,19 @@ public final class TeamService {
         Set<UUID> immutable = Set.copyOf(affectedTeamIds);
         for (RosterChangeListener listener : rosterChangeListeners) {
             listener.rosterChanged(immutable);
+        }
+    }
+
+    private void notifyCompetitorEnrolled(UUID accountId) {
+        Consumer<UUID> listener = competitorEnrollmentListener;
+        if (listener == null) {
+            return;
+        }
+        try {
+            listener.accept(accountId);
+        } catch (RuntimeException exception) {
+            errorLogger.accept("Competitor enrollment hook failed for " + accountId + ": "
+                    + exception.getMessage());
         }
     }
 
