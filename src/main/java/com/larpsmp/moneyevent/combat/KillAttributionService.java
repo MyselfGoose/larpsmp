@@ -160,7 +160,8 @@ public final class KillAttributionService {
         }
 
         attackMemory.clear(victimMinecraftUuid);
-        return AttributionOutcome.attributed(deathId, settlement, killRecord);
+        return AttributionOutcome.attributed(
+                deathId, settlement, killRecord, tierOpt.get(), victim.username(), killer.username());
     }
 
     /**
@@ -189,13 +190,7 @@ public final class KillAttributionService {
         try {
             Optional<CombatKillRecord> existing = killRepository.findByDeathId(deathId);
             if (existing.isPresent()) {
-                return new AttributionOutcome(
-                        AttributionOutcome.Kind.DUPLICATE,
-                        deathId,
-                        null,
-                        existing.get(),
-                        "Kill already recorded"
-                );
+                return AttributionOutcome.duplicate(deathId, existing.get());
             }
         } catch (SQLException exception) {
             errorLogger.accept("Failed to check combat kill " + deathId + ": " + exception.getMessage());
@@ -242,7 +237,8 @@ public final class KillAttributionService {
         } catch (SQLException exception) {
             errorLogger.accept("Failed to persist combat kill " + deathId + ": " + exception.getMessage());
         }
-        return AttributionOutcome.attributed(deathId, settlement, killRecord);
+        return AttributionOutcome.attributed(
+                deathId, settlement, killRecord, tierOpt.get(), victim.username(), killer.username());
     }
 
     private boolean isFriendlyFire(UUID victimAccountId, UUID killerAccountId) {

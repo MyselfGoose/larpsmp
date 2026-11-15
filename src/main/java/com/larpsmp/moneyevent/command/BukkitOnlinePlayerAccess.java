@@ -55,6 +55,14 @@ public final class BukkitOnlinePlayerAccess implements OnlinePlayerAccess {
         }
     }
 
+    @Override
+    public void send(UUID playerId, Component message) {
+        Player player = server.getPlayer(playerId);
+        if (player != null && player.isOnline()) {
+            player.sendMessage(message);
+        }
+    }
+
     private OnlinePlayerIdentity identityOf(Player player) {
         String username = accountSessions == null
                 ? player.getName()

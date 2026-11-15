@@ -1,5 +1,6 @@
 package com.larpsmp.moneyevent.combat;
 
+import com.larpsmp.moneyevent.team.PlayerTier;
 import com.larpsmp.moneyevent.wallet.DeathPaymentResult;
 import java.util.Objects;
 import org.jetbrains.annotations.Nullable;
@@ -12,6 +13,9 @@ public record AttributionOutcome(
         @Nullable String deathId,
         @Nullable DeathPaymentResult settlement,
         @Nullable CombatKillRecord killRecord,
+        @Nullable PlayerTier victimTier,
+        @Nullable String victimUsername,
+        @Nullable String killerUsername,
         String detail
 ) {
 
@@ -32,24 +36,43 @@ public record AttributionOutcome(
     }
 
     public static AttributionOutcome environmental(String detail) {
-        return new AttributionOutcome(Kind.ENVIRONMENTAL, null, null, null, detail);
+        return new AttributionOutcome(Kind.ENVIRONMENTAL, null, null, null, null, null, null, detail);
     }
 
     public static AttributionOutcome skipped(String detail) {
-        return new AttributionOutcome(Kind.SKIPPED, null, null, null, detail);
+        return new AttributionOutcome(Kind.SKIPPED, null, null, null, null, null, null, detail);
     }
 
     public static AttributionOutcome attributed(
             String deathId,
             DeathPaymentResult settlement,
-            CombatKillRecord killRecord
+            CombatKillRecord killRecord,
+            PlayerTier victimTier,
+            String victimUsername,
+            String killerUsername
     ) {
         return new AttributionOutcome(
                 Kind.ATTRIBUTED,
                 Objects.requireNonNull(deathId, "deathId"),
                 Objects.requireNonNull(settlement, "settlement"),
                 Objects.requireNonNull(killRecord, "killRecord"),
+                Objects.requireNonNull(victimTier, "victimTier"),
+                Objects.requireNonNull(victimUsername, "victimUsername"),
+                Objects.requireNonNull(killerUsername, "killerUsername"),
                 settlement.detail()
+        );
+    }
+
+    public static AttributionOutcome duplicate(String deathId, CombatKillRecord existing) {
+        return new AttributionOutcome(
+                Kind.DUPLICATE,
+                deathId,
+                null,
+                existing,
+                null,
+                null,
+                null,
+                "Kill already recorded"
         );
     }
 

@@ -386,5 +386,12 @@ class MoneyCommandControllerTest {
         public void send(UUID playerId, String message, MessageKind ignored) {
             messages.computeIfAbsent(playerId, key -> new ArrayList<>()).add(message);
         }
+
+        @Override
+        public void send(UUID playerId, net.kyori.adventure.text.Component message) {
+            messages.computeIfAbsent(playerId, key -> new ArrayList<>())
+                    .add(net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer
+                            .plainText().serialize(message));
+        }
     }
 }

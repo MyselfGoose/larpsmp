@@ -351,7 +351,7 @@ public final class MoneyEventPlugin extends JavaPlugin {
             getServer().getPluginManager().registerEvents(
                     new CombatDamageListener(attackMemory, blockOwnership), this);
             getServer().getPluginManager().registerEvents(
-                    new KillDeathListener(killAttribution, getLogger()), this);
+                    new KillDeathListener(killAttribution, moneyAccounts, onlinePlayers, getLogger()), this);
 
             getLogger().info("Plugin admins are LarpSMP-account based. Grant with: /larp op <username>");
             getLogger().info("Account-linked wallets ready (competitor starting balance $"
