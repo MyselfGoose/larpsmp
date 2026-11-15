@@ -1,8 +1,15 @@
 # LarpSMP Money Event
 
-Private Minecraft Java Edition event project foundation.
+Private Minecraft Java Edition competition project: a five-day event for twelve friends, powered by the **MoneyEvent** Paper plugin.
 
-This repository contains the **Paper plugin + local development server** with **PostgreSQL-backed pre-join authentication**, **account-linked wallets** (starting balance, `/balance`, `/pay`, admin money commands, and an always-on Wallet HUD), and **account-keyed player bodies** (inventory/location/vitals persist per LarpSMP account, not per Minecraft client name).
+This repository contains the **Paper plugin + local development server** with:
+
+- **PostgreSQL-backed pre-join authentication**
+- **Account-linked wallets** (starting balance, `/balance`, `/pay`, admin money commands, Wallet HUD)
+- **Account-keyed player bodies** (inventory/location/vitals persist per LarpSMP account)
+- **Teams administration** (Blue/Red/Yellow seed, captains, tiers 1–4, team wealth on the sidebar)
+
+Full product rules, architecture, status, and recovery notes live in **[documentation/](documentation/README.md)**.
 
 ## One-command setup (CachyOS / Arch)
 
@@ -38,7 +45,17 @@ When it finishes the readiness report, join Minecraft and use **Sign up**. New a
 
 Stop Paper by typing `stop` in the server console. Docker Postgres + pgAdmin keep running.
 
-Full auth / pgAdmin guide: [docs/AUTH_AND_DATABASE.md](docs/AUTH_AND_DATABASE.md).
+## Documentation
+
+| Doc | Contents |
+|-----|----------|
+| [documentation/README.md](documentation/README.md) | Index, status legend, full map |
+| [Getting started](documentation/04-development/getting-started.md) | Bootstrap and versions |
+| [Auth and identity](documentation/03-architecture/auth-and-identity.md) | Signup, Postgres, pgAdmin |
+| [Implementation status](documentation/05-status/implementation-status.md) | What is coded vs planned |
+| [Competition economy rules](documentation/02-competition-rules/economy.md) | Confirmed money rules |
+
+Legacy paths under [`docs/`](docs/) redirect into `documentation/`.
 
 ## Prerequisites (installed automatically on CachyOS/Arch)
 
@@ -79,5 +96,3 @@ Generated worlds, logs, caches, Paper JARs, and plugin JARs are **not** tracked 
 ## What Git ignores
 
 Gradle output (`.gradle/`, `build/`), IDE metadata, OS junk, secrets, and development-server runtime data (worlds, logs, cache, libraries, plugins, Paper JAR, generated configs).
-
-See [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) for developer details and [docs/AUTH_AND_DATABASE.md](docs/AUTH_AND_DATABASE.md) for authentication/database setup.
