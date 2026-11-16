@@ -1,7 +1,7 @@
 # Development roadmap (by branch)
 
-You are here: **`main`** contains everything through economy settlement; kill attribution lives on `feature/kill-attribution`.  
-**Next branch to open:** [`feature/capture-points`](#7-featurecapture-points--queued) (Azeem) or [`feature/display-and-leaderboards`](#8-featuredisplay-and-leaderboards--queued) once attribution is merged.
+You are here: **`feature/capture-points`** implements the capture engine on top of `main` (settlement + kill attribution already merged).  
+**After this lands:** [`feature/spawn-protection`](#8-featurespawn-protection--queued-can-parallel-early) or [`feature/display-and-leaderboards`](#9-featuredisplay-and-leaderboards--queued).
 
 Status key on this page:
 
@@ -28,7 +28,7 @@ DONE     documentation            → documentation/ tree on main
 ────────────────────────────────────────────────────────────────
 DONE     feature/economy-settlement
 DONE     feature/kill-attribution
-QUEUED   feature/capture-points
+NEXT     feature/capture-points
 QUEUED   feature/spawn-protection
 QUEUED   feature/display-and-leaderboards
 QUEUED   feature/auctions
@@ -163,24 +163,24 @@ OPS      roster, calendar, map, hosting, playtest
 
 ---
 
-## 7. `feature/capture-points` — QUEUED
+## 7. `feature/capture-points` — NEXT (on branch)
 
 **Owner:** Azeem (detection) + economy already has `splitReward`.  
 **Depends on:** economy settlement (reward payout).
 
 | # | Work item |
 |---|-----------|
-| 1 | 2–4 named points; one active at a time |
-| 2 | Advantage = lead − runner-up; ties freeze |
-| 3 | Base 10 min / 1 uncontested player; configurable faster multipliers |
-| 4 | Neutralize then build; resume remaining progress if original team returns |
-| 5 | Empty decay (“pretty quick”; tune in playtest) |
-| 6 | Height: platform + 3 blocks; boats/minecarts OK; no spectators/respawn screen/mid-teleport |
-| 7 | Platform unbreakable; temp blocks 30s; other players can break temp blocks; liquids **allowed** |
-| 8 | Boss bar + chat at 25/50/75/100% |
-| 9 | Admin start/pause/resume/stop |
-| 10 | On complete: call economy once with `captureId` for `$50` split |
-| 11 | Persist active point / progress / temp blocks across restart |
+| 1 | 2–4 named points; one active at a time | Done (`quarry`/`tower`/`ruins`; day completions) |
+| 2 | Advantage = lead − runner-up; ties freeze | Done (`CaptureProgressEngine`) |
+| 3 | Base 10 min / 1 uncontested player; configurable faster multipliers | Done (`capture.durations-seconds`) |
+| 4 | Neutralize then build; resume remaining progress if original team returns | Done |
+| 5 | Empty decay (“pretty quick”; tune in playtest) | Done (default `decay-multiplier: 2.0`) |
+| 6 | Height: platform + 3 blocks; boats/minecarts OK; no spectators/respawn screen/mid-teleport | Done |
+| 7 | Platform unbreakable; temp blocks 30s; other players can break temp blocks; liquids **allowed** | Done |
+| 8 | Boss bar + chat at 25/50/75/100% | Done |
+| 9 | Admin start/pause/resume/stop | Done (`/larp capture …`) |
+| 10 | On complete: call economy once with `captureId` for `$50` split | Done (`processCaptureReward`) |
+| 11 | Persist active point / progress / temp blocks across restart | Done (`V010`) |
 
 **Done when:** a contested capture pays exactly once and survives restart.
 

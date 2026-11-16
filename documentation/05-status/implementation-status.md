@@ -29,7 +29,7 @@ For ordered “what to build next,” see [roadmap.md](roadmap.md). Labels: **Do
 | Sidebar Team Money + Wallet | Done | `BukkitBalanceSidebar` (honors team-totals visibility) |
 | `/top teams`, `/top money` | Done | `MoneyCommandController.top` |
 | Rotating reward split | Done | `MoneyService.splitReward` + persisted rotation index |
-| Death payment settlement | Done | `MoneyService.processDeathPayment` (API; attribution not wired) |
+| Death payment settlement | Done | `MoneyService.processDeathPayment` (wired from kill attribution) |
 | Rescue system | Done | Linked from death settlement; `$25`×members×teams |
 | Kill-money scopes / killreward commands | Done | `/larp killmoney`, `/larp killreward set` |
 | Visibility hide/show team totals | Done | `/larp visibility teamtotals show\|hide` |
@@ -52,8 +52,8 @@ For ordered “what to build next,” see [roadmap.md](roadmap.md). Labels: **Do
 | Feature | Status |
 |---------|--------|
 | Spawn protection (respawn-only) | Not started |
-| Capture points engine | Not started |
-| Capture temporary blocks | Not started |
+| Capture points engine | Done (`capture/` → `processCaptureReward`; boss bar; `/larp capture`) |
+| Capture temporary blocks | Done (`capture_temp_blocks` + 30s restore across restart) |
 | Kill attribution | Done (`combat/` → `processDeathPayment`; `combat_kills` ledger) |
 | Auctions automation | Not started |
 | Ace Hunt systems | Not started |
@@ -68,6 +68,6 @@ For ordered “what to build next,” see [roadmap.md](roadmap.md). Labels: **Do
 | 3–7 | Rules constants, wallets, service, logs, `/balance` `/pay` | Mostly Done for basics |
 | 8–9 | Admin money + team wealth/leaderboards | Done (`/top teams\|money`) |
 | 10–13 | Split, death, rescue, kill-money | Done on `feature/economy-settlement` |
-| 14–16 | Kill/capture/auction connections | Partial (kill attribution Done; capture/auction callers Not started) |
+| 14–16 | Kill/capture/auction connections | Partial (kill + capture callers Done; auction Not started) |
 | 17–18 | Money UI polish + restart protection extras | Partial (sidebar + visibility done) |
 | 19–20 | Full automated + multiplayer battery | Partial (settlement unit/integration tests exist) |

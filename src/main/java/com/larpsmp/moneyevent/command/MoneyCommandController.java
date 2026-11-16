@@ -4,6 +4,7 @@ import com.larpsmp.moneyevent.auth.AccountAdminRepository;
 import com.larpsmp.moneyevent.auth.AccountAdminService;
 import com.larpsmp.moneyevent.auth.MoneyAdminAction;
 import com.larpsmp.moneyevent.auth.MoneyAdminAuthorizer;
+import com.larpsmp.moneyevent.capture.CaptureCommandController;
 import com.larpsmp.moneyevent.display.BalanceDisplayControl;
 import com.larpsmp.moneyevent.notification.PaymentNotificationStore;
 import com.larpsmp.moneyevent.team.Team;
@@ -38,6 +39,7 @@ public final class MoneyCommandController {
     private final @Nullable TeamService teams;
     private final @Nullable BalanceDisplayControl balanceDisplay;
     private final @Nullable AccountAdminService accountAdmins;
+    private final @Nullable CaptureCommandController captureCommands;
 
     public MoneyCommandController(
             MoneyService money,
@@ -46,7 +48,7 @@ public final class MoneyCommandController {
             PaymentNotificationStore notifications,
             Consumer<String> errorLogger,
             MoneyAdminAuthorizer authorizer) {
-        this(money, lookup, onlinePlayers, notifications, errorLogger, authorizer, null, null, null, null);
+        this(money, lookup, onlinePlayers, notifications, errorLogger, authorizer, null, null, null, null, null);
     }
 
     public MoneyCommandController(
@@ -57,7 +59,8 @@ public final class MoneyCommandController {
             Consumer<String> errorLogger,
             MoneyAdminAuthorizer authorizer,
             @Nullable TeamCommandController teamCommands) {
-        this(money, lookup, onlinePlayers, notifications, errorLogger, authorizer, teamCommands, null, null, null);
+        this(money, lookup, onlinePlayers, notifications, errorLogger, authorizer, teamCommands, null, null, null,
+                null);
     }
 
     public MoneyCommandController(
@@ -71,7 +74,7 @@ public final class MoneyCommandController {
             @Nullable TeamService teams,
             @Nullable BalanceDisplayControl balanceDisplay) {
         this(money, lookup, onlinePlayers, notifications, errorLogger, authorizer, teamCommands, teams,
-                balanceDisplay, null);
+                balanceDisplay, null, null);
     }
 
     public MoneyCommandController(
@@ -85,6 +88,22 @@ public final class MoneyCommandController {
             @Nullable TeamService teams,
             @Nullable BalanceDisplayControl balanceDisplay,
             @Nullable AccountAdminService accountAdmins) {
+        this(money, lookup, onlinePlayers, notifications, errorLogger, authorizer, teamCommands, teams,
+                balanceDisplay, accountAdmins, null);
+    }
+
+    public MoneyCommandController(
+            MoneyService money,
+            PlayerLookup lookup,
+            OnlinePlayerAccess onlinePlayers,
+            PaymentNotificationStore notifications,
+            Consumer<String> errorLogger,
+            MoneyAdminAuthorizer authorizer,
+            @Nullable TeamCommandController teamCommands,
+            @Nullable TeamService teams,
+            @Nullable BalanceDisplayControl balanceDisplay,
+            @Nullable AccountAdminService accountAdmins,
+            @Nullable CaptureCommandController captureCommands) {
         this.money = money;
         this.lookup = lookup;
         this.onlinePlayers = onlinePlayers;
@@ -95,6 +114,7 @@ public final class MoneyCommandController {
         this.teams = teams;
         this.balanceDisplay = balanceDisplay;
         this.accountAdmins = accountAdmins;
+        this.captureCommands = captureCommands;
     }
 
     public void balance(CommandSource source, String[] arguments) {
@@ -211,11 +231,15 @@ public final class MoneyCommandController {
     }
 
     public void larp(CommandSource source, String[] arguments) {
+        if (arguments.length >= 1 && captureCommands != null && captureCommands.handle(source, arguments)) {
+            return;
+        }
         if (arguments.length >= 1 && teamCommands != null && teamCommands.handle(source, arguments)) {
             return;
         }
         if (arguments.length < 1) {
-            source.send("Usage: /larp <money|killmoney|killreward|visibility|op|deop|ops|teams|team|captain|tier> ...",
+            source.send(
+                    "Usage: /larp <money|killmoney|killreward|visibility|op|deop|ops|capture|teams|team|captain|tier> ...",
                     MessageKind.ERROR);
             return;
         }
@@ -229,7 +253,7 @@ public final class MoneyCommandController {
             case "deop" -> larpDeop(source, arguments);
             case "ops" -> larpOps(source);
             default -> source.send(
-                    "Usage: /larp <money|killmoney|killreward|visibility|op|deop|ops|teams|team|captain|tier> ...",
+                    "Usage: /larp <money|killmoney|killreward|visibility|op|deop|ops|capture|teams|team|captain|tier> ...",
                     MessageKind.ERROR);
         }
     }
@@ -675,10 +699,13 @@ public final class MoneyCommandController {
                     candidates.add("op");
                     candidates.add("deop");
                     candidates.add("ops");
+                    candidates.add("capture");
                 }
                 if (teamCommands != null) {
                     candidates.addAll(teamCommands.tabComplete(source, arguments));
                 }
+            } else if (arguments[0].equalsIgnoreCase("capture") && captureCommands != null) {
+                return captureCommands.tabComplete(source, arguments);
             } else if (arguments[0].equalsIgnoreCase("op") || arguments[0].equalsIgnoreCase("deop")) {
                 if (arguments.length == 2) {
                     candidates = lookup.suggestions();

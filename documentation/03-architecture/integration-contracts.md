@@ -1,6 +1,6 @@
 # Integration contracts
 
-**Status:** Working agreement for Amira (economy) ↔ Azeem (complex systems). Auth + teams + wallets + death settlement + kill attribution realized; capture/auction/event engines do not yet call economy.
+**Status:** Working agreement for Amira (economy) ↔ Azeem (complex systems). Auth + teams + wallets + death settlement + kill attribution + capture payouts realized; auction/event engines do not yet call economy.
 
 ## 1. Account integration
 

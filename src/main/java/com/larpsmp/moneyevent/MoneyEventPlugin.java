@@ -14,6 +14,17 @@ import com.larpsmp.moneyevent.auth.EmailChallengeRepository;
 import com.larpsmp.moneyevent.auth.EmailChallengeService;
 import com.larpsmp.moneyevent.auth.PasswordHasher;
 import com.larpsmp.moneyevent.auth.VerificationCodeHasher;
+import com.larpsmp.moneyevent.capture.CaptureBlockListener;
+import com.larpsmp.moneyevent.capture.CaptureBossBarPresenter;
+import com.larpsmp.moneyevent.capture.CaptureCommandController;
+import com.larpsmp.moneyevent.capture.CaptureConfig;
+import com.larpsmp.moneyevent.capture.CaptureConfigWriter;
+import com.larpsmp.moneyevent.capture.CaptureOccupancyScanner;
+import com.larpsmp.moneyevent.capture.CaptureService;
+import com.larpsmp.moneyevent.capture.CaptureTeleportGuard;
+import com.larpsmp.moneyevent.capture.CaptureTempBlockTracker;
+import com.larpsmp.moneyevent.capture.CaptureTickTask;
+import com.larpsmp.moneyevent.capture.JdbcCaptureRepository;
 import com.larpsmp.moneyevent.combat.AttackMemory;
 import com.larpsmp.moneyevent.combat.BlockOwnershipListener;
 import com.larpsmp.moneyevent.combat.BlockOwnershipTracker;
@@ -70,6 +81,8 @@ public final class MoneyEventPlugin extends JavaPlugin {
 
     private MoneyService moneyService;
     private TeamService teamService;
+    private CaptureService captureService;
+    private CaptureBossBarPresenter captureBossBar;
     private BalanceDisplayControl balanceDisplay;
     private AuthSessionManager authSessionManager;
     private AccountSessionManager accountSessionManager;
@@ -78,6 +91,7 @@ public final class MoneyEventPlugin extends JavaPlugin {
     private ExecutorService authExecutor;
     private ScheduledExecutorService rateLimitCleanupExecutor;
     private BukkitTask autosaveTask;
+    private CaptureTickTask captureTickTask;
     private boolean databaseReady;
 
     @Override
@@ -313,6 +327,62 @@ public final class MoneyEventPlugin extends JavaPlugin {
                 }
                 balanceDisplay.refreshAccounts(accountIds);
             });
+
+            CaptureConfig captureConfig = CaptureConfig.from(getConfig());
+            JdbcCaptureRepository captureRepository = new JdbcCaptureRepository(dataSource);
+            captureService = new CaptureService(
+                    captureConfig,
+                    captureRepository,
+                    moneyService,
+                    teamService,
+                    message -> getLogger().severe(message));
+            CaptureTempBlockTracker tempBlocks = new CaptureTempBlockTracker(
+                    captureRepository,
+                    java.time.Clock.systemUTC(),
+                    message -> getLogger().severe(message));
+            CaptureBossBarPresenter bossBar = new CaptureBossBarPresenter(teamService);
+            captureBossBar = bossBar;
+            CaptureOccupancyScanner occupancy = new CaptureOccupancyScanner(
+                    accountSessionManager,
+                    moneyAccounts,
+                    teamService,
+                    accountAdmins::isAdminMinecraftUuid,
+                    message -> getLogger().severe(message));
+            CaptureCommandController captureCommands = new CaptureCommandController(
+                    captureService,
+                    updated -> CaptureConfigWriter.writePoints(this, updated),
+                    () -> {
+                        reloadConfig();
+                        captureService.replaceConfig(CaptureConfig.from(getConfig()));
+                    });
+            captureService.addListener(new CaptureService.CaptureEventListener() {
+                @Override
+                public void onBroadcast(String message) {
+                    CaptureTickTask.broadcast(message);
+                }
+
+                @Override
+                public void onOpened(com.larpsmp.moneyevent.capture.CaptureSession session,
+                        com.larpsmp.moneyevent.capture.CapturePointDefinition point) {
+                    // Boss bar updated on next tick.
+                }
+
+                @Override
+                public void onStopped(com.larpsmp.moneyevent.capture.CaptureSession session) {
+                    bossBar.clear();
+                }
+
+                @Override
+                public void onCompleted(
+                        com.larpsmp.moneyevent.capture.CaptureSession session,
+                        UUID winningTeamId,
+                        com.larpsmp.moneyevent.wallet.SplitRewardResult payout) {
+                    // Next point may open immediately; tick task refreshes boss bar.
+                }
+            });
+            captureService.restoreFromDatabase();
+            tempBlocks.restoreAllFromDatabase();
+
             MoneyCommandController controller = new MoneyCommandController(
                     moneyService,
                     new WalletPlayerLookup(moneyService, onlinePlayers),
@@ -323,7 +393,8 @@ public final class MoneyEventPlugin extends JavaPlugin {
                     teamCommands,
                     teamService,
                     balanceDisplay,
-                    accountAdmins);
+                    accountAdmins,
+                    captureCommands);
             BukkitMoneyCommands commands = new BukkitMoneyCommands(controller, accountAdmins);
             for (String commandName : new String[] {"balance", "pay", "top", "larp"}) {
                 var command = Objects.requireNonNull(getCommand(commandName),
@@ -353,11 +424,25 @@ public final class MoneyEventPlugin extends JavaPlugin {
             getServer().getPluginManager().registerEvents(
                     new KillDeathListener(killAttribution, moneyAccounts, onlinePlayers, getLogger()), this);
 
+            getServer().getPluginManager().registerEvents(
+                    new CaptureBlockListener(captureService, tempBlocks), this);
+            getServer().getPluginManager().registerEvents(new CaptureTeleportGuard(this), this);
+            getServer().getPluginManager().registerEvents(
+                    new org.bukkit.event.Listener() {
+                        @org.bukkit.event.EventHandler
+                        public void onJoin(org.bukkit.event.player.PlayerJoinEvent event) {
+                            bossBar.showTo(event.getPlayer());
+                        }
+                    }, this);
+            captureTickTask = new CaptureTickTask(captureService, occupancy, bossBar, tempBlocks);
+            captureTickTask.start(this);
+
             getLogger().info("Plugin admins are LarpSMP-account based. Grant with: /larp op <username>");
             getLogger().info("Account-linked wallets ready (competitor starting balance $"
                     + MoneyService.STARTING_BALANCE + " on first team assignment).");
             getLogger().info("Economy settlement APIs ready (split/death/rescue/kill-money).");
             getLogger().info("Kill attribution ready (60s last-attacker window → death settlement).");
+            getLogger().info("Capture points ready (/larp capture start|pause|resume|stop|define).");
             getLogger().info("Teams administration ready (dialog UI + /larp team|captain|tier|teams).");
             getLogger().info("Account-keyed player bodies enabled (autosave "
                     + playerStateConfig.autosaveSeconds() + "s).");
@@ -375,6 +460,18 @@ public final class MoneyEventPlugin extends JavaPlugin {
         if (autosaveTask != null) {
             autosaveTask.cancel();
             autosaveTask = null;
+        }
+        if (captureTickTask != null) {
+            captureTickTask.cancel();
+            captureTickTask = null;
+        }
+        if (captureService != null) {
+            captureService.flush();
+            captureService = null;
+        }
+        if (captureBossBar != null) {
+            captureBossBar.clear();
+            captureBossBar = null;
         }
 
         if (playerStateService != null && accountSessionManager != null) {
