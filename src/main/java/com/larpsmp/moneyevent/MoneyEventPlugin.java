@@ -20,6 +20,7 @@ import com.larpsmp.moneyevent.capture.CaptureCommandController;
 import com.larpsmp.moneyevent.capture.CaptureConfig;
 import com.larpsmp.moneyevent.capture.CaptureConfigWriter;
 import com.larpsmp.moneyevent.capture.CaptureOccupancyScanner;
+import com.larpsmp.moneyevent.capture.CaptureRewardNotifier;
 import com.larpsmp.moneyevent.capture.CaptureService;
 import com.larpsmp.moneyevent.capture.CaptureTeleportGuard;
 import com.larpsmp.moneyevent.capture.CaptureTempBlockTracker;
@@ -355,6 +356,11 @@ public final class MoneyEventPlugin extends JavaPlugin {
                         reloadConfig();
                         captureService.replaceConfig(CaptureConfig.from(getConfig()));
                     });
+            CaptureRewardNotifier captureRewardNotifier = new CaptureRewardNotifier(
+                    moneyAccounts,
+                    teamService,
+                    onlinePlayers,
+                    message -> getLogger().severe(message));
             captureService.addListener(new CaptureService.CaptureEventListener() {
                 @Override
                 public void onBroadcast(String message) {
@@ -377,7 +383,8 @@ public final class MoneyEventPlugin extends JavaPlugin {
                         com.larpsmp.moneyevent.capture.CaptureSession session,
                         UUID winningTeamId,
                         com.larpsmp.moneyevent.wallet.SplitRewardResult payout) {
-                    // Next point may open immediately; tick task refreshes boss bar.
+                    var point = captureService.config().point(session.pointId()).orElse(null);
+                    captureRewardNotifier.notifyCompletion(session, point, winningTeamId, payout);
                 }
             });
             captureService.restoreFromDatabase();
