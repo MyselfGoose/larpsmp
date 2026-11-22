@@ -32,6 +32,8 @@ Source template: `src/main/resources/config.yml`. Live copy after first run: `de
 
 Major sections:
 
+- `spawn` — protection seconds after respawn, AABB region (`/larp spawn define`)
+- `capture` — tick rate, heights, durations, named points, messages
 - `player-state` — autosave seconds, default spawn
 - `auth` — enabled flag, timeout, auto-login, database, signup limits, rate limits, email challenge settings, dialog message strings
 

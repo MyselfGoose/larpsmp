@@ -2,7 +2,7 @@
 
 Use this to **boot the stack**, reconnect mentally with what is already on `main`, and **verify it with two Minecraft clients**.
 
-This covers **only Implemented features**. It does **not** test death money, rescue, captures, auctions, Ace Hunt, or Gladiators — those are not coded yet.
+This covers **Implemented features** suitable for a two-client smoke pass. Auctions, Ace Hunt, and Gladiators are still not coded.
 
 Related: [Getting started](getting-started.md) · [Implementation status](../05-status/implementation-status.md) · [Roadmap](../05-status/roadmap.md)
 
@@ -340,7 +340,24 @@ No `/top`, no hide team totals, no kill leaderboard yet.
 
 ---
 
-## 6. Persistence / restart
+## 6. Spawn protection
+
+**Need:** Client A op; defined spawn region; Client B as victim.
+
+| # | Steps | Pass if |
+|---|-------|---------|
+| S1 | `/larp spawn define pos1` then move and `/larp spawn define pos2` (or `here` for a single block) | Status shows a defined region |
+| S2 | `/larp spawn status` | Shows protection seconds (default 10) + region corners |
+| S3 | Kill Client B so they respawn **inside** the region; Client A punches them within a few seconds | Punch deals **no** damage |
+| S4 | Wait for protection to expire (or have B attack A to clear early); A punches B again | Damage applies normally |
+| S5 | Have B walk into spawn **without** dying/respawning; A punches B | Damage applies (walking in is not protected) |
+| S6 | While B is protected, A shoots an arrow / hits with a pet if available | Projectile/pet damage cancelled |
+| S7 | While B is protected, push them into lava/fire or let them fall | Environmental damage still applies |
+| S8 | Try breaking a block inside the spawn region | Break is cancelled for everyone |
+
+---
+
+## 7. Persistence / restart
 
 ### Test R1 — Server restart
 
@@ -401,6 +418,12 @@ Do in order (~30–45 minutes):
 /larp tier set <player> <1-4>
 /larp tier clear <player>
 /larp tier list
+/larp spawn define <pos1|pos2|here>
+/larp spawn status
+/larp spawn reload
+/larp capture start|pause|resume|stop|status|define|reload
+/top teams
+/top money
 ```
 
 Console: `op <name>` · `stop`
@@ -411,10 +434,8 @@ Console: `op <name>` · `stop`
 
 Do not expect these to work yet:
 
-- Death payments / rescue / kill money toggles  
-- `/top teams` · `/top money` · `/top kills`  
-- Capture points, auctions, Ace Hunt, Gladiators  
-- Spawn protection rules in plugin  
+- `/top kills`  
+- Auctions, Ace Hunt, Gladiators  
 - `/bid`, competitor role flags, colored team nametags  
 
 If something above **should** work and fails, note: which test ID, both usernames, exact command, and server log lines.

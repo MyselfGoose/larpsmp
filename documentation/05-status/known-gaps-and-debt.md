@@ -7,8 +7,8 @@
 | Competitor role flag | Needed by contracts | Deferred — roster + `starting_balance_granted` used as proxy | Hard to exclude non-competitors systematically once roles land |
 | Kill attribution → death API | Attribution must call `processDeathPayment` | Done (`KillAttributionService` + combat listeners) | — |
 | Capture → split API | Capture must call `processCaptureReward` | Done (`CaptureService` → `processCaptureReward`) | — |
-| Spawn protection | Confirmed respawn-only | Not implemented | Manual admin enforcement only |
-| `plugin.yml` usage | Should list `tier` / `capture` | Lists `capture`; `tier` still via teams controller | Minor |
+| Spawn protection | Confirmed respawn-only | Done (`spawn/` + `/larp spawn define`) | — |
+| `plugin.yml` usage | Should list `tier` / `capture` / `spawn` | Lists `capture` + `spawn`; `tier` still via teams controller | Minor |
 
 ## Auth / config debt
 

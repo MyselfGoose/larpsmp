@@ -1,6 +1,6 @@
 # Spawn and world
 
-**Status:** Spawn protection rules **Confirmed**. Map build list **Planned**. World border / seed / difficulty mostly **Open**. Spawn protection **not Implemented** as a dedicated plugin feature yet.
+**Status:** Spawn protection rules **Confirmed** and **Implemented** (`spawn/` package). Map build list **Planned**. World border / seed / difficulty mostly **Open**.
 
 ## Spawn protection
 
@@ -13,7 +13,19 @@
 - Environmental damage (mobs, fire, lava, falling, hunger, etc.) remains active.
 - Spawn blocks **cannot be broken**.
 
-**Still to define in implementation** when coding this feature: exact duration of “newly respawned” protection, boundary geometry, and whether projectiles into the protected player are cancelled.
+### Implementation details (locked)
+
+| Topic | Choice |
+|-------|--------|
+| Boundary | Axis-aligned box in `config.yml` (`spawn.region`), set with `/larp spawn define pos1\|pos2` |
+| Duration | **10 seconds** after a qualifying respawn (`spawn.protection-seconds`, minimum 1) |
+| Grant | On respawn only if the respawn location is **inside** the defined region |
+| Scope | Immunity follows the player for the remaining duration (not re-checked against standing in spawn) |
+| Early clear | Ends early if the protected player deals player-caused damage; also cleared on quit |
+| Projectiles / pets / TNT | **Cancelled** when the damager resolves to another player (same resolver as combat) |
+| Placed lava/fire | **Not cancelled** (treated as environmental for protection; kill attribution may still credit ownership) |
+| Block place | Allowed; only **break** is cancelled inside the region |
+| Region undefined | No grants and no block lock until corners are defined |
 
 ## Map requirements (build checklist)
 
