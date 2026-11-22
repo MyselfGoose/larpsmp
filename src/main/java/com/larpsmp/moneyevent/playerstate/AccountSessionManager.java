@@ -46,6 +46,22 @@ public final class AccountSessionManager {
         return findByMinecraftUuid(minecraftUuid);
     }
 
+    /**
+     * Finds an online/pending session by LarpSMP account username (case-insensitive).
+     */
+    public Optional<AccountSession> findByUsername(String username) {
+        if (username == null || username.isBlank()) {
+            return Optional.empty();
+        }
+        String needle = username.trim();
+        for (AccountSession session : byMinecraftUuid.values()) {
+            if (session.username().equalsIgnoreCase(needle)) {
+                return Optional.of(session);
+            }
+        }
+        return Optional.empty();
+    }
+
     public void activate(UUID minecraftUuid) {
         AccountSession session = byMinecraftUuid.get(minecraftUuid);
         if (session != null) {

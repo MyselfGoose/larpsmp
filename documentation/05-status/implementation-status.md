@@ -12,6 +12,7 @@ For ordered “what to build next,” see [roadmap.md](roadmap.md). Labels: **Do
 | Pre-join auth (signup/login/verify/recovery) | Done | `auth` package |
 | Account-keyed player bodies | Done | `playerstate` package, `V004` |
 | Portable UUID rebind | Done | AuthService login/signup |
+| Universal account identity (display + vanilla commands) | Done | `AccountIdentityBinder` + `ServerCommandNameIndex` (`playersByName` rebind) |
 | Production admin authz | Partial | `DevelopmentConsoleOpAuthorizer` only |
 | Remote object storage | Not started | `LARPSMP_STORAGE_*` placeholders |
 

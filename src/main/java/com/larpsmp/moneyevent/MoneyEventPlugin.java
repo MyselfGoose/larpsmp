@@ -48,6 +48,7 @@ import com.larpsmp.moneyevent.display.BukkitBalanceSidebar;
 import com.larpsmp.moneyevent.email.EmailSender;
 import com.larpsmp.moneyevent.email.ResendClient;
 import com.larpsmp.moneyevent.notification.PaymentNotificationStore;
+import com.larpsmp.moneyevent.playerstate.AccountIdentityBinder;
 import com.larpsmp.moneyevent.playerstate.AccountPlayerState;
 import com.larpsmp.moneyevent.playerstate.AccountPlayerStateRepository;
 import com.larpsmp.moneyevent.playerstate.AccountSession;
@@ -225,12 +226,15 @@ public final class MoneyEventPlugin extends JavaPlugin {
             authExecutor = listenerExecutor;
         }
 
+        AccountIdentityBinder identityBinder = new AccountIdentityBinder(getLogger());
+        boolean commandIndexReady = identityBinder.commandNames().warmUp();
         AuthConnectionListener authListener = new AuthConnectionListener(
                 authConfig,
                 authService,
                 authSessionManager,
                 accountSessionManager,
                 playerStateService,
+                identityBinder,
                 dialogFactory,
                 listenerExecutor,
                 databaseReady,
@@ -240,6 +244,12 @@ public final class MoneyEventPlugin extends JavaPlugin {
 
         if (authConfig.enabled() && databaseReady) {
             getLogger().info("Pre-join authentication enabled (database-backed).");
+            if (commandIndexReady) {
+                getLogger().info("Account identity binder ready (profile rename + vanilla command-name index).");
+            } else {
+                getLogger().severe("Account identity profile rename active, but vanilla command-name index "
+                        + "could not be discovered — /gamemode|/tp may still need launcher nicknames.");
+            }
         }
 
         if (!databaseReady || dataSource == null || accountRepository == null || playerStateService == null) {
@@ -250,7 +260,8 @@ public final class MoneyEventPlugin extends JavaPlugin {
 
         try {
             getServer().getPluginManager().registerEvents(
-                    new PlayerStateListener(this, accountSessionManager, playerStateService, getLogger()),
+                    new PlayerStateListener(
+                            this, accountSessionManager, playerStateService, identityBinder, getLogger()),
                     this
             );
             startAutosave(playerStateService, playerStateConfig);
@@ -410,8 +421,13 @@ public final class MoneyEventPlugin extends JavaPlugin {
                 command.setTabCompleter(commands);
             }
             getServer().getPluginManager().registerEvents(
-                    new MoneyJoinListener(moneyService, notifications,
-                            message -> getLogger().severe(message), balanceDisplay), this);
+                    new MoneyJoinListener(
+                            moneyService,
+                            notifications,
+                            message -> getLogger().severe(message),
+                            balanceDisplay,
+                            accountSessionManager),
+                    this);
 
             AttackMemory attackMemory = new AttackMemory();
             BlockOwnershipTracker blockOwnership = new BlockOwnershipTracker();

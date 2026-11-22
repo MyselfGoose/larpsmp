@@ -84,7 +84,7 @@ OPS      roster, calendar, map, hosting, playtest
 | `account_player_states` persist inventory/location/vitals | DONE |
 | Autosave + quit wipe of vanilla shell | DONE |
 | Concurrent-login reject | DONE |
-| GameProfile / display name → LarpSMP username | DONE |
+| GameProfile / display name → LarpSMP username | DONE (`AccountIdentityBinder` + `ServerCommandNameIndex`) |
 
 ---
 

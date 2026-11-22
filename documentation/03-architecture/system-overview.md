@@ -34,7 +34,7 @@ Root: `src/main/java/com/larpsmp/moneyevent/`
 | `display` | Balance sidebar HUD |
 | `email` | Resend client + templates |
 | `notification` | Offline `/pay` notifications (plugin data folder) |
-| `playerstate` | Account-keyed body persist/load/session |
+| `playerstate` | Account-keyed body persist/load/session + universal account identity binding |
 | `team` | Teams, captains, tiers, admin dialogs |
 | `wallet` | `MoneyService`, JDBC ledger |
 

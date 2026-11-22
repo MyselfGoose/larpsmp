@@ -20,7 +20,7 @@ LarpSMP/
     display/
     email/
     notification/
-    playerstate/
+    playerstate/            # Bodies + AccountIdentityBinder / command-name index
     team/
     wallet/
   src/main/resources/

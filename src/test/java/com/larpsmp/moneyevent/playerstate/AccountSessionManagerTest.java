@@ -80,4 +80,23 @@ class AccountSessionManagerTest {
         assertTrue(sessions.findByMinecraftUuid(minecraftUuid).isEmpty());
         assertTrue(sessions.findByAccountId(accountId).isEmpty());
     }
+
+    @Test
+    void findByUsernameIsCaseInsensitive() {
+        UUID accountId = UUID.randomUUID();
+        UUID minecraftUuid = UUID.randomUUID();
+        assertTrue(sessions.tryBegin(accountId, minecraftUuid, "secondgoose").isPresent());
+
+        assertEquals("secondgoose", sessions.findByUsername("SecondGoose").orElseThrow().username());
+        assertEquals(minecraftUuid, sessions.findByUsername("SECONDGOOSE").orElseThrow().minecraftUuid());
+    }
+
+    @Test
+    void launcherNameRoundTripOnSession() {
+        AccountSession session = new AccountSession(UUID.randomUUID(), "secondgoose", UUID.randomUUID());
+        session.setLauncherName("Yamite");
+        assertEquals("Yamite", session.launcherName());
+        session.setLauncherName("  ");
+        assertEquals(null, session.launcherName());
+    }
 }

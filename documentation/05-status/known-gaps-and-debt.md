@@ -33,6 +33,7 @@ Minecraft allows **one** sidebar per player. Team Money and Wallet share one pan
 
 | Old idea | Replacement |
 |----------|-------------|
+| Vanilla commands resolving launcher nicknames | `AccountIdentityBinder` + `ServerCommandNameIndex` (`PlayerList.playersByName` rebind) |
 | Team below $40 disqualified | Rescue system |
 | Fully safe spawn for everyone | Respawn-only player-damage protection |
 | Substitutes take over slots | No substitutes |
