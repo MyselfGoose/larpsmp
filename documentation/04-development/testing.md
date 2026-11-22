@@ -18,10 +18,11 @@ JUnit 5 tests under `src/test/java/com/larpsmp/moneyevent/`. Many integration te
 | Player state | Repository round-trip, codec, session manager |
 | Config / email | EnvSettings, templates |
 | Combat | Attack memory window, block ownership, kill attribution → death settlement |
+| Capture | Advantage math, progress engine, session payout/idempotency/restart, temp-block rows, config load |
 
 ### Gaps
 
-No automated tests yet for Bukkit sidebar UI, live in-world Paper damage events, capture/auction gameplay, or Resend HTTP client live calls.
+No automated tests yet for Bukkit sidebar UI, live in-world Paper damage/occupancy events, auction gameplay, or Resend HTTP client live calls.
 
 ## Manual / local Paper
 

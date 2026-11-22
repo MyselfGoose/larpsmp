@@ -1,6 +1,6 @@
 # Capture points
 
-**Status:** Gameplay rules largely **Confirmed**. Plugin capture system **not Implemented**. Exact neutralization / decay multipliers still **Open** / playtest.
+**Status:** Gameplay rules largely **Confirmed**. Plugin capture system **Implemented** on `feature/capture-points` (`capture/` package). Neutralization uses the same advantage duration curve as building; empty decay defaults to **2×** one-player capture speed — both tunable in `config.yml` / playtest.
 
 ## Session shape
 

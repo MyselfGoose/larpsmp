@@ -17,24 +17,27 @@ import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.plugin.Plugin;
 
 /**
- * Applies and persists account-keyed bodies around join/quit.
+ * Applies account-keyed bodies and universal account identity around join/quit.
  */
 public final class PlayerStateListener implements Listener {
 
     private final Plugin plugin;
     private final AccountSessionManager sessions;
     private final PlayerStateService playerStates;
+    private final AccountIdentityBinder identityBinder;
     private final Logger logger;
 
     public PlayerStateListener(
             Plugin plugin,
             AccountSessionManager sessions,
             PlayerStateService playerStates,
+            AccountIdentityBinder identityBinder,
             Logger logger
     ) {
         this.plugin = plugin;
         this.sessions = sessions;
         this.playerStates = playerStates;
+        this.identityBinder = identityBinder;
         this.logger = logger;
     }
 
@@ -77,20 +80,21 @@ public final class PlayerStateListener implements Listener {
             if (session.markApplied()) {
                 playerStates.apply(player, state);
             }
-            PlayerIdentityDisplay.apply(player, session.username());
-            // Re-apply next tick so later join handlers cannot leave the client name visible.
+            bindIdentity(player, session);
+            // Re-bind next tick so later join handlers cannot leave launcher identity authoritative.
             String accountUsername = session.username();
+            String launcherName = session.launcherName();
             plugin.getServer().getScheduler().runTask(plugin, () -> {
                 if (!player.isOnline()) {
                     return;
                 }
                 sessions.findByMinecraftUuid(player.getUniqueId()).ifPresent(still -> {
                     if (still.accountId().equals(session.accountId())) {
-                        PlayerIdentityDisplay.apply(player, accountUsername);
+                        identityBinder.bindOnlinePlayer(player, accountUsername, launcherName);
                     }
                 });
             });
-            event.joinMessage(PlayerIdentityDisplay.joinMessage(session.username()));
+            event.joinMessage(AccountIdentityBinder.joinMessage(session.username()));
             sessions.activate(player.getUniqueId());
             logger.info("Applied account body for '" + session.username()
                     + "' (minecraftUuid=" + player.getUniqueId() + ")");
@@ -109,7 +113,7 @@ public final class PlayerStateListener implements Listener {
             return;
         }
 
-        event.quitMessage(PlayerIdentityDisplay.quitMessage(session.username()));
+        event.quitMessage(AccountIdentityBinder.quitMessage(session.username()));
 
         boolean saved = playerStates.savePlayer(player, session.accountId());
         if (saved) {
@@ -133,12 +137,30 @@ public final class PlayerStateListener implements Listener {
         if (death == null) {
             return;
         }
-        String clientName = event.getEntity().getName();
-        if (clientName == null || clientName.isBlank() || clientName.equalsIgnoreCase(session.username())) {
-            return;
+        Component rewritten = death;
+        rewritten = replaceLiteral(rewritten, event.getEntity().getName(), session.username());
+        rewritten = replaceLiteral(rewritten, session.launcherName(), session.username());
+        if (rewritten != death) {
+            event.deathMessage(rewritten);
         }
-        event.deathMessage(death.replaceText(builder -> builder
-                .matchLiteral(clientName)
-                .replacement(session.username())));
+    }
+
+    private void bindIdentity(Player player, AccountSession session) {
+        AccountIdentityBinder.BindResult result = identityBinder.bindOnlinePlayer(
+                player, session.username(), session.launcherName());
+        if (result.status() == AccountIdentityBinder.BindResult.Status.COLLISION) {
+            player.kick(Component.text(
+                    "Account username '" + session.username()
+                            + "' collides with another online player. Contact an admin.",
+                    NamedTextColor.RED));
+            sessions.endByMinecraftUuid(player.getUniqueId());
+        }
+    }
+
+    private static Component replaceLiteral(Component input, String from, String to) {
+        if (from == null || from.isBlank() || from.equalsIgnoreCase(to)) {
+            return input;
+        }
+        return input.replaceText(builder -> builder.matchLiteral(from).replacement(to));
     }
 }

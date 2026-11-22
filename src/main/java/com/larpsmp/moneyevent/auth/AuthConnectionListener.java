@@ -1,6 +1,7 @@
 package com.larpsmp.moneyevent.auth;
 
 import com.destroystokyo.paper.event.player.PlayerConnectionCloseEvent;
+import com.larpsmp.moneyevent.playerstate.AccountIdentityBinder;
 import com.larpsmp.moneyevent.playerstate.AccountPlayerState;
 import com.larpsmp.moneyevent.playerstate.AccountSession;
 import com.larpsmp.moneyevent.playerstate.AccountSessionManager;
@@ -32,6 +33,7 @@ public final class AuthConnectionListener implements Listener {
     private final AuthSessionManager sessionManager;
     private final AccountSessionManager accountSessions;
     private final @Nullable PlayerStateService playerStates;
+    private final @Nullable AccountIdentityBinder identityBinder;
     private final AuthDialogFactory dialogFactory;
     private final ExecutorService authExecutor;
     private final Logger logger;
@@ -48,11 +50,28 @@ public final class AuthConnectionListener implements Listener {
             boolean databaseReady,
             Logger logger
     ) {
+        this(config, authService, sessionManager, accountSessions, playerStates, null, dialogFactory,
+                authExecutor, databaseReady, logger);
+    }
+
+    public AuthConnectionListener(
+            AuthConfig config,
+            @Nullable AuthService authService,
+            AuthSessionManager sessionManager,
+            AccountSessionManager accountSessions,
+            @Nullable PlayerStateService playerStates,
+            @Nullable AccountIdentityBinder identityBinder,
+            AuthDialogFactory dialogFactory,
+            ExecutorService authExecutor,
+            boolean databaseReady,
+            Logger logger
+    ) {
         this.config = config;
         this.authService = authService;
         this.sessionManager = sessionManager;
         this.accountSessions = accountSessions;
         this.playerStates = playerStates;
+        this.identityBinder = identityBinder;
         this.dialogFactory = dialogFactory;
         this.authExecutor = authExecutor;
         this.databaseReady = databaseReady;
@@ -745,10 +764,19 @@ public final class AuthConnectionListener implements Listener {
             return;
         }
 
+        // Rename the configuration-phase profile BEFORE world join so PlayerList indexes
+        // the LarpSMP username for vanilla command targeting (/gamemode, /tp, …).
+        String launcherName = session.connection().getProfile().getName();
+        accountSession.setLauncherName(launcherName);
+        if (identityBinder != null) {
+            identityBinder.bindConfigurationProfile(session.connection(), account.username());
+        }
+
         if (sessionManager.complete(profileId, AuthResult.ALLOWED)) {
             audience.closeDialog();
             logger.info("Admitted account '" + account.username()
-                    + "' (minecraftUuid=" + profileId + ")");
+                    + "' (minecraftUuid=" + profileId
+                    + ", launcher='" + (launcherName == null ? "" : launcherName) + "')");
         } else {
             accountSessions.endByMinecraftUuid(profileId);
         }

@@ -12,6 +12,7 @@ LarpSMP/
   src/main/java/com/larpsmp/moneyevent/
     MoneyEventPlugin.java
     auth/
+    capture/                # Capture points (progress, boss bar, temp blocks → capture reward)
     combat/                 # Kill attribution (60s last-attacker → death settlement)
     command/
     config/
@@ -19,13 +20,13 @@ LarpSMP/
     display/
     email/
     notification/
-    playerstate/
+    playerstate/            # Bodies + AccountIdentityBinder / command-name index
     team/
     wallet/
   src/main/resources/
     plugin.yml
     config.yml
-    db/migrations/          # V001–V009
+    db/migrations/          # V001–V010
   src/test/java/…           # JUnit 5 tests
   docker/
     docker-compose.yml      # Postgres + pgAdmin

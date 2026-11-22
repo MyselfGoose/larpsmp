@@ -26,6 +26,7 @@ Root: `src/main/java/com/larpsmp/moneyevent/`
 |---------|----------------|
 | `(root)` `MoneyEventPlugin` | Lifecycle, wiring, autosave task |
 | `auth` | Pre-join dialogs, accounts, UUID binding, rate limits, admin authorizers |
+| `capture` | Capture points (occupancy, progress, temp blocks, boss bar) → capture reward |
 | `combat` | Kill attribution (60s last-attacker, traps/hazards) → death settlement |
 | `command` | `/balance`, `/pay`, `/larp` bridge; join listener; player lookup |
 | `config` | `.env` / `EnvSettings` |
@@ -33,7 +34,7 @@ Root: `src/main/java/com/larpsmp/moneyevent/`
 | `display` | Balance sidebar HUD |
 | `email` | Resend client + templates |
 | `notification` | Offline `/pay` notifications (plugin data folder) |
-| `playerstate` | Account-keyed body persist/load/session |
+| `playerstate` | Account-keyed body persist/load/session + universal account identity binding |
 | `team` | Teams, captains, tiers, admin dialogs |
 | `wallet` | `MoneyService`, JDBC ledger |
 
@@ -45,16 +46,17 @@ flowchart TD
   env[Load EnvSettings + config]
   authCfg[AuthConfig / PlayerStateConfig]
   db{auth.enabled and DB up?}
-  migrate[Run migrations V001-V009]
+  migrate[Run migrations V001-V010]
   authSvc[AuthService + listeners]
   money[MoneyService + TeamService]
   combat[Kill attribution listeners]
+  capture[Capture service + tick]
   cmds[Register balance pay larp]
   sidebar[Balance sidebar]
   fail[Auth fails closed - no world join]
 
   enable --> env --> authCfg --> db
-  db -->|yes| migrate --> authSvc --> money --> combat --> cmds --> sidebar
+  db -->|yes| migrate --> authSvc --> money --> combat --> capture --> cmds --> sidebar
   db -->|no| fail
 ```
 
@@ -68,9 +70,7 @@ From [`plugin.yml`](../../src/main/resources/plugin.yml):
 |---------|------|
 | `/balance [player]` | Public balances |
 | `/pay <player> <amount>` | Transfers |
-| `/larp …` | Admin money + teams (`money`, `teams`, `team`, `captain`, and in code `tier`) |
-
-Note: `plugin.yml` usage text currently omits `tier`; the command is Implemented via `TeamCommandController`.
+| `/larp …` | Admin money + capture + teams (`money`, `capture`, `teams`, `team`, `captain`, `tier`) |
 
 ## Cross-cutting principles
 

@@ -12,6 +12,7 @@ public final class AccountSession {
     private final UUID accountId;
     private final String username;
     private final UUID minecraftUuid;
+    private volatile @Nullable String launcherName;
     private volatile @Nullable AccountPlayerState preloadedState;
     private final AtomicBoolean active = new AtomicBoolean(false);
     private final AtomicBoolean applied = new AtomicBoolean(false);
@@ -32,6 +33,21 @@ public final class AccountSession {
 
     public UUID minecraftUuid() {
         return minecraftUuid;
+    }
+
+    /**
+     * Minecraft client / launcher nickname observed at connect time (before account rename).
+     */
+    public @Nullable String launcherName() {
+        return launcherName;
+    }
+
+    public void setLauncherName(@Nullable String launcherName) {
+        if (launcherName == null || launcherName.isBlank()) {
+            this.launcherName = null;
+        } else {
+            this.launcherName = launcherName.trim();
+        }
     }
 
     public @Nullable AccountPlayerState preloadedState() {

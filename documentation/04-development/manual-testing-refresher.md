@@ -47,7 +47,7 @@ Wait until the script says the server is ready and the console shows auth/Postgr
 | **Client A** | Primary tester + **op** (admin commands) | e.g. offline name `PlayerA` |
 | **Client B** | Second account / payments / team mate | e.g. offline name `PlayerB` |
 
-Offline mode is on — different client nicknames are fine. After signup, in-game identity is the **LarpSMP username**, not the launcher nickname.
+Offline mode is on — different client nicknames are fine. After signup/login, in-game identity is the **LarpSMP username**, not the launcher nickname. Vanilla commands must also accept that username (e.g. client nick `Yamite` logged in as account `secondgoose` → `/gamemode survival secondgoose` works; `/gamemode survival yamite` should not be required).
 
 **Op Client A** (needed for `/larp …`):
 
@@ -159,6 +159,16 @@ Then both players Sign up again from scratch.
 
 1. Both online
 2. Confirm tab list / nametag-ish identity shows LarpSMP usernames (`alice`, `bob`), not only launcher nicknames
+
+### Test B4 — Vanilla commands use account username
+
+Requires Client A op’d (ops are UUID-based; op before or after auth is fine).
+
+1. Client B joins with launcher nick ≠ account username (e.g. nick `Yamite`, account `bob`)
+2. From Client A (or console): `/gamemode survival bob` — must succeed
+3. `/tp alice bob` (or `/tp bob alice`) — must succeed using account names
+4. Confirm `/gamemode survival yamite` is **not** required (launcher nick should not be the target operators need)
+5. Console log on admit should mention `launcher='…'` alongside the account username
 
 ---
 

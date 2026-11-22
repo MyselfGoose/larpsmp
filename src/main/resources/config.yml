@@ -1,6 +1,35 @@
 # Secrets (DB passwords, Resend, storage API keys) live in project-root .env.
 # See .env.example. Values below are local-dev fallbacks only; .env wins at runtime.
 
+# Capture points (regions set in-game via /larp capture define <id> pos1|pos2).
+capture:
+  tick-seconds: 1
+  height-blocks: 3
+  temp-block-seconds: 30
+  decay-multiplier: 2.0
+  durations-seconds:
+    "1": 600
+    "2": 420
+    "3": 300
+    "4": 210
+  points:
+    - id: quarry
+      name: Quarry
+      world: ""
+    - id: tower
+      name: Tower
+      world: ""
+    - id: ruins
+      name: Ruins
+      world: ""
+  messages:
+    open: "[LarpSMP] {point} is now open! Capture reward: $50 for your team."
+    threshold: "[LarpSMP] {point}: {team} {percent}%"
+    complete: "[LarpSMP] {team} captured {point}! $50 split among the roster."
+    paused: "[LarpSMP] Capture paused."
+    resumed: "[LarpSMP] Capture resumed."
+    stopped: "[LarpSMP] Capture stopped."
+
 # Account-keyed Minecraft body persistence (inventory, location, vitals, XP, effects).
 # Empty default-spawn.world uses the server's first/default world spawn location.
 player-state:

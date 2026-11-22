@@ -62,11 +62,29 @@ Host port **5433** avoids colliding with system Postgres on 5432. Inside Compose
 | Back to main menu | Disconnect |
 | Account already online | Rejected |
 
-## Display names
+## Universal account identity
 
-After auth, tab list, display name, join/quit, death-message rewriting, `/pay` lookups, and wallet labels use the **LarpSMP username**. The plugin also rewrites the Paper **GameProfile** name. Client nicknames remain bind metadata.
+After successful configuration-phase auth, the **LarpSMP username** is the only name players and operators should use:
 
-**Paper limits:** some vanilla systems may briefly show the offline client name; advancements/packets can leak the original nickname in edge cases.
+| Surface | Behavior |
+|---------|----------|
+| Tab list / display name / join / quit | Account username |
+| Death messages | Launcher nickname rewritten to account username |
+| `/pay`, `/balance`, `/larp …` | Account username |
+| Vanilla commands (`/gamemode`, `/tp`, `/give`, …) | Account username (command-name index rebound) |
+| Server log pre-auth line (`UUID of player …`) | May still show the launcher nickname once at connect |
+
+Implementation (`playerstate`):
+
+1. **`AccountIdentityBinder.bindConfigurationProfile`** — renames the connecting Paper profile during auth so `PlayerList` indexes the account username at world join.
+2. **`AccountIdentityBinder.bindOnlinePlayer`** — applies `setPlayerProfile` + display/tab names after join (and again next tick so later join handlers cannot leave the launcher name authoritative).
+3. **`ServerCommandNameIndex`** — re-keys Paper’s `playersByName` map (vanilla Brigadier targets). Access path: `CraftServer#getHandle()` → `PlayerList#playersByName`, value from `CraftPlayer#getHandle()` (`ServerPlayer`). Keys are lower-cased with `Locale.ROOT`. `Player#setPlayerProfile` alone does **not** update that map.
+
+Boot warms the reflective accessors so logs show `Account command-name index ready (…)`. If discovery fails, profile/display rename still runs, but vanilla command targets may keep needing the launcher nickname until fixed.
+
+Client / launcher nicknames remain bind metadata on `AccountSession.launcherName()` and in `account_minecraft_identities` (`MoneyJoinListener` keeps last-seen Minecraft name as the launcher nick, not the rebound account username).
+
+**Residual Paper limits:** some advancement/packet edge cases can still briefly leak the offline client nickname. Pre-auth handshake logs (`UUID of player …`) are outside plugin control.
 
 ## pgAdmin browsing
 
