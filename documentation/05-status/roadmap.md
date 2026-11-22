@@ -1,7 +1,7 @@
 # Development roadmap (by branch)
 
-You are here: **`feature/capture-points`** implements the capture engine on top of `main` (settlement + kill attribution already merged).  
-**After this lands:** [`feature/spawn-protection`](#8-featurespawn-protection--queued-can-parallel-early) or [`feature/display-and-leaderboards`](#9-featuredisplay-and-leaderboards--queued).
+You are here: **`feature/spawn-protection`** implements respawn-only spawn protection on top of `main` (capture already merged).  
+**After this lands:** [`feature/display-and-leaderboards`](#9-featuredisplay-and-leaderboards--queued).
 
 Status key on this page:
 
@@ -28,8 +28,8 @@ DONE     documentation            → documentation/ tree on main
 ────────────────────────────────────────────────────────────────
 DONE     feature/economy-settlement
 DONE     feature/kill-attribution
-NEXT     feature/capture-points
-QUEUED   feature/spawn-protection
+DONE     feature/capture-points
+DONE     feature/spawn-protection
 QUEUED   feature/display-and-leaderboards
 QUEUED   feature/auctions
 QUEUED   feature/ace-hunt
@@ -163,13 +163,12 @@ OPS      roster, calendar, map, hosting, playtest
 
 ---
 
-## 7. `feature/capture-points` — NEXT (on branch)
+## 7. `feature/capture-points` — DONE
 
-**Owner:** Azeem (detection) + economy already has `splitReward`.  
-**Depends on:** economy settlement (reward payout).
+**Merged into `main`.** Capture engine + idempotent `$50` payout.
 
-| # | Work item |
-|---|-----------|
+| # | Work item | Status |
+|---|-----------|--------|
 | 1 | 2–4 named points; one active at a time | Done (`quarry`/`tower`/`ruins`; day completions) |
 | 2 | Advantage = lead − runner-up; ties freeze | Done (`CaptureProgressEngine`) |
 | 3 | Base 10 min / 1 uncontested player; configurable faster multipliers | Done (`capture.durations-seconds`) |
@@ -186,16 +185,16 @@ OPS      roster, calendar, map, hosting, playtest
 
 ---
 
-## 8. `feature/spawn-protection` — QUEUED (can PARALLEL early)
+## 8. `feature/spawn-protection` — DONE (this branch)
 
-**Smaller branch.** Confirmed rules already documented.
+**Smaller branch.** Confirmed rules documented in [spawn-and-world.md](../02-competition-rules/spawn-and-world.md).
 
-| # | Work item |
-|---|-----------|
-| 1 | Protect **newly respawned** players only (not “anyone inside spawn”) |
-| 2 | Block player-caused damage only; env damage stays |
-| 3 | Spawn blocks unbreakable |
-| 4 | Clear boundary / duration of “newly respawned” protection |
+| # | Work item | Status |
+|---|-----------|--------|
+| 1 | Protect **newly respawned** players only (not “anyone inside spawn”) | Done (`SpawnProtectionListener` grants only when respawn loc is in region) |
+| 2 | Block player-caused damage only; env damage stays | Done (melee/projectile/pet/TNT cancelled; lava/fire/fall/hunger allowed) |
+| 3 | Spawn blocks unbreakable | Done (`SpawnBlockListener`) |
+| 4 | Clear boundary / duration of “newly respawned” protection | Done (AABB via `/larp spawn define`; default **10s**; early clear on attack) |
 
 Can land anytime after teams; does not block economy settlement.
 
@@ -300,12 +299,10 @@ Not branches, but blockers for “event ready”:
 
 ## Recommended working order (what you do next)
 
-1. **Now:** create `feature/economy-settlement` from `main` → constants + competitor starting balance → split → death/rescue → kill-money scopes → `/top` + visibility → tests.  
-2. **Then / parallel:** `feature/kill-attribution` — Done.  
-3. **Then:** `feature/capture-points`.  
-4. **Whenever small:** `feature/spawn-protection`.  
-5. **Then:** display polish, auctions (manual first), Ace Hunt, Gladiators as needed.  
-6. **Throughout:** chase Karim on [open questions](open-questions.md).
+1. Economy settlement, kill attribution, capture, spawn protection — **Done**.  
+2. **Next:** `feature/display-and-leaderboards` (nametags, tab grouping, `/top kills`).  
+3. **Then:** auctions (manual first), Ace Hunt, Gladiators as needed.  
+4. **Throughout:** chase Karim on [open questions](open-questions.md).
 
 ---
 
@@ -314,14 +311,12 @@ Not branches, but blockers for “event ready”:
 ```bash
 git checkout main
 git pull origin main
-git checkout -b feature/economy-settlement
+git checkout -b feature/display-and-leaderboards
 ```
 
 Read before coding:
 
-- [Economy rules](../02-competition-rules/economy.md)
-- [Economy architecture](../03-architecture/economy-architecture.md)
-- [Integration contracts](../03-architecture/integration-contracts.md)
+- [Roadmap §9](#9-featuredisplay-and-leaderboards--queued)
 - [Known gaps](known-gaps-and-debt.md)
 
 When the branch is merge-ready: PR → `main` → delete the feature branch → pick the next **QUEUED** item.

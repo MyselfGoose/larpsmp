@@ -6,6 +6,7 @@ import com.larpsmp.moneyevent.auth.MoneyAdminAction;
 import com.larpsmp.moneyevent.auth.MoneyAdminAuthorizer;
 import com.larpsmp.moneyevent.capture.CaptureCommandController;
 import com.larpsmp.moneyevent.display.BalanceDisplayControl;
+import com.larpsmp.moneyevent.spawn.SpawnCommandController;
 import com.larpsmp.moneyevent.notification.PaymentNotificationStore;
 import com.larpsmp.moneyevent.team.Team;
 import com.larpsmp.moneyevent.team.TeamCommandController;
@@ -40,6 +41,7 @@ public final class MoneyCommandController {
     private final @Nullable BalanceDisplayControl balanceDisplay;
     private final @Nullable AccountAdminService accountAdmins;
     private final @Nullable CaptureCommandController captureCommands;
+    private final @Nullable SpawnCommandController spawnCommands;
 
     public MoneyCommandController(
             MoneyService money,
@@ -48,7 +50,7 @@ public final class MoneyCommandController {
             PaymentNotificationStore notifications,
             Consumer<String> errorLogger,
             MoneyAdminAuthorizer authorizer) {
-        this(money, lookup, onlinePlayers, notifications, errorLogger, authorizer, null, null, null, null, null);
+        this(money, lookup, onlinePlayers, notifications, errorLogger, authorizer, null, null, null, null, null, null);
     }
 
     public MoneyCommandController(
@@ -60,7 +62,7 @@ public final class MoneyCommandController {
             MoneyAdminAuthorizer authorizer,
             @Nullable TeamCommandController teamCommands) {
         this(money, lookup, onlinePlayers, notifications, errorLogger, authorizer, teamCommands, null, null, null,
-                null);
+                null, null);
     }
 
     public MoneyCommandController(
@@ -74,7 +76,7 @@ public final class MoneyCommandController {
             @Nullable TeamService teams,
             @Nullable BalanceDisplayControl balanceDisplay) {
         this(money, lookup, onlinePlayers, notifications, errorLogger, authorizer, teamCommands, teams,
-                balanceDisplay, null, null);
+                balanceDisplay, null, null, null);
     }
 
     public MoneyCommandController(
@@ -89,7 +91,7 @@ public final class MoneyCommandController {
             @Nullable BalanceDisplayControl balanceDisplay,
             @Nullable AccountAdminService accountAdmins) {
         this(money, lookup, onlinePlayers, notifications, errorLogger, authorizer, teamCommands, teams,
-                balanceDisplay, accountAdmins, null);
+                balanceDisplay, accountAdmins, null, null);
     }
 
     public MoneyCommandController(
@@ -104,6 +106,23 @@ public final class MoneyCommandController {
             @Nullable BalanceDisplayControl balanceDisplay,
             @Nullable AccountAdminService accountAdmins,
             @Nullable CaptureCommandController captureCommands) {
+        this(money, lookup, onlinePlayers, notifications, errorLogger, authorizer, teamCommands, teams,
+                balanceDisplay, accountAdmins, captureCommands, null);
+    }
+
+    public MoneyCommandController(
+            MoneyService money,
+            PlayerLookup lookup,
+            OnlinePlayerAccess onlinePlayers,
+            PaymentNotificationStore notifications,
+            Consumer<String> errorLogger,
+            MoneyAdminAuthorizer authorizer,
+            @Nullable TeamCommandController teamCommands,
+            @Nullable TeamService teams,
+            @Nullable BalanceDisplayControl balanceDisplay,
+            @Nullable AccountAdminService accountAdmins,
+            @Nullable CaptureCommandController captureCommands,
+            @Nullable SpawnCommandController spawnCommands) {
         this.money = money;
         this.lookup = lookup;
         this.onlinePlayers = onlinePlayers;
@@ -115,6 +134,7 @@ public final class MoneyCommandController {
         this.balanceDisplay = balanceDisplay;
         this.accountAdmins = accountAdmins;
         this.captureCommands = captureCommands;
+        this.spawnCommands = spawnCommands;
     }
 
     public void balance(CommandSource source, String[] arguments) {
@@ -234,12 +254,15 @@ public final class MoneyCommandController {
         if (arguments.length >= 1 && captureCommands != null && captureCommands.handle(source, arguments)) {
             return;
         }
+        if (arguments.length >= 1 && spawnCommands != null && spawnCommands.handle(source, arguments)) {
+            return;
+        }
         if (arguments.length >= 1 && teamCommands != null && teamCommands.handle(source, arguments)) {
             return;
         }
         if (arguments.length < 1) {
             source.send(
-                    "Usage: /larp <money|killmoney|killreward|visibility|op|deop|ops|capture|teams|team|captain|tier> ...",
+                    "Usage: /larp <money|killmoney|killreward|visibility|op|deop|ops|capture|spawn|teams|team|captain|tier> ...",
                     MessageKind.ERROR);
             return;
         }
@@ -253,7 +276,7 @@ public final class MoneyCommandController {
             case "deop" -> larpDeop(source, arguments);
             case "ops" -> larpOps(source);
             default -> source.send(
-                    "Usage: /larp <money|killmoney|killreward|visibility|op|deop|ops|capture|teams|team|captain|tier> ...",
+                    "Usage: /larp <money|killmoney|killreward|visibility|op|deop|ops|capture|spawn|teams|team|captain|tier> ...",
                     MessageKind.ERROR);
         }
     }
@@ -700,12 +723,15 @@ public final class MoneyCommandController {
                     candidates.add("deop");
                     candidates.add("ops");
                     candidates.add("capture");
+                    candidates.add("spawn");
                 }
                 if (teamCommands != null) {
                     candidates.addAll(teamCommands.tabComplete(source, arguments));
                 }
             } else if (arguments[0].equalsIgnoreCase("capture") && captureCommands != null) {
                 return captureCommands.tabComplete(source, arguments);
+            } else if (arguments[0].equalsIgnoreCase("spawn") && spawnCommands != null) {
+                return spawnCommands.tabComplete(source, arguments);
             } else if (arguments[0].equalsIgnoreCase("op") || arguments[0].equalsIgnoreCase("deop")) {
                 if (arguments.length == 2) {
                     candidates = lookup.suggestions();

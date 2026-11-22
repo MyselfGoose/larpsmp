@@ -1,6 +1,20 @@
 # Secrets (DB passwords, Resend, storage API keys) live in project-root .env.
 # See .env.example. Values below are local-dev fallbacks only; .env wins at runtime.
 
+# Spawn protection (region set in-game via /larp spawn define pos1|pos2).
+# Protects newly respawned players inside the region for protection-seconds.
+# Empty region.world means undefined (no protection grants / no block lock).
+spawn:
+  protection-seconds: 10
+  region:
+    world: ""
+    min-x: 0
+    min-y: 0
+    min-z: 0
+    max-x: 0
+    max-y: 0
+    max-z: 0
+
 # Capture points (regions set in-game via /larp capture define <id> pos1|pos2).
 capture:
   tick-seconds: 1

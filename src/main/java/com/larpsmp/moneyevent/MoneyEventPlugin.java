@@ -35,6 +35,12 @@ import com.larpsmp.moneyevent.combat.JdbcCombatKillRepository;
 import com.larpsmp.moneyevent.combat.KillAttributionService;
 import com.larpsmp.moneyevent.combat.KillDeathListener;
 import com.larpsmp.moneyevent.command.BukkitMoneyCommands;
+import com.larpsmp.moneyevent.spawn.SpawnBlockListener;
+import com.larpsmp.moneyevent.spawn.SpawnCommandController;
+import com.larpsmp.moneyevent.spawn.SpawnConfig;
+import com.larpsmp.moneyevent.spawn.SpawnConfigWriter;
+import com.larpsmp.moneyevent.spawn.SpawnProtectionListener;
+import com.larpsmp.moneyevent.spawn.SpawnService;
 import com.larpsmp.moneyevent.command.BukkitOnlinePlayerAccess;
 import com.larpsmp.moneyevent.command.MessageKind;
 import com.larpsmp.moneyevent.command.MoneyCommandController;
@@ -401,6 +407,15 @@ public final class MoneyEventPlugin extends JavaPlugin {
             captureService.restoreFromDatabase();
             tempBlocks.restoreAllFromDatabase();
 
+            SpawnService spawnService = new SpawnService(SpawnConfig.from(getConfig()));
+            SpawnCommandController spawnCommands = new SpawnCommandController(
+                    spawnService,
+                    updated -> SpawnConfigWriter.write(this, updated),
+                    () -> {
+                        reloadConfig();
+                        spawnService.replaceConfig(SpawnConfig.from(getConfig()));
+                    });
+
             MoneyCommandController controller = new MoneyCommandController(
                     moneyService,
                     new WalletPlayerLookup(moneyService, onlinePlayers),
@@ -412,7 +427,8 @@ public final class MoneyEventPlugin extends JavaPlugin {
                     teamService,
                     balanceDisplay,
                     accountAdmins,
-                    captureCommands);
+                    captureCommands,
+                    spawnCommands);
             BukkitMoneyCommands commands = new BukkitMoneyCommands(controller, accountAdmins);
             for (String commandName : new String[] {"balance", "pay", "top", "larp"}) {
                 var command = Objects.requireNonNull(getCommand(commandName),
@@ -460,12 +476,17 @@ public final class MoneyEventPlugin extends JavaPlugin {
             captureTickTask = new CaptureTickTask(captureService, occupancy, bossBar, tempBlocks);
             captureTickTask.start(this);
 
+            getServer().getPluginManager().registerEvents(new SpawnProtectionListener(spawnService), this);
+            getServer().getPluginManager().registerEvents(new SpawnBlockListener(spawnService), this);
+
             getLogger().info("Plugin admins are LarpSMP-account based. Grant with: /larp op <username>");
             getLogger().info("Account-linked wallets ready (competitor starting balance $"
                     + MoneyService.STARTING_BALANCE + " on first team assignment).");
             getLogger().info("Economy settlement APIs ready (split/death/rescue/kill-money).");
             getLogger().info("Kill attribution ready (60s last-attacker window → death settlement).");
             getLogger().info("Capture points ready (/larp capture start|pause|resume|stop|define).");
+            getLogger().info("Spawn protection ready (/larp spawn define|status|reload; "
+                    + spawnService.config().protectionSeconds() + "s after respawn in region).");
             getLogger().info("Teams administration ready (dialog UI + /larp team|captain|tier|teams).");
             getLogger().info("Account-keyed player bodies enabled (autosave "
                     + playerStateConfig.autosaveSeconds() + "s).");

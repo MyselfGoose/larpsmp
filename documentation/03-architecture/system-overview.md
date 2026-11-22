@@ -28,6 +28,7 @@ Root: `src/main/java/com/larpsmp/moneyevent/`
 | `auth` | Pre-join dialogs, accounts, UUID binding, rate limits, admin authorizers |
 | `capture` | Capture points (occupancy, progress, temp blocks, boss bar) → capture reward |
 | `combat` | Kill attribution (60s last-attacker, traps/hazards) → death settlement |
+| `spawn` | Respawn-only player-damage immunity + unbreakable spawn blocks |
 | `command` | `/balance`, `/pay`, `/larp` bridge; join listener; player lookup |
 | `config` | `.env` / `EnvSettings` |
 | `db` | Datasource factory, migration runner |
@@ -51,12 +52,13 @@ flowchart TD
   money[MoneyService + TeamService]
   combat[Kill attribution listeners]
   capture[Capture service + tick]
+  spawn[Spawn protection listeners]
   cmds[Register balance pay larp]
   sidebar[Balance sidebar]
   fail[Auth fails closed - no world join]
 
   enable --> env --> authCfg --> db
-  db -->|yes| migrate --> authSvc --> money --> combat --> capture --> cmds --> sidebar
+  db -->|yes| migrate --> authSvc --> money --> combat --> capture --> spawn --> cmds --> sidebar
   db -->|no| fail
 ```
 
@@ -70,7 +72,7 @@ From [`plugin.yml`](../../src/main/resources/plugin.yml):
 |---------|------|
 | `/balance [player]` | Public balances |
 | `/pay <player> <amount>` | Transfers |
-| `/larp …` | Admin money + capture + teams (`money`, `capture`, `teams`, `team`, `captain`, `tier`) |
+| `/larp …` | Admin money + capture + spawn + teams (`money`, `capture`, `spawn`, `teams`, `team`, `captain`, `tier`) |
 
 ## Cross-cutting principles
 

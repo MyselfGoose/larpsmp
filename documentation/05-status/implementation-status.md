@@ -52,7 +52,7 @@ For ordered “what to build next,” see [roadmap.md](roadmap.md). Labels: **Do
 
 | Feature | Status |
 |---------|--------|
-| Spawn protection (respawn-only) | Not started |
+| Spawn protection (respawn-only) | Done (`spawn/` → 10s after respawn in region; unbreakable blocks; `/larp spawn`) |
 | Capture points engine | Done (`capture/` → `processCaptureReward`; boss bar; `/larp capture`) |
 | Capture temporary blocks | Done (`capture_temp_blocks` + 30s restore across restart) |
 | Kill attribution | Done (`combat/` → `processDeathPayment`; `combat_kills` ledger) |

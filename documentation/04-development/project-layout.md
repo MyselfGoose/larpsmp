@@ -14,6 +14,7 @@ LarpSMP/
     auth/
     capture/                # Capture points (progress, boss bar, temp blocks → capture reward)
     combat/                 # Kill attribution (60s last-attacker → death settlement)
+    spawn/                  # Respawn-only spawn protection + unbreakable spawn blocks
     command/
     config/
     db/
