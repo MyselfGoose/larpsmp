@@ -322,25 +322,36 @@ Bob’s Team Money → `—`
 
 ### What exists
 
+One physical right sidebar with **three stacked panels** (Minecraft only allows one sidebar slot):
+
 ```text
-Team Money
-$X,XXX   (or — if no team)
+TOP TEAMS
+1. Blue $X
+2. Red $Y
+3. Yellow $Z
 ··········
-Wallet
-$YYY
+TOP PLAYERS
+1. alice $A
+…
+5. …
+··········
+Team Money $X
+Wallet $YYY
 ```
+
+Empty ranks show `—` so the board height stays stable.
 
 ### Test D1 — Updates after money and roster changes
 
-1. Pay → Wallet updates quickly  
-2. Join/leave team → Team Money updates  
-3. Admin give → both relevant numbers update  
+1. Pay → Wallet + TOP PLAYERS reorder quickly on **both** clients  
+2. Join/leave team → Team Money + TOP TEAMS update for everyone  
+3. Admin give → personal + global ranking lines update  
 
 ### Test D2 — Leaderboards and visibility
 
 1. `/top teams`, `/top money`, `/top kills` all respond  
-2. `/larp visibility teamtotals hide` → Team Money sidebar section hides; `/team balance` reports hidden  
-3. `/larp visibility teamtotals show` restores  
+2. `/larp visibility teamtotals hide` → **TOP TEAMS** and **Team Money** hide; TOP PLAYERS + Wallet remain; `/team balance` reports hidden  
+3. `/larp visibility teamtotals show` restores TOP TEAMS + Team Money  
 
 ### Test D3 — Nametags / tab / player commands
 

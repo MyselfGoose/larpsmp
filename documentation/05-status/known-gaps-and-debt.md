@@ -21,7 +21,7 @@
 
 ## UI / scoreboard
 
-Minecraft allows **one** sidebar per player. Team Money and Wallet share one panel. Any future event HUD must coordinate with `BukkitBalanceSidebar` or it will overwrite.
+Minecraft allows **one** sidebar per player (always right — no native left panel). `BukkitBalanceSidebar` stacks Top Teams, Top Players, and personal Team Money/Wallet in that single slot. Any future event HUD must coordinate with it or it will overwrite.
 
 ## Persistence / ops
 

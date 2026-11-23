@@ -67,14 +67,20 @@ Temporary: console or op via `DevelopmentConsoleOpAuthorizer` (same as money). P
 
 ## Sidebar (Implemented)
 
-Single Minecraft sidebar panel; two stacked sections:
+Single Minecraft sidebar panel (right side only — client limit); three stacked boards:
 
 ```text
-Team Money
-$2,601
+TOP TEAMS
+1. Blue $2,601
+2. Red $2,100
+3. Yellow $1,800
 ··········
-Wallet
-$250
+TOP PLAYERS
+1. alice $850
+…
+··········
+Team Money $2,601
+Wallet $250
 ```
 
-No team → `—` under Team Money. Amounts use grouped digits. Aqua = team; gold = personal.
+No team → `—` for personal Team Money. Empty rank slots also show `—`. Amounts use grouped digits. Rank accents gold/silver/bronze; team rows use team color; aqua = team totals; gold = personal / player standings. When team totals are hidden, TOP TEAMS and Team Money omit; TOP PLAYERS + Wallet remain.

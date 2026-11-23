@@ -32,7 +32,7 @@ Root: `src/main/java/com/larpsmp/moneyevent/`
 | `command` | `/balance`, `/pay`, `/larp` bridge; join listener; player lookup |
 | `config` | `.env` / `EnvSettings` |
 | `db` | Datasource factory, migration runner |
-| `display` | Balance sidebar HUD + team nametags / tab grouping |
+| `display` | Stacked sidebar HUD (top teams/players + wallet) + team nametags / tab grouping |
 | `email` | Resend client + templates |
 | `notification` | Offline `/pay` notifications (plugin data folder) |
 | `playerstate` | Account-keyed body persist/load/session + universal account identity binding |

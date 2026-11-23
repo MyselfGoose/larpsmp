@@ -336,8 +336,9 @@ public final class MoneyEventPlugin extends JavaPlugin {
                     sidebar,
                     message -> getLogger().severe(message));
             JdbcCombatKillRepository killRepository = new JdbcCombatKillRepository(dataSource);
+            // Rankings are global: any balance change must refresh every viewer's stacked HUD.
             moneyService.addBalanceChangeListener(
-                    (playerId, ignoredBalance) -> balanceDisplay.refreshPlayerAndTeammates(playerId));
+                    (playerId, ignoredBalance) -> balanceDisplay.refreshAll());
             moneyService.addSettlementNoticeListener((accountId, message) -> {
                 try {
                     moneyAccounts.findIdentityByAccountId(accountId).ifPresent(identity -> {
@@ -351,10 +352,8 @@ public final class MoneyEventPlugin extends JavaPlugin {
                 }
             });
             teamService.addRosterChangeListener((teamIds, accountIds) -> {
-                for (UUID teamId : teamIds) {
-                    balanceDisplay.refreshTeam(teamId);
-                }
-                balanceDisplay.refreshAccounts(accountIds);
+                // invalidate + repaint rankings for all; personal Team Money follows roster too
+                balanceDisplay.refreshAll();
                 teamPresence.refreshAll();
             });
 
