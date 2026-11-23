@@ -36,7 +36,7 @@ Blue / Red / Yellow are seeded if missing.
 | Player → team | Wealth, rewards, shortfall, displays | Implemented |
 | Team → members (incl. offline) | Wealth sum, splits, rescue, cover | Implemented |
 | Player → tier | Death cost; display | Implemented |
-| Captain of team | Auction nomination; markers | Implemented |
+| Captain of team | Auction nomination (ops); admin registers via `/larp auction rep` | Partial (rep registration Implemented; captain self-serve command not required for v1) |
 | Team list / colors | Nametags, list, chat | Implemented (colors + `TeamPresenceDisplay` nametags/tab grouping) |
 | Competitor / admin / spectator | Eligibility filters | Deferred |
 

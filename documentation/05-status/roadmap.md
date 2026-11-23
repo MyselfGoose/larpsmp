@@ -1,17 +1,17 @@
 # Development roadmap (by branch)
 
-You are here: **`feature/display-and-leaderboards`** (nametags, tab grouping, `/top kills`, `/team`, `/help`) on top of `main`.  
-**After this lands:** [`feature/auctions`](#10-featureauctions--queued).
+You are here: **`feature/auctions`** (`/bid`, fixed reps, lot lifecycle, `/pay` proof, previous-bidder fallback).  
+**After this lands:** [`feature/ace-hunt`](#11-featureace-hunt--queued-day-3).
 
 Status key on this page:
 
-| Marker | Meaning |
-|--------|---------|
-| **DONE** | Merged into `main`; do not rebuild |
-| **NEXT** | Start this branch now |
-| **QUEUED** | After the previous branch lands |
-| **PARALLEL** | Can run alongside another branch if ownership is clear |
-| **OPS / NON-CODE** | Needed for launch; not a feature branch |
+| Marker             | Meaning                                                |
+| ------------------ | ------------------------------------------------------ |
+| **DONE**           | Merged into `main`; do not rebuild                     |
+| **NEXT**           | Start this branch now                                  |
+| **QUEUED**         | After the previous branch lands                        |
+| **PARALLEL**       | Can run alongside another branch if ownership is clear |
+| **OPS / NON-CODE** | Needed for launch; not a feature branch                |
 
 Branch from **`main`** every time. Merge back to **`main`** when a branch is done. One feature theme per branch.
 
@@ -31,7 +31,7 @@ DONE     feature/kill-attribution
 DONE     feature/capture-points
 DONE     feature/spawn-protection
 DONE     feature/display-and-leaderboards
-QUEUED   feature/auctions
+DONE     feature/auctions
 QUEUED   feature/ace-hunt
 QUEUED   feature/gladiators          (light automation; admin-first OK)
 QUEUED   feature/roles-and-authz
@@ -215,20 +215,18 @@ Can land anytime after teams; does not block economy settlement.
 
 ---
 
-## 10. `feature/auctions` — QUEUED
+## 10. `feature/auctions` — DONE
 
-**Can stay thin:** wallets + `/pay` already work for a manual auction.
+Full automation shipped on this branch. Item delivery stays manual; mid-bid teammate `/pay` remains allowed in v1.
 
-| # | Work item | Priority |
-|---|-----------|----------|
-| 1 | `/bid`, lot open/close, reject over-balance bids | Nice |
-| 2 | Register fixed representatives per session | Nice |
-| 3 | Prove payment to `akiracreates` for exact amount | Important if automated |
-| 4 | Previous-bidder fallback if winner cannot pay | Important if automated |
-| 5 | Item delivery | **Open** — manual OK for v1 |
-| 6 | Mid-bid teammate `/pay` | **Open** — ask Karim |
-
-**Launch path:** run first auction manually; automate only if pain shows up.
+| #   | Work item                                        | Status |
+| --- | ------------------------------------------------ | ------ |
+| 1   | `/bid`, lot open/close, reject over-balance bids | DONE |
+| 2   | Register fixed representatives per session       | DONE |
+| 3   | Prove payment to `akiracreates` for exact amount | DONE (`/pay` match + `AUCTION` settlement) |
+| 4   | Previous-bidder fallback if winner cannot pay    | DONE (`/larp auction forfeit`) |
+| 5   | Item delivery                                    | Manual v1 (`/larp auction delivered` tracks only) |
+| 6   | Mid-bid teammate `/pay`                          | Allowed v1 (no restriction; revisable) |
 
 ---
 
@@ -297,8 +295,8 @@ Not branches, but blockers for “event ready”:
 
 ## Recommended working order (what you do next)
 
-1. Economy settlement, kill attribution, capture, spawn protection, display/leaderboards — **Done**.  
-2. **Next:** `feature/auctions` (manual first), then Ace Hunt / Gladiators as needed.  
+1. Economy settlement, kill attribution, capture, spawn protection, display/leaderboards, auctions — **Done**.  
+2. **Next:** `feature/ace-hunt` (or Gladiators as needed).  
 3. **Throughout:** chase Karim on [open questions](open-questions.md).
 
 ---
@@ -308,12 +306,12 @@ Not branches, but blockers for “event ready”:
 ```bash
 git checkout main
 git pull origin main
-git checkout -b feature/auctions
+git checkout -b feature/ace-hunt
 ```
 
 Read before coding:
 
-- [Roadmap §10](#10-featureauctions--queued)
+- [Roadmap §11](#11-featureace-hunt--queued-day-3)
 - [Known gaps](known-gaps-and-debt.md)
 
 When the branch is merge-ready: PR → `main` → delete the feature branch → pick the next **QUEUED** item.

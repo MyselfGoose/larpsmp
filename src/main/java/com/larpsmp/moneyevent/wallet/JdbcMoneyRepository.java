@@ -618,6 +618,25 @@ public final class JdbcMoneyRepository {
         }
     }
 
+    public void insertSettlementApplied(
+            String kind,
+            String externalId,
+            @Nullable UUID parentTransactionId,
+            long chargedTotal,
+            String detail) throws SQLException {
+        SettlementRow row = new SettlementRow(
+                kind,
+                externalId,
+                EconomyRules.OUTCOME_APPLIED,
+                parentTransactionId,
+                chargedTotal,
+                detail,
+                Instant.now());
+        try (Connection connection = dataSource.getConnection()) {
+            insertSettlement(connection, row);
+        }
+    }
+
     public void insertAdminAudit(AdminAuditRow row) throws SQLException {
         String sql = """
                 INSERT INTO economy_admin_audit (

@@ -134,7 +134,7 @@ Every money change should record time, type, amount, balances before/after, paye
 
 Keep full logs for the entire five-day event; archive afterward rather than deleting immediately.
 
-Current Implemented types: `STARTING_BALANCE`, `ADD`, `REMOVE`, `SET`, `TRANSFER`. Planned types include `DEATH_PAYMENT`, `TEAM_REWARD`, `CAPTURE_REWARD`, `EVENT_REWARD`, `RESCUE_PAYMENT`, `AUCTION_PAYMENT`, `REVERSAL`, etc.
+Current Implemented ledger types in use: `STARTING_BALANCE`, `ADD`, `REMOVE`, `SET`, `TRANSFER`, `DEATH_PAYMENT`, `TEAM_REWARD`, `CAPTURE_REWARD`, `RESCUE_PAYMENT`. Auction payment proof uses `/pay` `TRANSFER` plus an `economy_settlements` row kind `AUCTION` (enum value `AUCTION_PAYMENT` reserved). Planned/typed: `EVENT_REWARD`, `REVERSAL`, etc.
 
 ## Tasks (optional economy use)
 

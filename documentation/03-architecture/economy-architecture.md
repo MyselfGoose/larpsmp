@@ -74,5 +74,5 @@ See [Integration contracts](integration-contracts.md).
 
 - Kill attribution evidence
 - Capture progress / boss bars / temporary blocks
-- Auction lot UX / item delivery (unless later chosen)
+- Auction lot UX / item delivery (manual v1; auction package owns bidding + payment proof)
 - Ace Hunt / Gladiator matchmaking state machines

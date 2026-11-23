@@ -34,6 +34,7 @@ public final class MoneyService implements AutoCloseable {
     private final Consumer<String> storageErrorLogger;
     private final List<BalanceChangeListener> balanceListeners = new CopyOnWriteArrayList<>();
     private final List<SettlementNoticeListener> settlementNoticeListeners = new CopyOnWriteArrayList<>();
+    private final List<TransferSuccessListener> transferSuccessListeners = new CopyOnWriteArrayList<>();
     private volatile @Nullable TeamService teams;
     private boolean closed;
 
@@ -56,6 +57,10 @@ public final class MoneyService implements AutoCloseable {
 
     public void addSettlementNoticeListener(SettlementNoticeListener listener) {
         settlementNoticeListeners.add(Objects.requireNonNull(listener, "listener"));
+    }
+
+    public void addTransferSuccessListener(TransferSuccessListener listener) {
+        transferSuccessListeners.add(Objects.requireNonNull(listener, "listener"));
     }
 
     public synchronized BalanceResult balance(UUID minecraftUuid) {
@@ -467,6 +472,13 @@ public final class MoneyService implements AutoCloseable {
             money.commitTransfer(source.accountId(), sourceAfter, destination.accountId(), destinationAfter, success);
             notifyBalanceChanged(source.minecraftUuid(), sourceAfter);
             notifyBalanceChanged(destination.minecraftUuid(), destinationAfter);
+            notifyTransferSuccess(
+                    source.minecraftUuid(),
+                    destination.minecraftUuid(),
+                    source.accountId(),
+                    destination.accountId(),
+                    amount,
+                    transactionId);
             return TransactionResult.from(success);
         } catch (SQLException exception) {
             return storageFailure(transactionId, timestamp, TransactionType.TRANSFER, amount, reason,
@@ -1271,9 +1283,74 @@ public final class MoneyService implements AutoCloseable {
         }
     }
 
+    private void notifyTransferSuccess(
+            @Nullable UUID sourceMinecraftUuid,
+            @Nullable UUID destinationMinecraftUuid,
+            UUID sourceAccountId,
+            UUID destinationAccountId,
+            long amount,
+            UUID transactionId) {
+        TransferSuccessEvent event = new TransferSuccessEvent(
+                sourceMinecraftUuid,
+                destinationMinecraftUuid,
+                sourceAccountId,
+                destinationAccountId,
+                amount,
+                transactionId);
+        for (TransferSuccessListener listener : transferSuccessListeners) {
+            listener.onTransferSuccess(event);
+        }
+    }
+
     private void notifySettlement(UUID accountId, String message) {
         for (SettlementNoticeListener listener : settlementNoticeListeners) {
             listener.notifyAccount(accountId, message);
+        }
+    }
+
+    /**
+     * Idempotent auction payment proof: records that {@code lotId} was paid via an existing transfer.
+     *
+     * @return {@code true} when the settlement row exists after this call (inserted or already present)
+     */
+    public synchronized boolean ensureAuctionPaymentSettlement(
+            String lotId,
+            UUID paymentTransactionId,
+            long amount) {
+        Objects.requireNonNull(lotId, "lotId");
+        Objects.requireNonNull(paymentTransactionId, "paymentTransactionId");
+        if (lotId.isBlank()) {
+            return false;
+        }
+        if (amount <= 0) {
+            return false;
+        }
+        try {
+            Optional<JdbcMoneyRepository.SettlementRow> existing =
+                    money.findSettlement(EconomyRules.SETTLEMENT_KIND_AUCTION, lotId);
+            if (existing.isPresent()) {
+                return true;
+            }
+            money.insertSettlementApplied(
+                    EconomyRules.SETTLEMENT_KIND_AUCTION,
+                    lotId,
+                    paymentTransactionId,
+                    amount,
+                    "{\"paymentTransactionId\":\"" + paymentTransactionId + "\"}");
+            return true;
+        } catch (SQLException exception) {
+            logStorageFailure("auction settlement " + lotId, exception);
+            return false;
+        }
+    }
+
+    public synchronized boolean hasAuctionPaymentSettlement(String lotId) {
+        Objects.requireNonNull(lotId, "lotId");
+        try {
+            return money.findSettlement(EconomyRules.SETTLEMENT_KIND_AUCTION, lotId).isPresent();
+        } catch (SQLException exception) {
+            logStorageFailure("read auction settlement " + lotId, exception);
+            return false;
         }
     }
 
@@ -1322,5 +1399,19 @@ public final class MoneyService implements AutoCloseable {
     @FunctionalInterface
     public interface SettlementNoticeListener {
         void notifyAccount(UUID accountId, String message);
+    }
+
+    @FunctionalInterface
+    public interface TransferSuccessListener {
+        void onTransferSuccess(TransferSuccessEvent event);
+    }
+
+    public record TransferSuccessEvent(
+            @Nullable UUID sourceMinecraftUuid,
+            @Nullable UUID destinationMinecraftUuid,
+            UUID sourceAccountId,
+            UUID destinationAccountId,
+            long amount,
+            UUID transactionId) {
     }
 }

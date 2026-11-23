@@ -1,6 +1,6 @@
 # Integration contracts
 
-**Status:** Working agreement for Amira (economy) ↔ Azeem (complex systems). Auth + teams + wallets + death settlement + kill attribution + capture payouts realized; auction/event engines do not yet call economy.
+**Status:** Working agreement for Amira (economy) ↔ Azeem (complex systems). Auth + teams + wallets + death settlement + kill attribution + capture payouts + auction payment proof realized; Ace Hunt / Gladiators engines do not yet call economy.
 
 ## 1. Account integration
 
@@ -54,7 +54,7 @@ Capture system sends `captureId`, point id, winning team, amount, time. Economy 
 
 ### Auction → economy
 
-Auction system needs: available balance check, bid validation, proof that winner paid `akiracreates` the exact amount, mark payment used. No escrow unless deliberately added later. Item delivery stays outside economy until decided.
+**Implemented:** available balance check and bid validation in `AuctionService`; proof that winner paid configured host (`akiracreates` by default) the exact amount via `/pay` transfer listener; idempotent `economy_settlements` kind `AUCTION` + `lotId`. No escrow. Item delivery stays outside economy (manual handoff; optional `/larp auction delivered` tracking).
 
 ## 4. Shared file ownership
 

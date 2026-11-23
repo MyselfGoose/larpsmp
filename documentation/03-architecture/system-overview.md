@@ -83,4 +83,6 @@ From [`plugin.yml`](../../src/main/resources/plugin.yml):
 
 ## Intentionally not in this codebase yet
 
-Auctions, Ace Hunt, Gladiators automation, competitor role flags, production permission model.
+Ace Hunt, Gladiators automation, competitor role flags, production permission model.
+
+Auctions automation is Implemented (`auction/` package).

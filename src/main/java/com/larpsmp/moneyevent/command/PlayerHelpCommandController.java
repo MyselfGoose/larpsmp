@@ -13,6 +13,7 @@ public final class PlayerHelpCommandController {
         source.send(Component.text("— LarpSMP commands —", NamedTextColor.AQUA, TextDecoration.BOLD));
         source.send(line("/balance [player]", "Show wallet balances"));
         source.send(line("/pay <player> <amount>", "Send money"));
+        source.send(line("/bid <amount>", "Bid on the open auction lot"));
         source.send(line("/top <teams|money|kills>", "Public standings"));
         source.send(line("/team", "Your roster and Team Money"));
         source.send(line("/team balance", "Your team wealth"));
@@ -21,6 +22,12 @@ public final class PlayerHelpCommandController {
                 .append(Component.text("Capture: ", NamedTextColor.GRAY))
                 .append(Component.text(
                         "watch the boss bar and chat milestones while a point is active.",
+                        NamedTextColor.WHITE))
+                .build());
+        source.send(Component.text()
+                .append(Component.text("Auctions: ", NamedTextColor.GRAY))
+                .append(Component.text(
+                        "representatives use /bid; winners /pay the host the exact winning amount.",
                         NamedTextColor.WHITE))
                 .build());
     }
