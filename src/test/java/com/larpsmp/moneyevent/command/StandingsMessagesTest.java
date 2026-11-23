@@ -14,4 +14,12 @@ class StandingsMessagesTest {
         assertEquals("1. Red — $850",
                 PlainTextComponentSerializer.plainText().serialize(StandingsMessages.entry(1, "Red", 850)));
     }
+
+    @Test
+    void killEntryUsesKillCountsNotCurrency() {
+        assertEquals("1. Alice — 3 kills",
+                PlainTextComponentSerializer.plainText().serialize(StandingsMessages.killEntry(1, "Alice", 3)));
+        assertEquals("2. Bob — 1 kill",
+                PlainTextComponentSerializer.plainText().serialize(StandingsMessages.killEntry(2, "Bob", 1)));
+    }
 }

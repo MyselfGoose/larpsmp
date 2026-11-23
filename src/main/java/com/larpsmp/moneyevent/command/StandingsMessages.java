@@ -32,4 +32,14 @@ public final class StandingsMessages {
                 .append(Component.text(MoneyFormats.currency(dollars), AMOUNT))
                 .build();
     }
+
+    public static Component killEntry(int rank, String name, long kills) {
+        String label = kills == 1 ? "1 kill" : kills + " kills";
+        return Component.text()
+                .append(Component.text(rank + ". ", RANK))
+                .append(Component.text(name, NAME))
+                .append(Component.text(" — ", SEPARATOR))
+                .append(Component.text(label, AMOUNT))
+                .build();
+    }
 }

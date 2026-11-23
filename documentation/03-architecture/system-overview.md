@@ -32,7 +32,7 @@ Root: `src/main/java/com/larpsmp/moneyevent/`
 | `command` | `/balance`, `/pay`, `/larp` bridge; join listener; player lookup |
 | `config` | `.env` / `EnvSettings` |
 | `db` | Datasource factory, migration runner |
-| `display` | Balance sidebar HUD |
+| `display` | Balance sidebar HUD + team nametags / tab grouping |
 | `email` | Resend client + templates |
 | `notification` | Offline `/pay` notifications (plugin data folder) |
 | `playerstate` | Account-keyed body persist/load/session + universal account identity binding |
@@ -83,4 +83,4 @@ From [`plugin.yml`](../../src/main/resources/plugin.yml):
 
 ## Intentionally not in this codebase yet
 
-Capture progress engine, auctions, Ace Hunt, Gladiators automation, `/top kills` UI (kill ledger ready), competitor role flags, production permission model.
+Auctions, Ace Hunt, Gladiators automation, competitor role flags, production permission model.

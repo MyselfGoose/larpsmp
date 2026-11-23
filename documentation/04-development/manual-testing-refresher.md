@@ -185,7 +185,7 @@ Requires Client A op’d (ops are UUID-based; op before or after auth is fine).
 | Sidebar | Team Money + Wallet |
 | Offline pay notification | Shown when recipient next joins |
 
-**Admin requires op or console.** Whole dollars only. No cents. Cannot go negative. No `/top` yet. No death money yet.
+**Admin requires op or console.** Whole dollars only. No cents. Cannot go negative.
 
 ### Test M1 — Balances and public lookup
 
@@ -255,7 +255,7 @@ Confirm reasons required; balances and sidebar update; unauthorized (non-op) Cli
 | Tier | `/larp tier set\|clear\|list` | Dialog |
 | Team wealth | Sidebar **Team Money** | Sum of roster wallets |
 
-Seeded teams: **Blue**, **Red**, **Yellow**. Soft warnings for duplicate tiers / size — edits still allowed. No player `/team` command yet. No nametag colors yet.
+Seeded teams: **Blue**, **Red**, **Yellow**. Soft warnings for duplicate tiers / size — edits still allowed. Player `/team` shows roster + wealth. Nametags/tab list are team-colored and grouped by team → tier.
 
 ### Test T1 — List seeded teams
 
@@ -336,7 +336,17 @@ $YYY
 2. Join/leave team → Team Money updates  
 3. Admin give → both relevant numbers update  
 
-No `/top`, no hide team totals, no kill leaderboard yet.
+### Test D2 — Leaderboards and visibility
+
+1. `/top teams`, `/top money`, `/top kills` all respond  
+2. `/larp visibility teamtotals hide` → Team Money sidebar section hides; `/team balance` reports hidden  
+3. `/larp visibility teamtotals show` restores  
+
+### Test D3 — Nametags / tab / player commands
+
+1. Assign two players to different teams + tiers → tab list groups by team then tier; nametags take team color  
+2. `/team` shows roster, captain, tiers, Team Money  
+3. `/help` lists player commands (includes capture tip)
 
 ---
 
@@ -424,6 +434,10 @@ Do in order (~30–45 minutes):
 /larp capture start|pause|resume|stop|status|define|reload
 /top teams
 /top money
+/top kills
+/team
+/team balance
+/help
 ```
 
 Console: `op <name>` · `stop`
@@ -434,8 +448,8 @@ Console: `op <name>` · `stop`
 
 Do not expect these to work yet:
 
-- `/top kills`  
 - Auctions, Ace Hunt, Gladiators  
-- `/bid`, competitor role flags, colored team nametags  
+- `/bid`, competitor role flags  
+- Captain markers / balances in the tab list (density still open)  
 
 If something above **should** work and fails, note: which test ID, both usernames, exact command, and server log lines.

@@ -8,13 +8,22 @@ import static org.junit.jupiter.api.Assumptions.assumeTrue;
 import com.larpsmp.moneyevent.auth.DevelopmentConsoleOpAuthorizer;
 import com.larpsmp.moneyevent.auth.MoneyAdminAction;
 import com.larpsmp.moneyevent.auth.MoneyAdminAuthorizer;
+import com.larpsmp.moneyevent.combat.AttributionCause;
+import com.larpsmp.moneyevent.combat.CombatKillRecord;
+import com.larpsmp.moneyevent.combat.JdbcCombatKillRepository;
 import com.larpsmp.moneyevent.display.BalanceDisplayControl;
 import com.larpsmp.moneyevent.notification.PaymentNotificationStore;
+import com.larpsmp.moneyevent.team.JdbcTeamRepository;
+import com.larpsmp.moneyevent.team.PlayerTier;
+import com.larpsmp.moneyevent.team.Team;
+import com.larpsmp.moneyevent.team.TeamColor;
+import com.larpsmp.moneyevent.team.TeamService;
 import com.larpsmp.moneyevent.wallet.MoneyService;
 import com.larpsmp.moneyevent.wallet.TestDatabaseSupport;
 import com.larpsmp.moneyevent.wallet.TransactionRecord;
 import com.larpsmp.moneyevent.wallet.TransactionType;
 import java.nio.file.Path;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -218,6 +227,104 @@ class MoneyCommandControllerTest {
         }
     }
 
+    @Test
+    void topKillsRanksNormalKillsAndExcludesEventAndFriendlyFire() throws Exception {
+        try (Context context = contextWithKills()) {
+            FakeSource killer = registered(context, "KillLead");
+            FakeSource victim = registered(context, "KillVictim");
+            FakeSource other = registered(context, "KillOther");
+            UUID killerAccount = context.fixture().accountId(
+                    new TestDatabaseSupport.RegisteredPlayer(killer.playerId().orElseThrow(), killer.name()));
+            UUID victimAccount = context.fixture().accountId(
+                    new TestDatabaseSupport.RegisteredPlayer(victim.playerId().orElseThrow(), victim.name()));
+            UUID otherAccount = context.fixture().accountId(
+                    new TestDatabaseSupport.RegisteredPlayer(other.playerId().orElseThrow(), other.name()));
+
+            Instant now = Instant.parse("2026-06-01T12:00:00Z");
+            JdbcCombatKillRepository kills = context.kills();
+            kills.insert(new CombatKillRecord(
+                    "top-kill-1", victimAccount, killerAccount, AttributionCause.MELEE, "sword",
+                    false, false, "PAID", now));
+            kills.insert(new CombatKillRecord(
+                    "top-kill-2", otherAccount, killerAccount, AttributionCause.PROJECTILE, "arrow",
+                    false, false, "PAID", now));
+            kills.insert(new CombatKillRecord(
+                    "top-kill-event", victimAccount, killerAccount, AttributionCause.MELEE, "event",
+                    true, false, "PAID", now));
+            kills.insert(new CombatKillRecord(
+                    "top-kill-ff", killerAccount, victimAccount, AttributionCause.MELEE, "ff",
+                    false, true, "FRIENDLY_FIRE", now));
+
+            FakeSource console = FakeSource.console(true);
+            context.controller().top(console, new String[] {"kills"});
+            assertTrue(console.messages().stream().anyMatch(line -> line.contains("Kill standings")));
+            assertTrue(console.messages().stream().anyMatch(line -> line.contains(killer.name()) && line.contains("2 kills")));
+            assertTrue(console.messages().stream().noneMatch(line -> line.contains(victim.name())));
+        }
+    }
+
+    @Test
+    void topKillsUnavailableWithoutRepositoryAndUsageListsModes() throws Exception {
+        try (Context context = context()) {
+            FakeSource console = FakeSource.console(true);
+            context.controller().top(console, new String[] {"kills"});
+            assertEquals("Kill standings are not available.", console.lastMessage());
+            context.controller().top(console, new String[] {});
+            assertTrue(console.lastMessage().contains("Usage: /top <teams|money|kills>"));
+            assertEquals(List.of("kills", "money", "teams"),
+                    context.controller().tabComplete("top", console, new String[] {""}));
+        }
+    }
+
+    @Test
+    void topKillsReportsEmptyWhenNoEligibleRows() throws Exception {
+        try (Context context = contextWithKills()) {
+            try (var connection = context.fixture().dataSource().getConnection();
+                 var statement = connection.prepareStatement("DELETE FROM combat_kills")) {
+                statement.executeUpdate();
+            }
+            FakeSource console = FakeSource.console(true);
+            context.controller().top(console, new String[] {"kills"});
+            assertEquals("No kills recorded yet.", console.lastMessage());
+        }
+    }
+
+    @Test
+    void teamInfoShowsRosterAndRespectsVisibility() throws Exception {
+        try (Context context = contextWithTeams()) {
+            String teamName = "Disp" + Integer.toHexString(UUID.randomUUID().hashCode());
+            Team team = context.teams().createTeam(teamName, TeamColor.AQUA).team();
+            assertTrue(team != null);
+            FakeSource player = registered(context, "Rostered");
+            UUID accountId = context.fixture().accountId(
+                    new TestDatabaseSupport.RegisteredPlayer(player.playerId().orElseThrow(), player.name()));
+            assertTrue(context.teams().assignMember(accountId, team.id()).success());
+            assertTrue(context.teams().setTier(accountId, PlayerTier.TIER_2).success());
+            assertTrue(context.teams().setCaptain(team.id(), accountId).success());
+
+            context.teamInfo().team(player, new String[0]);
+            assertTrue(player.messages().stream().anyMatch(line -> line.contains(teamName) && line.contains("roster")));
+            assertTrue(player.messages().stream().anyMatch(line -> line.contains("Team Money:")));
+            assertTrue(player.messages().stream().anyMatch(line -> line.contains(player.name()) && line.contains("T2")));
+
+            context.money().setTeamTotalsVisible(false, "test", "TEST", "hide");
+            player.messages().clear();
+            context.teamInfo().team(player, new String[] {"balance"});
+            assertEquals("Team totals are currently hidden.", player.lastMessage());
+
+            context.teams().deleteTeam(team.id());
+            context.money().setTeamTotalsVisible(true, "test", "TEST", "restore");
+        }
+    }
+
+    @Test
+    void playerHelpListsCoreCommands() {
+        FakeSource player = FakeSource.player(UUID.randomUUID(), "Helper");
+        new PlayerHelpCommandController().help(player);
+        assertTrue(player.messages().stream().anyMatch(line -> line.contains("/top <teams|money|kills>")));
+        assertTrue(player.messages().stream().anyMatch(line -> line.contains("/team")));
+    }
+
     private FakeSource registered(Context context, String name) throws Exception {
         TestDatabaseSupport.RegisteredPlayer player = context.fixture().registerCompetitor(name);
         context.online().add(player.minecraftUuid(), player.username());
@@ -225,10 +332,22 @@ class MoneyCommandControllerTest {
     }
 
     private Context context() throws Exception {
-        return context(new DevelopmentConsoleOpAuthorizer());
+        return context(new DevelopmentConsoleOpAuthorizer(), false, false);
+    }
+
+    private Context contextWithKills() throws Exception {
+        return context(new DevelopmentConsoleOpAuthorizer(), true, false);
+    }
+
+    private Context contextWithTeams() throws Exception {
+        return context(new DevelopmentConsoleOpAuthorizer(), true, true);
     }
 
     private Context context(MoneyAdminAuthorizer authorizer) throws Exception {
+        return context(authorizer, false, false);
+    }
+
+    private Context context(MoneyAdminAuthorizer authorizer, boolean withKills, boolean withTeams) throws Exception {
         TestDatabaseSupport.Fixture fixture = TestDatabaseSupport.open("MoneyCommandControllerTest");
         assumeTrue(fixture != null, "No reachable Postgres for money command tests");
         MoneyService money = fixture.money();
@@ -238,9 +357,21 @@ class MoneyCommandControllerTest {
                 temporaryDirectory.resolve("notifications-" + UUID.randomUUID()), money, ignored -> { });
         FakeDisplay display = new FakeDisplay();
         money.addBalanceChangeListener((playerId, balance) -> display.refresh(playerId));
+        JdbcCombatKillRepository kills = withKills ? new JdbcCombatKillRepository(fixture.dataSource()) : null;
+        TeamService teams = null;
+        TeamInfoCommandController teamInfo = null;
+        if (withTeams) {
+            teams = new TeamService(
+                    new JdbcTeamRepository(fixture.dataSource()),
+                    fixture.accounts(),
+                    ignored -> { });
+            money.setTeamService(teams);
+            teamInfo = new TeamInfoCommandController(money, teams, ignored -> { });
+        }
         MoneyCommandController controller = new MoneyCommandController(
-                money, lookup, online, notifications, ignored -> { }, authorizer);
-        return new Context(fixture, money, notifications, lookup, online, controller, display);
+                money, lookup, online, notifications, ignored -> { }, authorizer,
+                null, teams, display, null, null, null, kills, fixture.accounts());
+        return new Context(fixture, money, notifications, lookup, online, controller, display, kills, teams, teamInfo);
     }
 
     private record Context(
@@ -250,7 +381,10 @@ class MoneyCommandControllerTest {
             WalletPlayerLookup lookup,
             FakeOnlinePlayers online,
             MoneyCommandController controller,
-            FakeDisplay display) implements AutoCloseable {
+            FakeDisplay display,
+            JdbcCombatKillRepository kills,
+            TeamService teams,
+            TeamInfoCommandController teamInfo) implements AutoCloseable {
         @Override
         public void close() throws Exception {
             fixture.close();
@@ -304,6 +438,10 @@ class MoneyCommandControllerTest {
 
         String lastMessage() {
             return messages.getLast();
+        }
+
+        List<String> messages() {
+            return messages;
         }
     }
 

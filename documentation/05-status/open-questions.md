@@ -9,7 +9,7 @@ Only items that are **still unresolved**. Settled Karim answers are recorded in 
 | May auction teammates `/pay` the representative **during** live bidding? | Funding before bidding is Confirmed |
 | Auction item delivery: manual or plugin-controlled? | |
 | Individual kill-money override: applies to victim, killer, or both? | Suggestion: victim authoritative |
-| Final sidebar / player-list density (balances, captain markers, tiers) | Sidebar Team Money + Wallet exists; list still open |
+| Final sidebar / player-list density (balances, captain markers, tiers) | Sidebar + team/tier tab grouping shipped; balances/captain markers in list still open |
 | Exact Ace Hunt point values (hunt placements + survival placements) | Structure Confirmed; numbers Open |
 | Does Ace Hunt use normal death money, or kill money off + points only? | Not explicitly answered |
 

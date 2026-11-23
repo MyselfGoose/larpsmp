@@ -10,11 +10,15 @@ import com.larpsmp.moneyevent.wallet.MoneyService;
 import io.papermc.paper.scoreboard.numbers.NumberFormat;
 import java.io.IOException;
 import java.sql.SQLException;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
@@ -43,7 +47,7 @@ import org.jetbrains.annotations.Nullable;
  * $250
  * </pre>
  */
-public final class BukkitBalanceSidebar implements BalanceDisplayControl {
+public final class BukkitBalanceSidebar implements BalanceDisplayControl, OwnedScoreboardAccess {
     private static final String OBJECTIVE_NAME = "larpsmp_money";
 
     /** Stable unique scoreboard entries (never shown; prefixes carry the visible text). */
@@ -69,6 +73,7 @@ public final class BukkitBalanceSidebar implements BalanceDisplayControl {
     private final AccountRepository accounts;
     private final Consumer<String> errorLogger;
     private final Map<UUID, OwnedSidebar> sidebars = new HashMap<>();
+    private final List<OwnedScoreboardListener> ownedListeners = new CopyOnWriteArrayList<>();
 
     public BukkitBalanceSidebar(
             Server server,
@@ -82,6 +87,21 @@ public final class BukkitBalanceSidebar implements BalanceDisplayControl {
         this.teams = teams;
         this.accounts = accounts;
         this.errorLogger = errorLogger;
+    }
+
+    @Override
+    public void forEachOwned(BiConsumer<UUID, Scoreboard> action) {
+        for (Map.Entry<UUID, OwnedSidebar> entry : new ArrayList<>(sidebars.entrySet())) {
+            action.accept(entry.getKey(), entry.getValue().owned());
+        }
+    }
+
+    @Override
+    public void addOwnedScoreboardListener(OwnedScoreboardListener listener) {
+        ownedListeners.add(listener);
+        for (Map.Entry<UUID, OwnedSidebar> entry : new ArrayList<>(sidebars.entrySet())) {
+            listener.onOwnedBoardReady(entry.getKey(), entry.getValue().owned());
+        }
     }
 
     @Override
@@ -116,6 +136,9 @@ public final class BukkitBalanceSidebar implements BalanceDisplayControl {
                 sidebar = new OwnedSidebar(previous, owned);
                 sidebars.put(playerId, sidebar);
                 player.setScoreboard(owned);
+                for (OwnedScoreboardListener listener : ownedListeners) {
+                    listener.onOwnedBoardReady(playerId, owned);
+                }
             }
             Objective objective = sidebar.owned().getObjective(OBJECTIVE_NAME);
             if (objective == null) {
@@ -276,6 +299,11 @@ public final class BukkitBalanceSidebar implements BalanceDisplayControl {
 
     private void remove(UUID playerId) {
         OwnedSidebar sidebar = sidebars.remove(playerId);
+        if (sidebar != null) {
+            for (OwnedScoreboardListener listener : ownedListeners) {
+                listener.onOwnedBoardRemoved(playerId);
+            }
+        }
         Player player = server.getPlayer(playerId);
         if (sidebar != null && player != null && player.getScoreboard() == sidebar.owned()) {
             player.setScoreboard(sidebar.previous());

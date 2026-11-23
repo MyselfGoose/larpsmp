@@ -43,7 +43,7 @@ Ledger columns (migrations `V003` + `V007`) include type, status, amount, reason
 | `/balance`, `/balance <player>` | Implemented |
 | `/pay <player> <amount>` | Implemented (offline OK; combat OK) |
 | `/larp money give\|take\|set` | Implemented |
-| `/top money`, `/top teams` | Implemented |
+| `/top money`, `/top teams`, `/top kills` | Implemented |
 | `/larp visibility teamtotals show\|hide` | Implemented |
 | `/larp killmoney …`, `/larp killreward set` | Implemented |
 | `/larp money history` | Planned |

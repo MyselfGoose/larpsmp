@@ -45,7 +45,9 @@ For ordered “what to build next,” see [roadmap.md](roadmap.md). Labels: **Do
 | Soft roster warnings | Done | `TeamService` |
 | Dialog admin UI + Nether Star | Done | `TeamAdmin*` |
 | Competitor/admin/spectator roles | Not started | Deferred |
-| Colored nametags / tab grouping | Not started | — |
+| Colored nametags / tab grouping | Done | `TeamPresenceDisplay` on owned scoreboards |
+| `/top kills` | Done | `MoneyCommandController.top` + `normalKillLeaderboard` |
+| Player `/team`, `/help` | Done | `TeamInfoCommandController`, `PlayerHelpCommandController` |
 | Captain auction abilities | Not started | — |
 
 ## Events / world
