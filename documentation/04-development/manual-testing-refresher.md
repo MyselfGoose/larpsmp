@@ -334,11 +334,12 @@ $YYY
 TOP TEAMS
 1. Blue          $X
 …
+··········
 TOP PLAYERS
 1. alice         $A
 ```
 
-Ranking dollar amounts sit on the right. Empty player ranks are omitted (no dash fillers).
+Headings share one style; names gray; amounts gold. Divider between TOP TEAMS and TOP PLAYERS. Empty player ranks omitted; no blank padding rows.
 
 ### Test D1 — Updates after money and roster changes
 

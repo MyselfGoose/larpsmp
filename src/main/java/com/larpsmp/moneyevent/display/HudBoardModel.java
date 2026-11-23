@@ -10,9 +10,8 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Pure description of stacked sidebar lines for one viewer.
  *
- * <p>Personal balances sit on top (classic label / amount blocks). Rankings follow.
- * Line budget stays ≤15 (Minecraft sidebar limit). Empty player ranks are omitted so
- * the board does not fill with dashes.
+ * <p>Personal balances sit on top (classic label / amount blocks). Rankings follow with a
+ * divider between team and player boards. Line budget stays ≤15.
  *
  * <pre>
  * Team Money
@@ -24,6 +23,7 @@ import org.jetbrains.annotations.Nullable;
  * TOP TEAMS
  * 1. Blue          $1,430
  * …
+ * ··········
  * TOP PLAYERS
  * 1. alice         $850
  * </pre>
@@ -69,13 +69,12 @@ public final class HudBoardModel {
             if (row == null) {
                 teamSlots.add(TeamSlot.empty(rank));
             } else {
-                teamSlots.add(new TeamSlot(rank, row.displayName(), row.colorRgb(), row.wealth()));
+                teamSlots.add(new TeamSlot(rank, row.displayName(), row.wealth()));
             }
         }
 
-        // Only real competitors — no empty "—" player rows.
-        // With personal + team boards visible, 4 player rows keep us ≤15 lines.
-        int playerLimit = showTeamTotals ? 4 : TOP_PLAYER_SLOTS;
+        // Personal + teams + divider between boards leaves room for 3 player rows when visible.
+        int playerLimit = showTeamTotals ? 3 : TOP_PLAYER_SLOTS;
         List<PlayerSlot> playerSlots = new ArrayList<>(playerLimit);
         int limit = Math.min(playerLimit, topPlayers.size());
         for (int index = 0; index < limit; index++) {
@@ -112,29 +111,37 @@ public final class HudBoardModel {
     }
 
     /**
-     * Ordered visible lines top→bottom. Ranking rows use prefix + suffix for right-aligned money.
+     * Objective title — avoids a blank header row above the board.
+     * First personal section heading lives here; its amount is the first score line.
+     */
+    public Component title() {
+        return showTeamTotals ? HudTheme.teamMoneyLabel() : HudTheme.walletLabel();
+    }
+
+    /**
+     * Ordered visible lines top→bottom (below the objective title).
+     * Ranking rows use prefix + suffix for right-aligned money.
      */
     public List<Line> lines() {
         List<Line> result = new ArrayList<>(MAX_LINES);
 
-        // Personal first — classic label above amount.
         if (showTeamTotals) {
-            result.add(Line.of("team_money_label", HudTheme.teamMoneyLabel()));
             result.add(Line.of("team_money_amount", HudTheme.teamMoneyAmount(personalTeamWealth)));
             result.add(Line.of("div_personal", HudTheme.divider()));
-        }
-        result.add(Line.of("wallet_label", HudTheme.walletLabel()));
-        result.add(Line.of("wallet_amount", HudTheme.walletAmount(personalWallet)));
-        result.add(Line.of("div_rankings", HudTheme.divider()));
-
-        if (showTeamTotals) {
+            result.add(Line.of("wallet_label", HudTheme.walletLabel()));
+            result.add(Line.of("wallet_amount", HudTheme.walletAmount(personalWallet)));
+            result.add(Line.of("div_rankings", HudTheme.divider()));
             result.add(Line.of("teams_header", HudTheme.teamsHeader()));
             for (TeamSlot slot : teams) {
                 result.add(Line.ranked(
                         "team_" + slot.rank(),
-                        HudTheme.teamNamePrefix(slot.rank(), slot.name(), slot.colorRgb()),
+                        HudTheme.teamNamePrefix(slot.rank(), slot.name()),
                         HudTheme.amountSuffix(slot.wealth())));
             }
+            result.add(Line.of("div_boards", HudTheme.divider()));
+        } else {
+            result.add(Line.of("wallet_amount", HudTheme.walletAmount(personalWallet)));
+            result.add(Line.of("div_rankings", HudTheme.divider()));
         }
 
         result.add(Line.of("players_header", HudTheme.playersHeader()));
@@ -151,22 +158,25 @@ public final class HudBoardModel {
         return List.copyOf(result);
     }
 
-    /** Plain-text lines for tests (no Adventure). */
+    /** Plain-text lines for tests including the objective title as the first row. */
     public List<String> plainLines() {
         List<String> result = new ArrayList<>();
         if (showTeamTotals) {
             result.add("Team Money");
             result.add(personalTeamWealth == null ? "—" : MoneyFormats.currency(personalTeamWealth));
             result.add("··········");
-        }
-        result.add("Wallet");
-        result.add(MoneyFormats.currency(personalWallet));
-        result.add("··········");
-        if (showTeamTotals) {
+            result.add("Wallet");
+            result.add(MoneyFormats.currency(personalWallet));
+            result.add("··········");
             result.add("TOP TEAMS");
             for (TeamSlot slot : teams) {
                 result.add(HudTheme.plainTeamRow(slot.rank(), slot.name(), slot.wealth()));
             }
+            result.add("··········");
+        } else {
+            result.add("Wallet");
+            result.add(MoneyFormats.currency(personalWallet));
+            result.add("··········");
         }
         result.add("TOP PLAYERS");
         if (players.isEmpty()) {
@@ -179,9 +189,9 @@ public final class HudBoardModel {
         return List.copyOf(result);
     }
 
-    public record TeamSlot(int rank, @Nullable String name, @Nullable Integer colorRgb, @Nullable Long wealth) {
+    public record TeamSlot(int rank, @Nullable String name, @Nullable Long wealth) {
         static TeamSlot empty(int rank) {
-            return new TeamSlot(rank, null, null, null);
+            return new TeamSlot(rank, null, null);
         }
     }
 

@@ -151,7 +151,7 @@ public final class BukkitBalanceSidebar implements BalanceDisplayControl, OwnedS
                 Objective objective = owned.registerNewObjective(
                         OBJECTIVE_NAME,
                         Criteria.DUMMY,
-                        Component.empty());
+                        Component.text(" "));
                 objective.setDisplaySlot(DisplaySlot.SIDEBAR);
                 objective.numberFormat(NumberFormat.blank());
                 ensureSlots(owned);
@@ -168,7 +168,6 @@ public final class BukkitBalanceSidebar implements BalanceDisplayControl, OwnedS
                 refresh(playerId);
                 return;
             }
-            objective.displayName(Component.empty());
             objective.numberFormat(NumberFormat.blank());
             ensureSlots(sidebar.owned());
 
@@ -182,6 +181,7 @@ public final class BukkitBalanceSidebar implements BalanceDisplayControl, OwnedS
                     view.topPlayers(),
                     teamWealth,
                     account.orElseThrow().balance());
+            objective.displayName(model.title());
             paint(sidebar.owned(), objective, model);
         } catch (IOException exception) {
             errorLogger.accept("Could not refresh wallet display for " + playerId + ": " + exception.getMessage());
@@ -254,12 +254,11 @@ public final class BukkitBalanceSidebar implements BalanceDisplayControl, OwnedS
 
     private void paint(Scoreboard scoreboard, Objective objective, HudBoardModel model) {
         List<HudBoardModel.Line> lines = model.lines();
-        // Clear all slots first so hidden / shorter layouts do not leave stale rows.
+        // Fully clear unused slots — score 0 with empty prefix still draws blank rows.
         for (Slot slot : SLOTS) {
-            setLine(scoreboard, slot.teamName(), slot.entry(), Component.empty(), Component.empty());
-            objective.getScore(slot.entry()).setScore(0);
+            clearSlot(scoreboard, objective, slot);
         }
-        // Higher score = higher on screen. Reserve score 15..1 so empty trailing slots stay hidden.
+        // Higher score = higher on screen.
         int score = Math.min(lines.size(), SLOTS.size());
         for (int index = 0; index < lines.size() && index < SLOTS.size(); index++) {
             Slot slot = SLOTS.get(index);
@@ -268,6 +267,14 @@ public final class BukkitBalanceSidebar implements BalanceDisplayControl, OwnedS
             objective.getScore(slot.entry()).setScore(score);
             score--;
         }
+    }
+
+    private static void clearSlot(Scoreboard scoreboard, Objective objective, Slot slot) {
+        org.bukkit.scoreboard.Team team = scoreboard.getTeam(slot.teamName());
+        if (team != null && team.hasEntry(slot.entry())) {
+            team.removeEntry(slot.entry());
+        }
+        objective.getScore(slot.entry()).resetScore();
     }
 
     private @Nullable Long resolveTeamWealth(UUID accountId) throws IOException {
