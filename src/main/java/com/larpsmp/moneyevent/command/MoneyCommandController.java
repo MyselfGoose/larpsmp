@@ -1,10 +1,13 @@
 package com.larpsmp.moneyevent.command;
 
+import com.larpsmp.moneyevent.auth.Account;
 import com.larpsmp.moneyevent.auth.AccountAdminRepository;
 import com.larpsmp.moneyevent.auth.AccountAdminService;
+import com.larpsmp.moneyevent.auth.AccountRepository;
 import com.larpsmp.moneyevent.auth.MoneyAdminAction;
 import com.larpsmp.moneyevent.auth.MoneyAdminAuthorizer;
 import com.larpsmp.moneyevent.capture.CaptureCommandController;
+import com.larpsmp.moneyevent.combat.JdbcCombatKillRepository;
 import com.larpsmp.moneyevent.display.BalanceDisplayControl;
 import com.larpsmp.moneyevent.spawn.SpawnCommandController;
 import com.larpsmp.moneyevent.notification.PaymentNotificationStore;
@@ -17,6 +20,7 @@ import com.larpsmp.moneyevent.wallet.MoneyService;
 import com.larpsmp.moneyevent.wallet.TransactionResult;
 import com.larpsmp.moneyevent.wallet.WalletAccount;
 import java.io.IOException;
+import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -42,6 +46,8 @@ public final class MoneyCommandController {
     private final @Nullable AccountAdminService accountAdmins;
     private final @Nullable CaptureCommandController captureCommands;
     private final @Nullable SpawnCommandController spawnCommands;
+    private final @Nullable JdbcCombatKillRepository killRepository;
+    private final @Nullable AccountRepository accounts;
 
     public MoneyCommandController(
             MoneyService money,
@@ -50,7 +56,8 @@ public final class MoneyCommandController {
             PaymentNotificationStore notifications,
             Consumer<String> errorLogger,
             MoneyAdminAuthorizer authorizer) {
-        this(money, lookup, onlinePlayers, notifications, errorLogger, authorizer, null, null, null, null, null, null);
+        this(money, lookup, onlinePlayers, notifications, errorLogger, authorizer, null, null, null, null, null, null,
+                null, null);
     }
 
     public MoneyCommandController(
@@ -62,7 +69,7 @@ public final class MoneyCommandController {
             MoneyAdminAuthorizer authorizer,
             @Nullable TeamCommandController teamCommands) {
         this(money, lookup, onlinePlayers, notifications, errorLogger, authorizer, teamCommands, null, null, null,
-                null, null);
+                null, null, null, null);
     }
 
     public MoneyCommandController(
@@ -76,7 +83,7 @@ public final class MoneyCommandController {
             @Nullable TeamService teams,
             @Nullable BalanceDisplayControl balanceDisplay) {
         this(money, lookup, onlinePlayers, notifications, errorLogger, authorizer, teamCommands, teams,
-                balanceDisplay, null, null, null);
+                balanceDisplay, null, null, null, null, null);
     }
 
     public MoneyCommandController(
@@ -91,7 +98,7 @@ public final class MoneyCommandController {
             @Nullable BalanceDisplayControl balanceDisplay,
             @Nullable AccountAdminService accountAdmins) {
         this(money, lookup, onlinePlayers, notifications, errorLogger, authorizer, teamCommands, teams,
-                balanceDisplay, accountAdmins, null, null);
+                balanceDisplay, accountAdmins, null, null, null, null);
     }
 
     public MoneyCommandController(
@@ -107,7 +114,7 @@ public final class MoneyCommandController {
             @Nullable AccountAdminService accountAdmins,
             @Nullable CaptureCommandController captureCommands) {
         this(money, lookup, onlinePlayers, notifications, errorLogger, authorizer, teamCommands, teams,
-                balanceDisplay, accountAdmins, captureCommands, null);
+                balanceDisplay, accountAdmins, captureCommands, null, null, null);
     }
 
     public MoneyCommandController(
@@ -123,6 +130,25 @@ public final class MoneyCommandController {
             @Nullable AccountAdminService accountAdmins,
             @Nullable CaptureCommandController captureCommands,
             @Nullable SpawnCommandController spawnCommands) {
+        this(money, lookup, onlinePlayers, notifications, errorLogger, authorizer, teamCommands, teams,
+                balanceDisplay, accountAdmins, captureCommands, spawnCommands, null, null);
+    }
+
+    public MoneyCommandController(
+            MoneyService money,
+            PlayerLookup lookup,
+            OnlinePlayerAccess onlinePlayers,
+            PaymentNotificationStore notifications,
+            Consumer<String> errorLogger,
+            MoneyAdminAuthorizer authorizer,
+            @Nullable TeamCommandController teamCommands,
+            @Nullable TeamService teams,
+            @Nullable BalanceDisplayControl balanceDisplay,
+            @Nullable AccountAdminService accountAdmins,
+            @Nullable CaptureCommandController captureCommands,
+            @Nullable SpawnCommandController spawnCommands,
+            @Nullable JdbcCombatKillRepository killRepository,
+            @Nullable AccountRepository accounts) {
         this.money = money;
         this.lookup = lookup;
         this.onlinePlayers = onlinePlayers;
@@ -135,6 +161,8 @@ public final class MoneyCommandController {
         this.accountAdmins = accountAdmins;
         this.captureCommands = captureCommands;
         this.spawnCommands = spawnCommands;
+        this.killRepository = killRepository;
+        this.accounts = accounts;
     }
 
     public void balance(CommandSource source, String[] arguments) {
@@ -232,7 +260,7 @@ public final class MoneyCommandController {
 
     public void top(CommandSource source, String[] arguments) {
         if (arguments.length != 1) {
-            source.send("Usage: /top <teams|money>", MessageKind.ERROR);
+            source.send("Usage: /top <teams|money|kills>", MessageKind.ERROR);
             return;
         }
         String mode = arguments[0].toLowerCase(Locale.ROOT);
@@ -241,8 +269,10 @@ public final class MoneyCommandController {
                 topTeams(source);
             } else if (mode.equals("money")) {
                 topMoney(source);
+            } else if (mode.equals("kills")) {
+                topKills(source);
             } else {
-                source.send("Usage: /top <teams|money>", MessageKind.ERROR);
+                source.send("Usage: /top <teams|money|kills>", MessageKind.ERROR);
             }
         } catch (IOException exception) {
             errorLogger.accept("Could not load standings: " + exception.getMessage());
@@ -413,6 +443,37 @@ public final class MoneyCommandController {
             source.send(StandingsMessages.entry(rank, wallet.lastKnownUsername(), wallet.balance()));
             rank++;
         }
+    }
+
+    private void topKills(CommandSource source) throws IOException {
+        if (killRepository == null || accounts == null) {
+            source.send("Kill standings are not available.", MessageKind.ERROR);
+            return;
+        }
+        try {
+            List<JdbcCombatKillRepository.KillerKillCount> rows = killRepository.normalKillLeaderboard(50);
+            if (rows.isEmpty()) {
+                source.send("No kills recorded yet.", MessageKind.INFO);
+                return;
+            }
+            source.send(StandingsMessages.title("Kill standings"));
+            int rank = 1;
+            for (JdbcCombatKillRepository.KillerKillCount row : rows) {
+                String name = resolveAccountUsername(row.killerAccountId());
+                source.send(StandingsMessages.killEntry(rank, name, row.kills()));
+                rank++;
+            }
+        } catch (SQLException exception) {
+            throw new IOException("Could not load kill standings: " + exception.getMessage(), exception);
+        }
+    }
+
+    private String resolveAccountUsername(UUID accountId) throws SQLException {
+        Optional<Account> account = accounts.findById(accountId);
+        if (account.isPresent()) {
+            return account.get().username();
+        }
+        return accountId.toString();
     }
 
     private void larpMoney(CommandSource source, String[] arguments) {
@@ -699,10 +760,12 @@ public final class MoneyCommandController {
                     .filter(name -> !name.equalsIgnoreCase(source.name())).toList();
         } else if (command.equalsIgnoreCase("top")) {
             if (arguments.length == 1) {
-                candidates = List.of("teams", "money");
+                candidates = List.of("teams", "money", "kills");
             } else {
                 return List.of();
             }
+        } else if (command.equalsIgnoreCase("team") || command.equalsIgnoreCase("help")) {
+            return List.of();
         } else if (command.equalsIgnoreCase("larp")) {
             if (arguments.length == 1) {
                 candidates = new ArrayList<>();

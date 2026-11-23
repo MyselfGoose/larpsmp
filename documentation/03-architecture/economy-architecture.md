@@ -43,14 +43,14 @@ Ledger columns (migrations `V003` + `V007`) include type, status, amount, reason
 | `/balance`, `/balance <player>` | Implemented |
 | `/pay <player> <amount>` | Implemented (offline OK; combat OK) |
 | `/larp money give\|take\|set` | Implemented |
-| `/top money`, `/top teams` | Implemented |
+| `/top money`, `/top teams`, `/top kills` | Implemented |
 | `/larp visibility teamtotals show\|hide` | Implemented |
 | `/larp killmoney …`, `/larp killreward set` | Implemented |
 | `/larp money history` | Planned |
 
 Offline payment notifications: [`PaymentNotificationStore`](../../src/main/java/com/larpsmp/moneyevent/notification/PaymentNotificationStore.java) under the plugin data folder.
 
-Sidebar: [`BukkitBalanceSidebar`](../../src/main/java/com/larpsmp/moneyevent/display/BukkitBalanceSidebar.java) — stacked Team Money + Wallet (Team Money hidden when visibility is off).
+Sidebar: [`BukkitBalanceSidebar`](../../src/main/java/com/larpsmp/moneyevent/display/BukkitBalanceSidebar.java) — personal Team Money + Wallet on top (classic label/amount), then Top Teams / Top Players. Team rankings + Team Money hide when `/larp visibility teamtotals` is off.
 
 ### Mutation invariants
 

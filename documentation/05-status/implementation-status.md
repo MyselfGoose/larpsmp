@@ -27,7 +27,7 @@ For ordered “what to build next,” see [roadmap.md](roadmap.md). Labels: **Do
 | Ledger for current + settlement types | Done | `wallet_transactions` (+ parent/child refs in `V007`) |
 | Offline pay notifications | Done | `PaymentNotificationStore` |
 | Team wealth calculation | Done | `MoneyService.teamWealth` |
-| Sidebar Team Money + Wallet | Done | `BukkitBalanceSidebar` (honors team-totals visibility) |
+| Sidebar Team Money + Wallet | Done | `BukkitBalanceSidebar` stacked Top Teams / Top Players / personal (honors team-totals visibility) |
 | `/top teams`, `/top money` | Done | `MoneyCommandController.top` |
 | Rotating reward split | Done | `MoneyService.splitReward` + persisted rotation index |
 | Death payment settlement | Done | `MoneyService.processDeathPayment` (wired from kill attribution) |
@@ -45,7 +45,9 @@ For ordered “what to build next,” see [roadmap.md](roadmap.md). Labels: **Do
 | Soft roster warnings | Done | `TeamService` |
 | Dialog admin UI + Nether Star | Done | `TeamAdmin*` |
 | Competitor/admin/spectator roles | Not started | Deferred |
-| Colored nametags / tab grouping | Not started | — |
+| Colored nametags / tab grouping | Done | `TeamPresenceDisplay` on owned scoreboards |
+| `/top kills` | Done | `MoneyCommandController.top` + `normalKillLeaderboard` |
+| Player `/team`, `/help` | Done | `TeamInfoCommandController`, `PlayerHelpCommandController` |
 | Captain auction abilities | Not started | — |
 
 ## Events / world

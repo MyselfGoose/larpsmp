@@ -185,7 +185,7 @@ Requires Client A op’d (ops are UUID-based; op before or after auth is fine).
 | Sidebar | Team Money + Wallet |
 | Offline pay notification | Shown when recipient next joins |
 
-**Admin requires op or console.** Whole dollars only. No cents. Cannot go negative. No `/top` yet. No death money yet.
+**Admin requires op or console.** Whole dollars only. No cents. Cannot go negative.
 
 ### Test M1 — Balances and public lookup
 
@@ -255,7 +255,7 @@ Confirm reasons required; balances and sidebar update; unauthorized (non-op) Cli
 | Tier | `/larp tier set\|clear\|list` | Dialog |
 | Team wealth | Sidebar **Team Money** | Sum of roster wallets |
 
-Seeded teams: **Blue**, **Red**, **Yellow**. Soft warnings for duplicate tiers / size — edits still allowed. No player `/team` command yet. No nametag colors yet.
+Seeded teams: **Blue**, **Red**, **Yellow**. Soft warnings for duplicate tiers / size — edits still allowed. Player `/team` shows roster + wealth. Nametags/tab list are team-colored and grouped by team → tier.
 
 ### Test T1 — List seeded teams
 
@@ -322,21 +322,42 @@ Bob’s Team Money → `—`
 
 ### What exists
 
+One physical right sidebar (Minecraft only allows one sidebar slot). Personal money on top, rankings below:
+
 ```text
 Team Money
-$X,XXX   (or — if no team)
+$X
 ··········
 Wallet
 $YYY
+··········
+TOP TEAMS
+1. Blue          $X
+…
+··········
+TOP PLAYERS
+1. alice         $A
 ```
+
+Headings share one style; names gray; amounts gold. Divider between TOP TEAMS and TOP PLAYERS. Empty player ranks omitted; no blank padding rows.
 
 ### Test D1 — Updates after money and roster changes
 
-1. Pay → Wallet updates quickly  
-2. Join/leave team → Team Money updates  
-3. Admin give → both relevant numbers update  
+1. Pay → Wallet + TOP PLAYERS reorder quickly on **both** clients  
+2. Join/leave team → Team Money + TOP TEAMS update for everyone  
+3. Admin give → personal + global ranking lines update  
 
-No `/top`, no hide team totals, no kill leaderboard yet.
+### Test D2 — Leaderboards and visibility
+
+1. `/top teams`, `/top money`, `/top kills` all respond  
+2. `/larp visibility teamtotals hide` → **TOP TEAMS** and **Team Money** hide; TOP PLAYERS + Wallet remain; `/team balance` reports hidden  
+3. `/larp visibility teamtotals show` restores TOP TEAMS + Team Money  
+
+### Test D3 — Nametags / tab / player commands
+
+1. Assign two players to different teams + tiers → tab list groups by team then tier; nametags take team color  
+2. `/team` shows roster, captain, tiers, Team Money  
+3. `/help` lists player commands (includes capture tip)
 
 ---
 
@@ -424,6 +445,10 @@ Do in order (~30–45 minutes):
 /larp capture start|pause|resume|stop|status|define|reload
 /top teams
 /top money
+/top kills
+/team
+/team balance
+/help
 ```
 
 Console: `op <name>` · `stop`
@@ -434,8 +459,8 @@ Console: `op <name>` · `stop`
 
 Do not expect these to work yet:
 
-- `/top kills`  
 - Auctions, Ace Hunt, Gladiators  
-- `/bid`, competitor role flags, colored team nametags  
+- `/bid`, competitor role flags  
+- Captain markers / balances in the tab list (density still open)  
 
 If something above **should** work and fails, note: which test ID, both usernames, exact command, and server log lines.

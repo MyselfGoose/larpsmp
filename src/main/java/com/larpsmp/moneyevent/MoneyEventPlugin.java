@@ -45,12 +45,15 @@ import com.larpsmp.moneyevent.command.BukkitOnlinePlayerAccess;
 import com.larpsmp.moneyevent.command.MessageKind;
 import com.larpsmp.moneyevent.command.MoneyCommandController;
 import com.larpsmp.moneyevent.command.MoneyJoinListener;
+import com.larpsmp.moneyevent.command.PlayerHelpCommandController;
+import com.larpsmp.moneyevent.command.TeamInfoCommandController;
 import com.larpsmp.moneyevent.command.WalletPlayerLookup;
 import com.larpsmp.moneyevent.config.EnvSettings;
 import com.larpsmp.moneyevent.db.DataSourceFactory;
 import com.larpsmp.moneyevent.db.MigrationRunner;
 import com.larpsmp.moneyevent.display.BalanceDisplayControl;
 import com.larpsmp.moneyevent.display.BukkitBalanceSidebar;
+import com.larpsmp.moneyevent.display.TeamPresenceDisplay;
 import com.larpsmp.moneyevent.email.EmailSender;
 import com.larpsmp.moneyevent.email.ResendClient;
 import com.larpsmp.moneyevent.notification.PaymentNotificationStore;
@@ -319,14 +322,23 @@ public final class MoneyEventPlugin extends JavaPlugin {
                     getDataFolder().toPath().resolve("notifications"),
                     moneyService,
                     message -> getLogger().severe(message));
-            balanceDisplay = new BukkitBalanceSidebar(
+            BukkitBalanceSidebar sidebar = new BukkitBalanceSidebar(
                     getServer(),
                     moneyService,
                     teamService,
                     moneyAccounts,
                     message -> getLogger().severe(message));
+            balanceDisplay = sidebar;
+            TeamPresenceDisplay teamPresence = new TeamPresenceDisplay(
+                    getServer(),
+                    teamService,
+                    moneyAccounts,
+                    sidebar,
+                    message -> getLogger().severe(message));
+            JdbcCombatKillRepository killRepository = new JdbcCombatKillRepository(dataSource);
+            // Rankings are global: any balance change must refresh every viewer's stacked HUD.
             moneyService.addBalanceChangeListener(
-                    (playerId, ignoredBalance) -> balanceDisplay.refreshPlayerAndTeammates(playerId));
+                    (playerId, ignoredBalance) -> balanceDisplay.refreshAll());
             moneyService.addSettlementNoticeListener((accountId, message) -> {
                 try {
                     moneyAccounts.findIdentityByAccountId(accountId).ifPresent(identity -> {
@@ -340,10 +352,9 @@ public final class MoneyEventPlugin extends JavaPlugin {
                 }
             });
             teamService.addRosterChangeListener((teamIds, accountIds) -> {
-                for (UUID teamId : teamIds) {
-                    balanceDisplay.refreshTeam(teamId);
-                }
-                balanceDisplay.refreshAccounts(accountIds);
+                // invalidate + repaint rankings for all; personal Team Money follows roster too
+                balanceDisplay.refreshAll();
+                teamPresence.refreshAll();
             });
 
             CaptureConfig captureConfig = CaptureConfig.from(getConfig());
@@ -428,9 +439,15 @@ public final class MoneyEventPlugin extends JavaPlugin {
                     balanceDisplay,
                     accountAdmins,
                     captureCommands,
-                    spawnCommands);
-            BukkitMoneyCommands commands = new BukkitMoneyCommands(controller, accountAdmins);
-            for (String commandName : new String[] {"balance", "pay", "top", "larp"}) {
+                    spawnCommands,
+                    killRepository,
+                    moneyAccounts);
+            TeamInfoCommandController teamInfoCommands = new TeamInfoCommandController(
+                    moneyService, teamService, message -> getLogger().severe(message));
+            PlayerHelpCommandController playerHelp = new PlayerHelpCommandController();
+            BukkitMoneyCommands commands = new BukkitMoneyCommands(
+                    controller, teamInfoCommands, playerHelp, accountAdmins);
+            for (String commandName : new String[] {"balance", "pay", "top", "team", "help", "larp"}) {
                 var command = Objects.requireNonNull(getCommand(commandName),
                         "Command missing from plugin.yml: " + commandName);
                 command.setExecutor(commands);
@@ -453,7 +470,7 @@ public final class MoneyEventPlugin extends JavaPlugin {
                     moneyAccounts,
                     teamService,
                     moneyService,
-                    new JdbcCombatKillRepository(dataSource),
+                    killRepository,
                     EventCombatScope.NEVER,
                     message -> getLogger().severe(message)
             );
@@ -488,6 +505,7 @@ public final class MoneyEventPlugin extends JavaPlugin {
             getLogger().info("Spawn protection ready (/larp spawn define|status|reload; "
                     + spawnService.config().protectionSeconds() + "s after respawn in region).");
             getLogger().info("Teams administration ready (dialog UI + /larp team|captain|tier|teams).");
+            getLogger().info("Display ready (sidebar, team nametags/tab grouping, /top kills, /team, /help).");
             getLogger().info("Account-keyed player bodies enabled (autosave "
                     + playerStateConfig.autosaveSeconds() + "s).");
         } catch (IOException exception) {

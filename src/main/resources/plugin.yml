@@ -16,8 +16,15 @@ commands:
     description: Pays a registered player from your wallet.
     usage: /pay <player> <amount>
   top:
-    description: Shows public team or personal wealth standings.
-    usage: /top <teams|money>
+    description: Shows public team, personal wealth, or kill standings.
+    usage: /top <teams|money|kills>
+  team:
+    description: Shows your team roster and team wealth.
+    usage: /team [balance]
+  help:
+    description: Lists LarpSMP player commands.
+    usage: /help
+    aliases: [larphelp]
   larp:
     description: Protected LarpSMP administration commands (money, kill money, visibility, account ops, capture, spawn, teams).
     usage: /larp <money|killmoney|killreward|visibility|op|deop|ops|capture|spawn|teams|team|captain|tier> ...

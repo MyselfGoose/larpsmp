@@ -37,7 +37,7 @@ Blue / Red / Yellow are seeded if missing.
 | Team → members (incl. offline) | Wealth sum, splits, rescue, cover | Implemented |
 | Player → tier | Death cost; display | Implemented |
 | Captain of team | Auction nomination; markers | Implemented |
-| Team list / colors | Nametags, list, chat | Partial (colors in model; nametags/list grouping not finished) |
+| Team list / colors | Nametags, list, chat | Implemented (colors + `TeamPresenceDisplay` nametags/tab grouping) |
 | Competitor / admin / spectator | Eligibility filters | Deferred |
 
 Economy must **not** maintain a second independent roster copy. `MoneyService.teamWealth` sums via SQL join to memberships.
@@ -59,22 +59,30 @@ Temporary: console or op via `DevelopmentConsoleOpAuthorizer` (same as money). P
 | 3 | Account-ID keyed; survives restart | Done |
 | 4 | Economy computes wealth from live roster | Done (`teamWealth`) |
 | 5 | Incomplete edits warn admins | Soft warnings implemented |
-| 6 | Public totals; admin hide | Public HUD done; hide deferred |
+| 6 | Public totals; admin hide | Done (HUD + `/larp visibility teamtotals`) |
 | 7 | Non-competitors excluded from standings | Partial — no first-class role flag yet |
 | 8 | No substitute flow | Done (not built) |
-| 9 | Colored identity for nametags/list/chat | Not finished |
+| 9 | Colored identity for nametags/list/chat | Nametags + tab Done; chat coloring not required |
 | 10 | Integration note for consumers | See [Integration contracts](integration-contracts.md) |
 
 ## Sidebar (Implemented)
 
-Single Minecraft sidebar panel; two stacked sections:
+Single Minecraft sidebar panel (right side only — client limit); personal balances on top, rankings below:
 
 ```text
-Team Money
+Team Money          ← objective title (heading)
 $2,601
 ··········
 Wallet
 $250
+··········
+TOP TEAMS
+1. Blue          $2,601
+2. Red           $2,100
+3. Yellow        $1,800
+··········
+TOP PLAYERS
+1. alice         $850
 ```
 
-No team → `—` under Team Money. Amounts use grouped digits. Aqua = team; gold = personal.
+Hierarchy: white bold headings → gray names → gold amounts → dark-gray ranks/dividers (no per-team name colors). Ranking amounts sit in the scoreboard suffix. Empty player ranks omitted. Unused scoreboard rows are reset so the board does not pad with blank space. When team totals are hidden, Team Money + TOP TEAMS omit; Wallet + TOP PLAYERS remain.

@@ -5,21 +5,21 @@ import com.larpsmp.moneyevent.auth.AccountRepository;
 import com.larpsmp.moneyevent.team.Team;
 import com.larpsmp.moneyevent.team.TeamMember;
 import com.larpsmp.moneyevent.team.TeamService;
-import com.larpsmp.moneyevent.wallet.MoneyFormats;
 import com.larpsmp.moneyevent.wallet.MoneyService;
 import io.papermc.paper.scoreboard.numbers.NumberFormat;
 import java.io.IOException;
 import java.sql.SQLException;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.format.NamedTextColor;
-import net.kyori.adventure.text.format.TextColor;
-import net.kyori.adventure.text.format.TextDecoration;
 import org.bukkit.Server;
 import org.bukkit.entity.Player;
 import org.bukkit.scoreboard.Criteria;
@@ -29,46 +29,59 @@ import org.bukkit.scoreboard.Scoreboard;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Always-on money HUD as two stacked sections inside the sidebar panel.
+ * Always-on money + standings HUD as stacked sections inside the single sidebar panel.
  *
- * <p>Minecraft only allows one sidebar panel per player, so Team Money and Wallet are
- * rendered as two visually separated blocks (label above, amount below) with a divider —
- * not one combined {@code Team $N / Wallet $N} row.
+ * <p>Minecraft only allows one sidebar per player. This board renders up to three visual
+ * panels (Top Teams, Top Players, personal Team Money / Wallet) with dividers, staying
+ * within the 15-line client limit via compact single-line rows.
  *
  * <pre>
  * Team Money
- * $2,601
+ * $12,400
  * ··········
  * Wallet
  * $250
+ * ··········
+ * TOP TEAMS
+ * 1. Blue          $12,400
+ * …
+ * TOP PLAYERS
+ * 1. alice         $1,240
  * </pre>
  */
-public final class BukkitBalanceSidebar implements BalanceDisplayControl {
+public final class BukkitBalanceSidebar implements BalanceDisplayControl, OwnedScoreboardAccess {
     private static final String OBJECTIVE_NAME = "larpsmp_money";
 
-    /** Stable unique scoreboard entries (never shown; prefixes carry the visible text). */
-    private static final String ENTRY_TEAM_LABEL = "§0§r";
-    private static final String ENTRY_TEAM_AMOUNT = "§1§r";
-    private static final String ENTRY_DIVIDER = "§2§r";
-    private static final String ENTRY_WALLET_LABEL = "§3§r";
-    private static final String ENTRY_WALLET_AMOUNT = "§4§r";
-
-    private static final String TEAM_LABEL = "sb_tm_lbl";
-    private static final String TEAM_AMOUNT = "sb_tm_amt";
-    private static final String DIVIDER = "sb_div";
-    private static final String WALLET_LABEL = "sb_wl_lbl";
-    private static final String WALLET_AMOUNT = "sb_wl_amt";
-
-    private static final TextColor TEAM_COLOR = NamedTextColor.AQUA;
-    private static final TextColor WALLET_COLOR = NamedTextColor.GOLD;
-    private static final TextColor DIVIDER_COLOR = TextColor.color(0x555555);
+    /**
+     * Fixed slot table (15 max). Scoreboard team names stay under the {@code sb_} prefix so they
+     * never collide with {@link TeamPresenceKeys} nametag teams.
+     */
+    private static final List<Slot> SLOTS = List.of(
+            slot("sb_tm_lbl", "§0§r"),
+            slot("sb_tm_amt", "§1§r"),
+            slot("sb_d_pers", "§2§r"),
+            slot("sb_wl_lbl", "§3§r"),
+            slot("sb_wl_amt", "§4§r"),
+            slot("sb_d_rank", "§5§r"),
+            slot("sb_t_hdr", "§6§r"),
+            slot("sb_t_1", "§7§r"),
+            slot("sb_t_2", "§8§r"),
+            slot("sb_t_3", "§9§r"),
+            slot("sb_p_hdr", "§a§r"),
+            slot("sb_p_1", "§b§r"),
+            slot("sb_p_2", "§c§r"),
+            slot("sb_p_3", "§d§r"),
+            slot("sb_p_4", "§e§r")
+    );
 
     private final Server server;
     private final MoneyService money;
     private final TeamService teams;
     private final AccountRepository accounts;
+    private final HudStandingsSnapshot standings;
     private final Consumer<String> errorLogger;
     private final Map<UUID, OwnedSidebar> sidebars = new HashMap<>();
+    private final List<OwnedScoreboardListener> ownedListeners = new CopyOnWriteArrayList<>();
 
     public BukkitBalanceSidebar(
             Server server,
@@ -77,11 +90,42 @@ public final class BukkitBalanceSidebar implements BalanceDisplayControl {
             AccountRepository accounts,
             Consumer<String> errorLogger
     ) {
+        this(server, money, teams, accounts, new HudStandingsSnapshot(money, teams, errorLogger), errorLogger);
+    }
+
+    public BukkitBalanceSidebar(
+            Server server,
+            MoneyService money,
+            TeamService teams,
+            AccountRepository accounts,
+            HudStandingsSnapshot standings,
+            Consumer<String> errorLogger
+    ) {
         this.server = server;
         this.money = money;
         this.teams = teams;
         this.accounts = accounts;
+        this.standings = standings;
         this.errorLogger = errorLogger;
+    }
+
+    public HudStandingsSnapshot standings() {
+        return standings;
+    }
+
+    @Override
+    public void forEachOwned(BiConsumer<UUID, Scoreboard> action) {
+        for (Map.Entry<UUID, OwnedSidebar> entry : new ArrayList<>(sidebars.entrySet())) {
+            action.accept(entry.getKey(), entry.getValue().owned());
+        }
+    }
+
+    @Override
+    public void addOwnedScoreboardListener(OwnedScoreboardListener listener) {
+        ownedListeners.add(listener);
+        for (Map.Entry<UUID, OwnedSidebar> entry : new ArrayList<>(sidebars.entrySet())) {
+            listener.onOwnedBoardReady(entry.getKey(), entry.getValue().owned());
+        }
     }
 
     @Override
@@ -104,18 +148,19 @@ public final class BukkitBalanceSidebar implements BalanceDisplayControl {
             if (sidebar == null) {
                 Scoreboard previous = player.getScoreboard();
                 Scoreboard owned = server.getScoreboardManager().getNewScoreboard();
-                // Empty title so the panel is not branded as a single "Wallet" box —
-                // each section carries its own label line instead.
                 Objective objective = owned.registerNewObjective(
                         OBJECTIVE_NAME,
                         Criteria.DUMMY,
-                        Component.empty());
+                        Component.text(" "));
                 objective.setDisplaySlot(DisplaySlot.SIDEBAR);
                 objective.numberFormat(NumberFormat.blank());
-                ensureLines(owned);
+                ensureSlots(owned);
                 sidebar = new OwnedSidebar(previous, owned);
                 sidebars.put(playerId, sidebar);
                 player.setScoreboard(owned);
+                for (OwnedScoreboardListener listener : ownedListeners) {
+                    listener.onOwnedBoardReady(playerId, owned);
+                }
             }
             Objective objective = sidebar.owned().getObjective(OBJECTIVE_NAME);
             if (objective == null) {
@@ -123,50 +168,21 @@ public final class BukkitBalanceSidebar implements BalanceDisplayControl {
                 refresh(playerId);
                 return;
             }
-            // Migrate older objective titles if the player still has a prior board.
-            objective.displayName(Component.empty());
             objective.numberFormat(NumberFormat.blank());
-            ensureLines(sidebar.owned());
+            ensureSlots(sidebar.owned());
 
-            long personal = account.orElseThrow().balance();
-            boolean showTeamTotals = money.teamTotalsVisible();
-            @Nullable Long teamWealth = showTeamTotals
+            HudStandingsSnapshot.View view = standings.current();
+            @Nullable Long teamWealth = view.showTeamTotals()
                     ? resolveTeamWealth(account.orElseThrow().accountId())
                     : null;
-
-            if (showTeamTotals) {
-                setLine(sidebar.owned(), TEAM_LABEL, ENTRY_TEAM_LABEL,
-                        Component.text("Team Money", TEAM_COLOR, TextDecoration.BOLD));
-                setLine(sidebar.owned(), TEAM_AMOUNT, ENTRY_TEAM_AMOUNT,
-                        Component.text(MoneyFormats.currencyOrDash(teamWealth), TEAM_COLOR));
-                setLine(sidebar.owned(), DIVIDER, ENTRY_DIVIDER,
-                        Component.text("··········", DIVIDER_COLOR));
-                setLine(sidebar.owned(), WALLET_LABEL, ENTRY_WALLET_LABEL,
-                        Component.text("Wallet", WALLET_COLOR, TextDecoration.BOLD));
-                setLine(sidebar.owned(), WALLET_AMOUNT, ENTRY_WALLET_AMOUNT,
-                        Component.text(MoneyFormats.currency(personal), WALLET_COLOR));
-
-                // Higher score = higher on screen. Two blocks separated by the divider.
-                objective.getScore(ENTRY_TEAM_LABEL).setScore(5);
-                objective.getScore(ENTRY_TEAM_AMOUNT).setScore(4);
-                objective.getScore(ENTRY_DIVIDER).setScore(3);
-                objective.getScore(ENTRY_WALLET_LABEL).setScore(2);
-                objective.getScore(ENTRY_WALLET_AMOUNT).setScore(1);
-            } else {
-                // Hide Team Money section while visibility is off.
-                setLine(sidebar.owned(), TEAM_LABEL, ENTRY_TEAM_LABEL, Component.empty());
-                setLine(sidebar.owned(), TEAM_AMOUNT, ENTRY_TEAM_AMOUNT, Component.empty());
-                setLine(sidebar.owned(), DIVIDER, ENTRY_DIVIDER, Component.empty());
-                setLine(sidebar.owned(), WALLET_LABEL, ENTRY_WALLET_LABEL,
-                        Component.text("Wallet", WALLET_COLOR, TextDecoration.BOLD));
-                setLine(sidebar.owned(), WALLET_AMOUNT, ENTRY_WALLET_AMOUNT,
-                        Component.text(MoneyFormats.currency(personal), WALLET_COLOR));
-                objective.getScore(ENTRY_TEAM_LABEL).setScore(0);
-                objective.getScore(ENTRY_TEAM_AMOUNT).setScore(0);
-                objective.getScore(ENTRY_DIVIDER).setScore(0);
-                objective.getScore(ENTRY_WALLET_LABEL).setScore(2);
-                objective.getScore(ENTRY_WALLET_AMOUNT).setScore(1);
-            }
+            HudBoardModel model = HudBoardModel.build(
+                    view.showTeamTotals(),
+                    view.topTeams(),
+                    view.topPlayers(),
+                    teamWealth,
+                    account.orElseThrow().balance());
+            objective.displayName(model.title());
+            paint(sidebar.owned(), objective, model);
         } catch (IOException exception) {
             errorLogger.accept("Could not refresh wallet display for " + playerId + ": " + exception.getMessage());
         }
@@ -225,9 +241,40 @@ public final class BukkitBalanceSidebar implements BalanceDisplayControl {
 
     @Override
     public void refreshAll() {
+        standings.invalidate();
         for (UUID playerId : sidebars.keySet().toArray(UUID[]::new)) {
             refresh(playerId);
         }
+    }
+
+    /** Invalidate shared rankings and repaint every online sidebar. */
+    public void refreshStandings() {
+        refreshAll();
+    }
+
+    private void paint(Scoreboard scoreboard, Objective objective, HudBoardModel model) {
+        List<HudBoardModel.Line> lines = model.lines();
+        // Fully clear unused slots — score 0 with empty prefix still draws blank rows.
+        for (Slot slot : SLOTS) {
+            clearSlot(scoreboard, objective, slot);
+        }
+        // Higher score = higher on screen.
+        int score = Math.min(lines.size(), SLOTS.size());
+        for (int index = 0; index < lines.size() && index < SLOTS.size(); index++) {
+            Slot slot = SLOTS.get(index);
+            HudBoardModel.Line line = lines.get(index);
+            setLine(scoreboard, slot.teamName(), slot.entry(), line.prefix(), line.suffix());
+            objective.getScore(slot.entry()).setScore(score);
+            score--;
+        }
+    }
+
+    private static void clearSlot(Scoreboard scoreboard, Objective objective, Slot slot) {
+        org.bukkit.scoreboard.Team team = scoreboard.getTeam(slot.teamName());
+        if (team != null && team.hasEntry(slot.entry())) {
+            team.removeEntry(slot.entry());
+        }
+        objective.getScore(slot.entry()).resetScore();
     }
 
     private @Nullable Long resolveTeamWealth(UUID accountId) throws IOException {
@@ -248,27 +295,27 @@ public final class BukkitBalanceSidebar implements BalanceDisplayControl {
         }
     }
 
-    private static void ensureLines(Scoreboard scoreboard) {
-        ensureTeam(scoreboard, TEAM_LABEL);
-        ensureTeam(scoreboard, TEAM_AMOUNT);
-        ensureTeam(scoreboard, DIVIDER);
-        ensureTeam(scoreboard, WALLET_LABEL);
-        ensureTeam(scoreboard, WALLET_AMOUNT);
-    }
-
-    private static void ensureTeam(Scoreboard scoreboard, String name) {
-        if (scoreboard.getTeam(name) == null) {
-            scoreboard.registerNewTeam(name);
+    private static void ensureSlots(Scoreboard scoreboard) {
+        for (Slot slot : SLOTS) {
+            if (scoreboard.getTeam(slot.teamName()) == null) {
+                scoreboard.registerNewTeam(slot.teamName());
+            }
         }
     }
 
-    private static void setLine(Scoreboard scoreboard, String teamName, String entry, Component text) {
+    private static void setLine(
+            Scoreboard scoreboard,
+            String teamName,
+            String entry,
+            Component prefix,
+            Component suffix
+    ) {
         org.bukkit.scoreboard.Team team = scoreboard.getTeam(teamName);
         if (team == null) {
             return;
         }
-        team.prefix(text);
-        team.suffix(Component.empty());
+        team.prefix(prefix);
+        team.suffix(suffix);
         if (!team.hasEntry(entry)) {
             team.addEntry(entry);
         }
@@ -276,6 +323,11 @@ public final class BukkitBalanceSidebar implements BalanceDisplayControl {
 
     private void remove(UUID playerId) {
         OwnedSidebar sidebar = sidebars.remove(playerId);
+        if (sidebar != null) {
+            for (OwnedScoreboardListener listener : ownedListeners) {
+                listener.onOwnedBoardRemoved(playerId);
+            }
+        }
         Player player = server.getPlayer(playerId);
         if (sidebar != null && player != null && player.getScoreboard() == sidebar.owned()) {
             player.setScoreboard(sidebar.previous());
@@ -287,6 +339,13 @@ public final class BukkitBalanceSidebar implements BalanceDisplayControl {
         for (UUID playerId : sidebars.keySet().toArray(UUID[]::new)) {
             remove(playerId);
         }
+    }
+
+    private static Slot slot(String teamName, String entry) {
+        return new Slot(teamName, entry);
+    }
+
+    private record Slot(String teamName, String entry) {
     }
 
     private record OwnedSidebar(Scoreboard previous, Scoreboard owned) {

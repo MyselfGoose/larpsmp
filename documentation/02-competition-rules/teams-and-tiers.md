@@ -79,7 +79,7 @@ Editable later via admin kill-reward commands (**Deferred**). New values apply t
 | Remove | `/larp team unset <player>` | Implemented |
 | Captain set/clear | `/larp captain set\|clear` | Implemented |
 | Tier set/clear/list | `/larp tier set\|clear\|list` | Implemented |
-| Hide/show team totals | `/larp visibility teamtotals …` | Deferred |
+| Hide/show team totals | `/larp visibility teamtotals …` | Implemented |
 
 ### Validation style
 
@@ -95,9 +95,9 @@ Do not hard-block every intermediate edit unless a later live-lock mode is chose
 
 | Command | Behavior | Status |
 |---------|----------|--------|
-| `/team` | Show roster and total | Optional / Suggested |
-| `/team balance` | Team wealth | Suggested |
-| `/top teams` | Standings | Planned |
+| `/team` | Show roster and total | Implemented |
+| `/team balance` | Team wealth | Implemented |
+| `/top teams` | Standings | Implemented |
 | Sidebar Team Money | Live team wealth | Implemented |
 
 No private team chat in this plugin.

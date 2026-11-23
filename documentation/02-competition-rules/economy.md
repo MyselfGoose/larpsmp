@@ -118,9 +118,9 @@ Full combat attribution rules: [Combat and kills](combat-and-kills.md).
 
 | Command | Purpose | Status |
 |---------|---------|--------|
-| `/top teams` | Team wealth standings | Planned |
-| `/top money` | Personal wealth standings | Planned |
-| `/top kills` | Kill counts | Planned |
+| `/top teams` | Team wealth standings | Implemented |
+| `/top money` | Personal wealth standings | Implemented |
+| `/top kills` | Kill counts (excludes event + friendly-fire) | Implemented |
 | `/balance` | Own balance | Implemented |
 | `/balance <player>` | Public personal balance | Implemented |
 

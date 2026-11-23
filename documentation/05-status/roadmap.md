@@ -1,7 +1,7 @@
 # Development roadmap (by branch)
 
-You are here: **`feature/spawn-protection`** implements respawn-only spawn protection on top of `main` (capture already merged).  
-**After this lands:** [`feature/display-and-leaderboards`](#9-featuredisplay-and-leaderboards--queued).
+You are here: **`feature/display-and-leaderboards`** (nametags, tab grouping, `/top kills`, `/team`, `/help`) on top of `main`.  
+**After this lands:** [`feature/auctions`](#10-featureauctions--queued).
 
 Status key on this page:
 
@@ -30,7 +30,7 @@ DONE     feature/economy-settlement
 DONE     feature/kill-attribution
 DONE     feature/capture-points
 DONE     feature/spawn-protection
-QUEUED   feature/display-and-leaderboards
+DONE     feature/display-and-leaderboards
 QUEUED   feature/auctions
 QUEUED   feature/ace-hunt
 QUEUED   feature/gladiators          (light automation; admin-first OK)
@@ -200,20 +200,18 @@ Can land anytime after teams; does not block economy settlement.
 
 ---
 
-## 9. `feature/display-and-leaderboards` — QUEUED
+## 9. `feature/display-and-leaderboards` — DONE
 
-**Coordinate with whoever owns the sidebar** (scoreboards overwrite each other).
+**Merged into `main` after this branch.** Sidebar ownership stays with `BukkitBalanceSidebar`; nametags/tab write onto the same owned scoreboards.
 
-| # | Work item |
-|---|-----------|
-| 1 | Keep single sidebar: Team Money + Wallet (already DONE) |
-| 2 | Wire visibility hide into sidebar (needs economy visibility flag) |
-| 3 | `/top kills` once attribution exists (exclude event kills) |
-| 4 | Colored nametags by team |
-| 5 | Player list grouped by team + tier (density playtest) |
-| 6 | Optional `/team`, `/help`, `/capture` info if still useful |
-
-Prefer after economy `/top` + visibility, and after teams colors are stable.
+| # | Work item | Status |
+|---|-----------|--------|
+| 1 | Keep single sidebar: Team Money + Wallet | DONE |
+| 2 | Wire visibility hide into sidebar | DONE (`teamTotalsVisible`) |
+| 3 | `/top kills` (exclude event + friendly-fire kills) | DONE |
+| 4 | Colored nametags by team | DONE (`TeamPresenceDisplay`) |
+| 5 | Player list grouped by team + tier | DONE (density: color + username; no balances/captain markers) |
+| 6 | Optional `/team`, `/help` (capture tip in help; no player `/capture`) | DONE |
 
 ---
 
@@ -299,10 +297,9 @@ Not branches, but blockers for “event ready”:
 
 ## Recommended working order (what you do next)
 
-1. Economy settlement, kill attribution, capture, spawn protection — **Done**.  
-2. **Next:** `feature/display-and-leaderboards` (nametags, tab grouping, `/top kills`).  
-3. **Then:** auctions (manual first), Ace Hunt, Gladiators as needed.  
-4. **Throughout:** chase Karim on [open questions](open-questions.md).
+1. Economy settlement, kill attribution, capture, spawn protection, display/leaderboards — **Done**.  
+2. **Next:** `feature/auctions` (manual first), then Ace Hunt / Gladiators as needed.  
+3. **Throughout:** chase Karim on [open questions](open-questions.md).
 
 ---
 
@@ -311,12 +308,12 @@ Not branches, but blockers for “event ready”:
 ```bash
 git checkout main
 git pull origin main
-git checkout -b feature/display-and-leaderboards
+git checkout -b feature/auctions
 ```
 
 Read before coding:
 
-- [Roadmap §9](#9-featuredisplay-and-leaderboards--queued)
+- [Roadmap §10](#10-featureauctions--queued)
 - [Known gaps](known-gaps-and-debt.md)
 
 When the branch is merge-ready: PR → `main` → delete the feature branch → pick the next **QUEUED** item.

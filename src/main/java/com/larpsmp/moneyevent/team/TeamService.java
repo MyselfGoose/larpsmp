@@ -226,6 +226,7 @@ public final class TeamService {
                 );
                 repository.updateTeam(connection, updated);
                 connection.commit();
+                notifyRosterChanged(Set.of(teamId), Set.of());
                 return TeamMutationResult.ok(
                         "Updated team " + updated.displayName() + ".",
                         updated,
@@ -390,6 +391,10 @@ public final class TeamService {
                                 }
                             })
                             .orElse(List.of());
+            Set<UUID> affectedTeams = membership.isEmpty()
+                    ? Set.of()
+                    : Set.of(membership.get().teamId());
+            notifyRosterChanged(affectedTeams, Set.of(accountId));
             return TeamMutationResult.ok(
                     "Set " + account.get().username() + " to " + tier.displayName() + ".",
                     membership.flatMap(member -> {
@@ -429,6 +434,10 @@ public final class TeamService {
                                 }
                             })
                             .orElse(List.of());
+            Set<UUID> affectedTeams = membership.isEmpty()
+                    ? Set.of()
+                    : Set.of(membership.get().teamId());
+            notifyRosterChanged(affectedTeams, Set.of(accountId));
             return TeamMutationResult.ok(
                     "Cleared tier for " + account.get().username() + ".",
                     membership.flatMap(member -> {
