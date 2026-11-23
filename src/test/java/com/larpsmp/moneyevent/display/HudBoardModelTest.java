@@ -10,7 +10,7 @@ import org.junit.jupiter.api.Test;
 class HudBoardModelTest {
 
     @Test
-    void visibleModeFitsUnderFifteenLinesAndPadsEmptyRanks() {
+    void personalBalancesLeadAndClassicLabelAmountLayout() {
         HudBoardModel model = HudBoardModel.build(
                 true,
                 List.of(new HudStandingsSnapshot.TopTeamRow(1, "Blue", 0x5555FF, 1200)),
@@ -19,22 +19,23 @@ class HudBoardModelTest {
                 250L);
 
         List<String> lines = model.plainLines();
-        assertEquals(14, lines.size());
-        assertEquals("TOP TEAMS", lines.get(0));
-        assertEquals("1. Blue $1,200", lines.get(1));
-        assertEquals("2. —", lines.get(2));
-        assertEquals("3. —", lines.get(3));
-        assertEquals("··········", lines.get(4));
-        assertEquals("TOP PLAYERS", lines.get(5));
-        assertEquals("1. alice $400", lines.get(6));
-        assertEquals("5. —", lines.get(10));
-        assertEquals("Team Money $1,200", lines.get(12));
-        assertEquals("Wallet $250", lines.get(13));
-        assertEquals(14, model.lines().size());
+        assertEquals("Team Money", lines.get(0));
+        assertEquals("$1,200", lines.get(1));
+        assertEquals("··········", lines.get(2));
+        assertEquals("Wallet", lines.get(3));
+        assertEquals("$250", lines.get(4));
+        assertEquals("··········", lines.get(5));
+        assertEquals("TOP TEAMS", lines.get(6));
+        assertEquals("1. Blue $1,200", lines.get(7));
+        assertEquals("TOP PLAYERS", lines.get(10));
+        assertEquals("1. alice $400", lines.get(11));
+        assertFalse(lines.contains("5. —"));
+        assertTrue(lines.size() <= HudBoardModel.MAX_LINES);
+        assertEquals(lines.size(), model.lines().size());
     }
 
     @Test
-    void hiddenTeamTotalsOmitsTeamsAndTeamMoney() {
+    void hiddenTeamTotalsKeepsWalletOnTopAndOmitsTeamBoards() {
         HudBoardModel model = HudBoardModel.build(
                 false,
                 List.of(new HudStandingsSnapshot.TopTeamRow(1, "Blue", 0x5555FF, 9999)),
@@ -45,18 +46,29 @@ class HudBoardModelTest {
                 180L);
 
         List<String> lines = model.plainLines();
-        assertEquals(8, lines.size());
+        assertEquals("Wallet", lines.get(0));
+        assertEquals("$180", lines.get(1));
         assertFalse(lines.stream().anyMatch(line -> line.contains("TOP TEAMS")));
-        assertFalse(lines.stream().anyMatch(line -> line.startsWith("Team Money")));
+        assertFalse(lines.stream().anyMatch(line -> line.equals("Team Money")));
         assertTrue(lines.contains("TOP PLAYERS"));
-        assertEquals("1. alice $500", lines.get(1));
-        assertEquals("Wallet $180", lines.getLast());
+        assertEquals("1. alice $500", lines.get(4));
     }
 
     @Test
-    void truncatesLongNamesForSidebarWidth() {
-        assertEquals("VeryLongN…", HudTheme.truncate("VeryLongNameIndeed"));
-        assertEquals("1. VeryLongN… $10",
-                HudTheme.plainPlayerRow(1, "VeryLongNameIndeed", 10L));
+    void omitsEmptyPlayerPlaceholdersAndAllowsLongerNames() {
+        assertEquals("myselfgoose", HudTheme.truncate("myselfgoose"));
+        assertEquals("verylongnam…", HudTheme.truncate("verylongnamehere"));
+        HudBoardModel model = HudBoardModel.build(
+                true,
+                List.of(),
+                List.of(new HudStandingsSnapshot.TopPlayerRow(1, "alice", 10)),
+                null,
+                10L);
+        assertEquals(1, model.players().size());
+        List<String> playerSection = model.plainLines().stream()
+                .dropWhile(line -> !line.equals("TOP PLAYERS"))
+                .skip(1)
+                .toList();
+        assertEquals(List.of("1. alice $10"), playerSection);
     }
 }

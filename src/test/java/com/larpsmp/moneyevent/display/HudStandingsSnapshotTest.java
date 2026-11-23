@@ -87,7 +87,8 @@ class HudStandingsSnapshotTest {
                     100L);
             List<String> lines = board.plainLines();
             assertFalse(lines.stream().anyMatch(line -> line.contains("TOP TEAMS")));
-            assertTrue(lines.get(0).equals("TOP PLAYERS"));
+            assertEquals("Wallet", lines.get(0));
+            assertTrue(lines.contains("TOP PLAYERS"));
 
             money.setTeamTotalsVisible(true, "test", "TEST", "restore");
             teams.deleteTeam(rich.id());

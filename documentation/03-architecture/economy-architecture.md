@@ -50,7 +50,7 @@ Ledger columns (migrations `V003` + `V007`) include type, status, amount, reason
 
 Offline payment notifications: [`PaymentNotificationStore`](../../src/main/java/com/larpsmp/moneyevent/notification/PaymentNotificationStore.java) under the plugin data folder.
 
-Sidebar: [`BukkitBalanceSidebar`](../../src/main/java/com/larpsmp/moneyevent/display/BukkitBalanceSidebar.java) — one physical panel with three stacked boards: Top 3 teams, Top 5 players, personal Team Money + Wallet. Team rankings + Team Money hide when `/larp visibility teamtotals` is off.
+Sidebar: [`BukkitBalanceSidebar`](../../src/main/java/com/larpsmp/moneyevent/display/BukkitBalanceSidebar.java) — personal Team Money + Wallet on top (classic label/amount), then Top Teams / Top Players. Team rankings + Team Money hide when `/larp visibility teamtotals` is off.
 
 ### Mutation invariants
 

@@ -9,6 +9,9 @@ import org.jetbrains.annotations.Nullable;
 
 /**
  * Adventure styling for the stacked money / standings sidebar.
+ *
+ * <p>Ranking rows put the name in the scoreboard team {@code prefix} and the amount in the
+ * {@code suffix} so values sit on the right edge of the panel.
  */
 public final class HudTheme {
     public static final TextColor TEAMS_HEADER = NamedTextColor.AQUA;
@@ -25,8 +28,8 @@ public final class HudTheme {
     public static final TextColor RANK_BRONZE = TextColor.color(0xCD7F32);
     public static final TextColor RANK_DEFAULT = NamedTextColor.GRAY;
 
-    /** Sidebar-safe name width (keeps prefixes readable). */
-    public static final int MAX_NAME_CHARS = 10;
+    /** Prefix-only name width; amounts live in the suffix so names can be longer. */
+    public static final int MAX_NAME_CHARS = 12;
 
     private HudTheme() {
     }
@@ -47,6 +50,22 @@ public final class HudTheme {
         return Component.empty();
     }
 
+    public static Component teamMoneyLabel() {
+        return Component.text("Team Money", TEAM_MONEY, TextDecoration.BOLD);
+    }
+
+    public static Component teamMoneyAmount(@Nullable Long wealth) {
+        return Component.text(MoneyFormats.currencyOrDash(wealth), TEAM_MONEY);
+    }
+
+    public static Component walletLabel() {
+        return Component.text("Wallet", WALLET, TextDecoration.BOLD);
+    }
+
+    public static Component walletAmount(long balance) {
+        return Component.text(MoneyFormats.currency(balance), WALLET);
+    }
+
     public static TextColor rankColor(int rank) {
         return switch (rank) {
             case 1 -> RANK_GOLD;
@@ -56,49 +75,32 @@ public final class HudTheme {
         };
     }
 
-    public static Component teamRow(int rank, @Nullable String name, @Nullable Integer colorRgb, @Nullable Long wealth) {
-        if (name == null || wealth == null) {
-            return placeholderRow(rank);
+    public static Component teamNamePrefix(int rank, @Nullable String name, @Nullable Integer colorRgb) {
+        if (name == null) {
+            return rankingPrefix(rank, "—", PLACEHOLDER);
         }
         TextColor teamColor = colorRgb == null ? NAME : TextColor.color(colorRgb);
-        return Component.text()
-                .append(Component.text(rank + ". ", rankColor(rank)))
-                .append(Component.text(truncate(name), teamColor))
-                .append(Component.text(" ", NamedTextColor.DARK_GRAY))
-                .append(Component.text(MoneyFormats.currency(wealth), AMOUNT))
-                .build();
+        return rankingPrefix(rank, truncate(name), teamColor);
     }
 
-    public static Component playerRow(int rank, @Nullable String name, @Nullable Long balance) {
-        if (name == null || balance == null) {
-            return placeholderRow(rank);
+    public static Component playerNamePrefix(int rank, @Nullable String name) {
+        if (name == null) {
+            return rankingPrefix(rank, "—", PLACEHOLDER);
         }
+        return rankingPrefix(rank, truncate(name), NAME);
+    }
+
+    public static Component amountSuffix(@Nullable Long amount) {
+        if (amount == null) {
+            return Component.empty();
+        }
+        return Component.text(" " + MoneyFormats.currency(amount), AMOUNT);
+    }
+
+    private static Component rankingPrefix(int rank, String name, TextColor nameColor) {
         return Component.text()
                 .append(Component.text(rank + ". ", rankColor(rank)))
-                .append(Component.text(truncate(name), NAME))
-                .append(Component.text(" ", NamedTextColor.DARK_GRAY))
-                .append(Component.text(MoneyFormats.currency(balance), AMOUNT))
-                .build();
-    }
-
-    public static Component teamMoneyLine(@Nullable Long wealth) {
-        return Component.text()
-                .append(Component.text("Team Money ", TEAM_MONEY, TextDecoration.BOLD))
-                .append(Component.text(MoneyFormats.currencyOrDash(wealth), TEAM_MONEY))
-                .build();
-    }
-
-    public static Component walletLine(long balance) {
-        return Component.text()
-                .append(Component.text("Wallet ", WALLET, TextDecoration.BOLD))
-                .append(Component.text(MoneyFormats.currency(balance), WALLET))
-                .build();
-    }
-
-    public static Component placeholderRow(int rank) {
-        return Component.text()
-                .append(Component.text(rank + ". ", rankColor(rank)))
-                .append(Component.text("—", PLACEHOLDER))
+                .append(Component.text(name, nameColor))
                 .build();
     }
 
@@ -113,7 +115,6 @@ public final class HudTheme {
         return trimmed.substring(0, Math.max(1, MAX_NAME_CHARS - 1)) + "…";
     }
 
-    /** Plain-text shape used by unit tests. */
     public static String plainTeamRow(int rank, @Nullable String name, @Nullable Long wealth) {
         if (name == null || wealth == null) {
             return rank + ". —";

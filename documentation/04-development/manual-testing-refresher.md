@@ -322,24 +322,23 @@ Bob’s Team Money → `—`
 
 ### What exists
 
-One physical right sidebar with **three stacked panels** (Minecraft only allows one sidebar slot):
+One physical right sidebar (Minecraft only allows one sidebar slot). Personal money on top, rankings below:
 
 ```text
+Team Money
+$X
+··········
+Wallet
+$YYY
+··········
 TOP TEAMS
-1. Blue $X
-2. Red $Y
-3. Yellow $Z
-··········
-TOP PLAYERS
-1. alice $A
+1. Blue          $X
 …
-5. …
-··········
-Team Money $X
-Wallet $YYY
+TOP PLAYERS
+1. alice         $A
 ```
 
-Empty ranks show `—` so the board height stays stable.
+Ranking dollar amounts sit on the right. Empty player ranks are omitted (no dash fillers).
 
 ### Test D1 — Updates after money and roster changes
 

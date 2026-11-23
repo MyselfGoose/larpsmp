@@ -36,40 +36,42 @@ import org.jetbrains.annotations.Nullable;
  * within the 15-line client limit via compact single-line rows.
  *
  * <pre>
+ * Team Money
+ * $12,400
+ * ··········
+ * Wallet
+ * $250
+ * ··········
  * TOP TEAMS
- * 1. Blue $12,400
+ * 1. Blue          $12,400
  * …
- * ··········
  * TOP PLAYERS
- * 1. alice $1,240
- * …
- * ··········
- * Team Money $12,400
- * Wallet $250
+ * 1. alice         $1,240
  * </pre>
  */
 public final class BukkitBalanceSidebar implements BalanceDisplayControl, OwnedScoreboardAccess {
     private static final String OBJECTIVE_NAME = "larpsmp_money";
 
     /**
-     * Fixed slot table (14 max). Scoreboard team names stay under the {@code sb_} prefix so they
+     * Fixed slot table (15 max). Scoreboard team names stay under the {@code sb_} prefix so they
      * never collide with {@link TeamPresenceKeys} nametag teams.
      */
     private static final List<Slot> SLOTS = List.of(
-            slot("sb_t_hdr", "§0§r"),
-            slot("sb_t_1", "§1§r"),
-            slot("sb_t_2", "§2§r"),
-            slot("sb_t_3", "§3§r"),
-            slot("sb_d_t", "§4§r"),
-            slot("sb_p_hdr", "§5§r"),
-            slot("sb_p_1", "§6§r"),
-            slot("sb_p_2", "§7§r"),
-            slot("sb_p_3", "§8§r"),
-            slot("sb_p_4", "§9§r"),
-            slot("sb_p_5", "§a§r"),
-            slot("sb_d_p", "§b§r"),
-            slot("sb_tm", "§c§r"),
-            slot("sb_wl", "§d§r")
+            slot("sb_tm_lbl", "§0§r"),
+            slot("sb_tm_amt", "§1§r"),
+            slot("sb_d_pers", "§2§r"),
+            slot("sb_wl_lbl", "§3§r"),
+            slot("sb_wl_amt", "§4§r"),
+            slot("sb_d_rank", "§5§r"),
+            slot("sb_t_hdr", "§6§r"),
+            slot("sb_t_1", "§7§r"),
+            slot("sb_t_2", "§8§r"),
+            slot("sb_t_3", "§9§r"),
+            slot("sb_p_hdr", "§a§r"),
+            slot("sb_p_1", "§b§r"),
+            slot("sb_p_2", "§c§r"),
+            slot("sb_p_3", "§d§r"),
+            slot("sb_p_4", "§e§r")
     );
 
     private final Server server;
@@ -252,17 +254,17 @@ public final class BukkitBalanceSidebar implements BalanceDisplayControl, OwnedS
 
     private void paint(Scoreboard scoreboard, Objective objective, HudBoardModel model) {
         List<HudBoardModel.Line> lines = model.lines();
-        // Clear all slots first so hidden team sections do not leave stale rows.
+        // Clear all slots first so hidden / shorter layouts do not leave stale rows.
         for (Slot slot : SLOTS) {
-            setLine(scoreboard, slot.teamName(), slot.entry(), Component.empty());
+            setLine(scoreboard, slot.teamName(), slot.entry(), Component.empty(), Component.empty());
             objective.getScore(slot.entry()).setScore(0);
         }
-        // Higher score = higher on screen.
-        int score = lines.size();
+        // Higher score = higher on screen. Reserve score 15..1 so empty trailing slots stay hidden.
+        int score = Math.min(lines.size(), SLOTS.size());
         for (int index = 0; index < lines.size() && index < SLOTS.size(); index++) {
             Slot slot = SLOTS.get(index);
             HudBoardModel.Line line = lines.get(index);
-            setLine(scoreboard, slot.teamName(), slot.entry(), line.component());
+            setLine(scoreboard, slot.teamName(), slot.entry(), line.prefix(), line.suffix());
             objective.getScore(slot.entry()).setScore(score);
             score--;
         }
@@ -294,13 +296,19 @@ public final class BukkitBalanceSidebar implements BalanceDisplayControl, OwnedS
         }
     }
 
-    private static void setLine(Scoreboard scoreboard, String teamName, String entry, Component text) {
+    private static void setLine(
+            Scoreboard scoreboard,
+            String teamName,
+            String entry,
+            Component prefix,
+            Component suffix
+    ) {
         org.bukkit.scoreboard.Team team = scoreboard.getTeam(teamName);
         if (team == null) {
             return;
         }
-        team.prefix(text);
-        team.suffix(Component.empty());
+        team.prefix(prefix);
+        team.suffix(suffix);
         if (!team.hasEntry(entry)) {
             team.addEntry(entry);
         }
