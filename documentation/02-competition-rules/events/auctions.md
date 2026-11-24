@@ -32,7 +32,7 @@ Organizer contact email from draft: `amiraarts8@gmail.com`. In-game payment reci
 4. Representatives bid with `/bid <amount>`.
 5. Admin: `/larp auction countdown` then `/larp auction close` (or close directly).
 6. Winner runs **`/auction pay`** — plugin transfers the exact owed amount to the current payee (`/larp auction payee` / default `akiracreates`) and marks the lot paid. Peer `/pay` never settles auction wins (winner is warned if they try).
-7. After payment, Amira delivers the shulker manually; optional `/larp auction delivered`.
+7. After payment, Amira delivers the shulker manually, then **`/larp auction delivered`** — that clears the lot from status so the next `/larp auction open` is unambiguous. (`/larp auction close` only ends bidding; a paid lot stays listed until delivered.)
 
 ## Plugin commands (Implemented)
 

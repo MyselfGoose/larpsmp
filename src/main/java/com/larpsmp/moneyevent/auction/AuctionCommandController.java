@@ -280,10 +280,29 @@ public final class AuctionCommandController {
                 source.send(AuctionMessages.info("Closed with no bids — unsold."));
             }
             case AuctionService.CloseLotResult.NoOpenLot ignored ->
-                    source.send("No open lot to close.", MessageKind.ERROR);
+                    source.send(closeUnavailableMessage(), MessageKind.ERROR);
             case AuctionService.CloseLotResult.Failed failed ->
                     source.send("Could not close lot: " + failed.message(), MessageKind.ERROR);
         }
+    }
+
+    private String closeUnavailableMessage() {
+        Optional<AuctionLot> lot = auctionService.activeLot();
+        if (lot.isEmpty()) {
+            return "No open lot to close.";
+        }
+        return switch (lot.get().status()) {
+            case AWAITING_PAYMENT ->
+                    "Lot is already closed — waiting for /auction pay.";
+            case PAID ->
+                    "Lot is already paid. Hand off the item, then /larp auction delivered.";
+            case COUNTDOWN ->
+                    "Lot is in countdown; use /larp auction close to finish bidding.";
+            case OPEN ->
+                    "No open lot to close.";
+            case DELIVERED, UNSOLD ->
+                    "No open lot to close.";
+        };
     }
 
     private void forfeit(CommandSource source) {
@@ -358,9 +377,9 @@ public final class AuctionCommandController {
             }
         }
 
-        source.send(AuctionMessages.title("Active lot"));
+        source.send(AuctionMessages.title(lotSectionTitle(snapshot.lot())));
         if (snapshot.lot() == null) {
-            source.send(AuctionMessages.info("None."));
+            source.send(AuctionMessages.info("None — open the next lot when ready."));
             return;
         }
         AuctionLot lot = snapshot.lot();
@@ -380,13 +399,33 @@ public final class AuctionCommandController {
                     : teams.teamOf(lot.highBidderAccountId());
             source.send(highBidLine(lot.highBid(), highName, highTeam.orElse(null)));
         }
-        if (lot.owedAmount() != null) {
+        if (lot.status() == AuctionLotStatus.AWAITING_PAYMENT && lot.owedAmount() != null) {
             String owedName = lot.owedAccountId() == null
                     ? "—"
                     : resolveAccountUsername(lot.owedAccountId());
             source.send(AuctionMessages.labelValue("Owes", owedName));
             source.send(AuctionMessages.labelMoney("Amount due", lot.owedAmount()));
+            source.send(AuctionMessages.info("Winner pays with /auction pay."));
+        } else if (lot.status() == AuctionLotStatus.PAID && lot.owedAmount() != null) {
+            String winnerName = lot.owedAccountId() == null
+                    ? "—"
+                    : resolveAccountUsername(lot.owedAccountId());
+            source.send(AuctionMessages.labelValue("Winner", winnerName));
+            source.send(AuctionMessages.labelMoney("Paid", lot.owedAmount()));
+            source.send(AuctionMessages.info("Next: hand off the item, then /larp auction delivered."));
         }
+    }
+
+    private static String lotSectionTitle(@Nullable AuctionLot lot) {
+        if (lot == null) {
+            return "Current lot";
+        }
+        return switch (lot.status()) {
+            case OPEN, COUNTDOWN -> "Active lot";
+            case AWAITING_PAYMENT -> "Lot awaiting payment";
+            case PAID -> "Lot awaiting delivery";
+            case DELIVERED, UNSOLD -> "Current lot";
+        };
     }
 
     private static Component highBidLine(long amount, String username, @Nullable Team team) {
