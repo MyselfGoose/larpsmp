@@ -443,7 +443,7 @@ public final class MoneyEventPlugin extends JavaPlugin {
                     moneyAccounts,
                     message -> getLogger().severe(message));
             auctionService.setConfigPersister(updated -> AuctionConfigWriter.write(this, updated));
-            auctionService.addListener(message -> CaptureTickTask.broadcast(message));
+            auctionService.addListener(CaptureTickTask::broadcast);
             moneyService.addTransferSuccessListener(auctionService::onTransferSuccess);
             auctionService.restoreFromDatabase();
             // Keep config.yml aligned with durable DB payee after restore.
@@ -452,6 +452,7 @@ public final class MoneyEventPlugin extends JavaPlugin {
             AuctionCommandController auctionCommands = new AuctionCommandController(
                     auctionService,
                     moneyService,
+                    teamService,
                     walletLookup,
                     message -> getLogger().severe(message));
             BidCommandController bidCommands = new BidCommandController(

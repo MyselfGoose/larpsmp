@@ -11,6 +11,9 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Consumer;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.NamedTextColor;
+import net.kyori.adventure.text.format.TextDecoration;
 
 /**
  * Player command {@code /bid <amount>} for auction representatives.
@@ -36,7 +39,7 @@ public final class BidCommandController {
             return;
         }
         if (arguments.length != 1) {
-            source.send("Usage: /bid <amount>", MessageKind.ERROR);
+            source.send(AuctionMessages.usage("Usage: /bid <amount>"));
             return;
         }
         Long amount = parsePositiveAmount(arguments[0]);
@@ -60,9 +63,13 @@ public final class BidCommandController {
         }
 
         switch (auctionService.bid(wallet.accountId(), amount)) {
-            case AuctionService.BidResult.Accepted accepted ->
-                    source.send("Bid placed: " + MoneyFormats.currency(accepted.bid().amount()) + ".",
-                            MessageKind.SUCCESS);
+            case AuctionService.BidResult.Accepted accepted -> {
+                source.send(AuctionMessages.title("Bid placed"));
+                source.send(Component.text()
+                        .append(Component.text(MoneyFormats.currency(accepted.bid().amount()),
+                                NamedTextColor.GOLD, TextDecoration.BOLD))
+                        .build());
+            }
             case AuctionService.BidResult.NoSession ignored ->
                     source.send("No auction session is active.", MessageKind.ERROR);
             case AuctionService.BidResult.NoLot ignored ->
@@ -72,7 +79,7 @@ public final class BidCommandController {
             case AuctionService.BidResult.CountdownLocked ignored ->
                     source.send("Final countdown — no new bids.", MessageKind.ERROR);
             case AuctionService.BidResult.NotRepresentative ignored ->
-                    source.send("Only registered auction representatives can bid.", MessageKind.ERROR);
+                    source.send("Only registered auction bidders can use /bid.", MessageKind.ERROR);
             case AuctionService.BidResult.InvalidAmount ignored ->
                     source.send("Amounts must be positive whole dollars.", MessageKind.ERROR);
             case AuctionService.BidResult.TooLow tooLow ->

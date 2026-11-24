@@ -4,6 +4,8 @@ import com.larpsmp.moneyevent.command.CommandSource;
 import com.larpsmp.moneyevent.command.MessageKind;
 import com.larpsmp.moneyevent.command.PlayerLookup;
 import com.larpsmp.moneyevent.command.PlayerLookupResult;
+import com.larpsmp.moneyevent.team.Team;
+import com.larpsmp.moneyevent.team.TeamService;
 import com.larpsmp.moneyevent.wallet.MoneyFormats;
 import com.larpsmp.moneyevent.wallet.MoneyService;
 import com.larpsmp.moneyevent.wallet.WalletAccount;
@@ -15,6 +17,11 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Consumer;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.NamedTextColor;
+import net.kyori.adventure.text.format.TextColor;
+import net.kyori.adventure.text.format.TextDecoration;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Admin commands for auctions ({@code /larp auction ...}).
@@ -23,16 +30,19 @@ public final class AuctionCommandController {
 
     private final AuctionService auctionService;
     private final MoneyService money;
+    private final TeamService teams;
     private final PlayerLookup playerLookup;
     private final Consumer<String> errorLogger;
 
     public AuctionCommandController(
             AuctionService auctionService,
             MoneyService money,
+            TeamService teams,
             PlayerLookup playerLookup,
             Consumer<String> errorLogger) {
         this.auctionService = Objects.requireNonNull(auctionService, "auctionService");
         this.money = Objects.requireNonNull(money, "money");
+        this.teams = Objects.requireNonNull(teams, "teams");
         this.playerLookup = Objects.requireNonNull(playerLookup, "playerLookup");
         this.errorLogger = Objects.requireNonNull(errorLogger, "errorLogger");
     }
@@ -55,12 +65,12 @@ public final class AuctionCommandController {
             case "rep" -> rep(source, arguments);
             case "payee", "recipient" -> payee(source, arguments);
             case "open" -> open(source, arguments);
-            case "countdown" -> respond(source, auctionService.countdown());
+            case "countdown" -> countdown(source);
             case "close" -> close(source);
             case "forfeit" -> forfeit(source);
-            case "delivered" -> respond(source, auctionService.markDelivered());
+            case "delivered" -> delivered(source);
             case "status" -> status(source);
-            case "end" -> respond(source, auctionService.endSession());
+            case "end" -> end(source);
             default -> usage(source);
         }
         return true;
@@ -103,16 +113,18 @@ public final class AuctionCommandController {
 
     private void session(CommandSource source, String[] arguments) {
         if (arguments.length < 3 || !arguments[2].equalsIgnoreCase("start")) {
-            source.send("Usage: /larp auction session start", MessageKind.ERROR);
+            source.send(AuctionMessages.usage("Usage: /larp auction session start"));
             return;
         }
         switch (auctionService.startSession()) {
-            case AuctionService.SessionStartResult.Started started ->
-                    source.send("Auction session started (" + started.session().sessionId() + ").",
-                            MessageKind.SUCCESS);
-            case AuctionService.SessionStartResult.AlreadyActive already ->
-                    source.send("An auction session is already active ("
-                            + already.session().sessionId() + ").", MessageKind.ERROR);
+            case AuctionService.SessionStartResult.Started ignored -> {
+                source.send(AuctionMessages.title("Auction"));
+                source.send(AuctionMessages.success("Session started"));
+                source.send(AuctionMessages.labelValue("Pay to", auctionService.config().paymentUsername()));
+                source.send(AuctionMessages.info("Next: register one bidder per team with /larp auction rep"));
+            }
+            case AuctionService.SessionStartResult.AlreadyActive ignored ->
+                    source.send("An auction session is already active.", MessageKind.ERROR);
             case AuctionService.SessionStartResult.Failed failed ->
                     source.send("Could not start auction session: " + failed.message(), MessageKind.ERROR);
         }
@@ -120,14 +132,13 @@ public final class AuctionCommandController {
 
     private void payee(CommandSource source, String[] arguments) {
         if (arguments.length == 2) {
-            source.send(
-                    "Auction payment recipient: " + auctionService.config().paymentUsername()
-                            + ". Change with /larp auction payee <player>.",
-                    MessageKind.INFO);
+            source.send(AuctionMessages.title("Auction payee"));
+            source.send(AuctionMessages.labelValue("Pay to", auctionService.config().paymentUsername()));
+            source.send(AuctionMessages.info("Change with /larp auction payee <player>"));
             return;
         }
         if (arguments.length != 3) {
-            source.send("Usage: /larp auction payee <player>", MessageKind.ERROR);
+            source.send(AuctionMessages.usage("Usage: /larp auction payee <player>"));
             return;
         }
         WalletAccount wallet = resolveWallet(arguments[2], source);
@@ -137,33 +148,38 @@ public final class AuctionCommandController {
         String senderType = source.isConsole() ? "console" : "player";
         switch (auctionService.setPaymentRecipient(wallet.lastKnownUsername(), source.name(), senderType)) {
             case AuctionService.PayeeResult.Changed changed -> {
-                source.send("Auction payment recipient: "
-                                + changed.previousUsername() + " → " + changed.newUsername() + ".",
-                        MessageKind.SUCCESS);
+                source.send(AuctionMessages.title("Auction payee"));
+                source.send(Component.text()
+                        .append(Component.text(changed.previousUsername(), NamedTextColor.GRAY))
+                        .append(Component.text(" → ", NamedTextColor.DARK_GRAY))
+                        .append(Component.text(changed.newUsername(), NamedTextColor.WHITE, TextDecoration.BOLD))
+                        .build());
                 if (changed.lotAwaitingPayment()) {
-                    source.send(
-                            "A lot is awaiting payment — the winner must /pay "
-                                    + changed.newUsername() + " the exact owed amount.",
-                            MessageKind.INFO);
+                    source.send(Component.text(
+                            "A lot is waiting for payment — winner must /pay "
+                                    + changed.newUsername() + " the exact amount.",
+                            NamedTextColor.YELLOW));
                 }
             }
-            case AuctionService.PayeeResult.Unchanged unchanged ->
-                    source.send("Payment recipient is already " + unchanged.username() + ".",
-                            MessageKind.INFO);
+            case AuctionService.PayeeResult.Unchanged unchanged -> {
+                source.send(AuctionMessages.title("Auction payee"));
+                source.send(AuctionMessages.labelValue("Pay to", unchanged.username()));
+                source.send(AuctionMessages.info("Already set to this account."));
+            }
             case AuctionService.PayeeResult.InvalidUsername ignored ->
-                    source.send("Usage: /larp auction payee <player>", MessageKind.ERROR);
+                    source.send(AuctionMessages.usage("Usage: /larp auction payee <player>"));
             case AuctionService.PayeeResult.AccountNotFound missing ->
                     source.send("No LarpSMP account named '" + missing.username() + "'.", MessageKind.ERROR);
             case AuctionService.PayeeResult.WalletMissing missing ->
                     source.send("Account '" + missing.username() + "' has no wallet.", MessageKind.ERROR);
             case AuctionService.PayeeResult.Failed failed ->
-                    source.send("Could not update payment recipient: " + failed.message(), MessageKind.ERROR);
+                    source.send("Could not update payee: " + failed.message(), MessageKind.ERROR);
         }
     }
 
     private void rep(CommandSource source, String[] arguments) {
         if (arguments.length != 3) {
-            source.send("Usage: /larp auction rep <player>", MessageKind.ERROR);
+            source.send(AuctionMessages.usage("Usage: /larp auction rep <player>"));
             return;
         }
         WalletAccount wallet = resolveWallet(arguments[2], source);
@@ -171,26 +187,27 @@ public final class AuctionCommandController {
             return;
         }
         switch (auctionService.registerRepresentative(wallet.accountId())) {
-            case AuctionService.RepResult.Ok ok ->
-                    source.send("Registered " + wallet.lastKnownUsername()
-                            + " as " + ok.team().displayName() + " representative.", MessageKind.SUCCESS);
+            case AuctionService.RepResult.Ok ok -> {
+                source.send(AuctionMessages.title("Auction bidder"));
+                source.send(AuctionMessages.repLine(ok.team(), wallet.lastKnownUsername()));
+            }
             case AuctionService.RepResult.NoSession ignored ->
                     source.send("Start an auction session first: /larp auction session start",
                             MessageKind.ERROR);
             case AuctionService.RepResult.Locked ignored ->
-                    source.send("Representatives are locked after the first lot opens.", MessageKind.ERROR);
+                    source.send("Bidders are locked after the first lot opens.", MessageKind.ERROR);
             case AuctionService.RepResult.NotOnTeam ignored ->
                     source.send("That player is not on a competing team.", MessageKind.ERROR);
             case AuctionService.RepResult.AlreadyOtherTeam ignored ->
                     source.send("That player is already registered for another team.", MessageKind.ERROR);
             case AuctionService.RepResult.Failed failed ->
-                    source.send("Could not register representative: " + failed.message(), MessageKind.ERROR);
+                    source.send("Could not register bidder: " + failed.message(), MessageKind.ERROR);
         }
     }
 
     private void open(CommandSource source, String[] arguments) {
         if (arguments.length < 4) {
-            source.send("Usage: /larp auction open <theme...> <startingBid>", MessageKind.ERROR);
+            source.send(AuctionMessages.usage("Usage: /larp auction open <theme...> <startingBid>"));
             return;
         }
         String amountToken = arguments[arguments.length - 1];
@@ -207,19 +224,22 @@ public final class AuctionCommandController {
             theme.append(arguments[index]);
         }
         switch (auctionService.openLot(theme.toString(), startingBid)) {
-            case AuctionService.OpenLotResult.Opened opened ->
-                    source.send("Opened lot " + opened.lot().lotNumber() + ": \""
-                            + opened.lot().theme() + "\" at "
-                            + MoneyFormats.currency(opened.lot().startingBid()) + ".",
-                            MessageKind.SUCCESS);
+            case AuctionService.OpenLotResult.Opened opened -> {
+                AuctionLot lot = opened.lot();
+                source.send(AuctionMessages.title("Lot " + lot.lotNumber()));
+                source.send(Component.text()
+                        .append(Component.text("\"" + lot.theme() + "\"", NamedTextColor.AQUA))
+                        .build());
+                source.send(AuctionMessages.labelMoney("Starting bid", lot.startingBid()));
+            }
             case AuctionService.OpenLotResult.NoSession ignored ->
                     source.send("Start an auction session first: /larp auction session start",
                             MessageKind.ERROR);
             case AuctionService.OpenLotResult.LotBusy busy ->
                     source.send("Lot " + busy.lot().lotNumber() + " is still "
-                            + busy.lot().status() + ".", MessageKind.ERROR);
+                            + friendlyStatus(busy.lot().status()) + ".", MessageKind.ERROR);
             case AuctionService.OpenLotResult.MissingReps missing ->
-                    source.send("Missing representatives for: " + String.join(", ", missing.teamNames()),
+                    source.send("Missing bidders for: " + String.join(", ", missing.teamNames()),
                             MessageKind.ERROR);
             case AuctionService.OpenLotResult.InvalidTheme ignored ->
                     source.send("Theme cannot be blank.", MessageKind.ERROR);
@@ -230,16 +250,35 @@ public final class AuctionCommandController {
         }
     }
 
+    private void countdown(CommandSource source) {
+        switch (auctionService.countdown()) {
+            case AuctionService.AdminResult.Ok ignored -> {
+                source.send(AuctionMessages.title("Auction"));
+                source.send(Component.text("Final countdown — bidding locked", NamedTextColor.YELLOW));
+            }
+            case AuctionService.AdminResult.Fail fail ->
+                    source.send(fail.message(), MessageKind.ERROR);
+        }
+    }
+
     private void close(CommandSource source) {
         switch (auctionService.closeLot()) {
-            case AuctionService.CloseLotResult.AwaitingPayment awaiting ->
-                    source.send("Lot " + awaiting.lot().lotNumber() + " sold for "
-                            + MoneyFormats.currency(awaiting.lot().owedAmount() == null
-                            ? 0L : awaiting.lot().owedAmount())
-                            + ". Waiting for payment.", MessageKind.SUCCESS);
-            case AuctionService.CloseLotResult.Unsold unsold ->
-                    source.send("Lot " + unsold.lot().lotNumber() + " closed with no bids (unsold).",
-                            MessageKind.INFO);
+            case AuctionService.CloseLotResult.AwaitingPayment awaiting -> {
+                AuctionLot lot = awaiting.lot();
+                long owed = lot.owedAmount() == null ? 0L : lot.owedAmount();
+                String winner = lot.owedAccountId() == null
+                        ? "—"
+                        : resolveAccountUsername(lot.owedAccountId());
+                source.send(AuctionMessages.title("Lot " + lot.lotNumber() + " sold"));
+                source.send(AuctionMessages.labelValue("Winner", winner));
+                source.send(AuctionMessages.labelMoney("Amount", owed));
+                source.send(AuctionMessages.labelValue("Pay to", auctionService.config().paymentUsername()));
+                source.send(AuctionMessages.info("Waiting for /pay of the exact amount."));
+            }
+            case AuctionService.CloseLotResult.Unsold unsold -> {
+                source.send(AuctionMessages.title("Lot " + unsold.lot().lotNumber()));
+                source.send(AuctionMessages.info("Closed with no bids — unsold."));
+            }
             case AuctionService.CloseLotResult.NoOpenLot ignored ->
                     source.send("No open lot to close.", MessageKind.ERROR);
             case AuctionService.CloseLotResult.Failed failed ->
@@ -249,12 +288,17 @@ public final class AuctionCommandController {
 
     private void forfeit(CommandSource source) {
         switch (auctionService.forfeit()) {
-            case AuctionService.ForfeitResult.Offered offered ->
-                    source.send("Offered lot to previous bidder for "
-                            + MoneyFormats.currency(offered.bid().amount()) + ".", MessageKind.SUCCESS);
-            case AuctionService.ForfeitResult.Unsold unsold ->
-                    source.send("Lot " + unsold.lot().lotNumber()
-                            + " unsold — no previous bidder could pay.", MessageKind.INFO);
+            case AuctionService.ForfeitResult.Offered offered -> {
+                String bidder = resolveAccountUsername(offered.bid().accountId());
+                source.send(AuctionMessages.title("Auction forfeit"));
+                source.send(AuctionMessages.labelValue("Offered to", bidder));
+                source.send(AuctionMessages.labelMoney("Amount", offered.bid().amount()));
+                source.send(AuctionMessages.labelValue("Pay to", auctionService.config().paymentUsername()));
+            }
+            case AuctionService.ForfeitResult.Unsold unsold -> {
+                source.send(AuctionMessages.title("Lot " + unsold.lot().lotNumber()));
+                source.send(AuctionMessages.info("Unsold — no previous bidder could pay."));
+            }
             case AuctionService.ForfeitResult.NoPendingPayment ignored ->
                     source.send("No lot is awaiting payment.", MessageKind.ERROR);
             case AuctionService.ForfeitResult.Failed failed ->
@@ -262,43 +306,106 @@ public final class AuctionCommandController {
         }
     }
 
+    private void delivered(CommandSource source) {
+        switch (auctionService.markDelivered()) {
+            case AuctionService.AdminResult.Ok ok -> {
+                source.send(AuctionMessages.title("Auction"));
+                source.send(AuctionMessages.success(ok.message()));
+            }
+            case AuctionService.AdminResult.Fail fail ->
+                    source.send(fail.message(), MessageKind.ERROR);
+        }
+    }
+
+    private void end(CommandSource source) {
+        switch (auctionService.endSession()) {
+            case AuctionService.AdminResult.Ok ignored -> {
+                source.send(AuctionMessages.title("Auction"));
+                source.send(AuctionMessages.success("Session ended"));
+            }
+            case AuctionService.AdminResult.Fail fail ->
+                    source.send(fail.message(), MessageKind.ERROR);
+        }
+    }
+
     private void status(CommandSource source) {
         AuctionService.StatusSnapshot snapshot = auctionService.status();
         if (snapshot.session() == null) {
-            source.send("No active auction session.", MessageKind.INFO);
+            source.send(AuctionMessages.title("Auction status"));
+            source.send(AuctionMessages.info("No active session."));
             return;
         }
-        source.send("Session " + snapshot.session().sessionId() + " — " + snapshot.session().status(),
-                MessageKind.INFO);
-        source.send("Payment recipient: " + snapshot.paymentUsername(), MessageKind.INFO);
+
+        source.send(AuctionMessages.title("Auction status"));
+        source.send(AuctionMessages.labelValue("Session", friendlySession(snapshot.session().status())));
+        source.send(AuctionMessages.labelValue("Pay to", snapshot.paymentUsername()));
+
+        source.send(AuctionMessages.title("Bidders"));
         if (snapshot.representatives().isEmpty()) {
-            source.send("Representatives: none registered yet.", MessageKind.INFO);
+            source.send(AuctionMessages.info("None registered yet."));
         } else {
-            source.send("Representatives registered: " + snapshot.representatives().size(), MessageKind.INFO);
             for (AuctionRepresentative rep : snapshot.representatives()) {
+                Optional<Team> team = teams.listTeams().stream()
+                        .filter(candidate -> candidate.id().equals(rep.teamId()))
+                        .findFirst();
                 String username = resolveAccountUsername(rep.accountId());
-                source.send("  - " + username + " (team " + rep.teamId() + ")", MessageKind.INFO);
+                if (team.isPresent()) {
+                    source.send(AuctionMessages.repLine(team.get(), username));
+                } else {
+                    source.send(AuctionMessages.bullet(username));
+                }
             }
         }
+
+        source.send(AuctionMessages.title("Active lot"));
         if (snapshot.lot() == null) {
-            source.send("Active lot: none.", MessageKind.INFO);
+            source.send(AuctionMessages.info("None."));
             return;
         }
         AuctionLot lot = snapshot.lot();
-        source.send("Lot " + lot.lotNumber() + " \"" + lot.theme() + "\" — " + lot.status()
-                        + "; starting " + MoneyFormats.currency(lot.startingBid())
-                        + (lot.highBid() == null ? "" : "; high " + MoneyFormats.currency(lot.highBid()))
-                        + (lot.owedAmount() == null
-                        ? ""
-                        : "; owed " + MoneyFormats.currency(lot.owedAmount())),
-                MessageKind.INFO);
+        source.send(Component.text()
+                .append(Component.text("Lot " + lot.lotNumber(), NamedTextColor.WHITE, TextDecoration.BOLD))
+                .append(Component.text(" — ", NamedTextColor.DARK_GRAY))
+                .append(Component.text("\"" + lot.theme() + "\"", NamedTextColor.AQUA))
+                .build());
+        source.send(AuctionMessages.labelValue("State", friendlyStatus(lot.status())));
+        source.send(AuctionMessages.labelMoney("Starting", lot.startingBid()));
+        if (lot.highBid() != null) {
+            String highName = lot.highBidderAccountId() == null
+                    ? "—"
+                    : resolveAccountUsername(lot.highBidderAccountId());
+            Optional<Team> highTeam = lot.highBidderAccountId() == null
+                    ? Optional.empty()
+                    : teams.teamOf(lot.highBidderAccountId());
+            source.send(highBidLine(lot.highBid(), highName, highTeam.orElse(null)));
+        }
+        if (lot.owedAmount() != null) {
+            String owedName = lot.owedAccountId() == null
+                    ? "—"
+                    : resolveAccountUsername(lot.owedAccountId());
+            source.send(AuctionMessages.labelValue("Owes", owedName));
+            source.send(AuctionMessages.labelMoney("Amount due", lot.owedAmount()));
+        }
     }
 
-    private void respond(CommandSource source, AuctionService.AdminResult result) {
-        switch (result) {
-            case AuctionService.AdminResult.Ok ok -> source.send(ok.message(), MessageKind.SUCCESS);
-            case AuctionService.AdminResult.Fail fail -> source.send(fail.message(), MessageKind.ERROR);
+    private static Component highBidLine(long amount, String username, @Nullable Team team) {
+        Component namePart;
+        if (team != null) {
+            namePart = Component.text()
+                    .append(Component.text(team.displayName(), TextColor.color(team.color().rgb()),
+                            TextDecoration.BOLD))
+                    .append(Component.text(" · ", NamedTextColor.DARK_GRAY))
+                    .append(Component.text(username, NamedTextColor.WHITE))
+                    .build();
+        } else {
+            namePart = Component.text(username, NamedTextColor.WHITE);
         }
+        return Component.text()
+                .append(Component.text("High bid: ", NamedTextColor.GRAY))
+                .append(Component.text(MoneyFormats.currency(amount), NamedTextColor.GOLD))
+                .append(Component.text(" — ", NamedTextColor.DARK_GRAY))
+                .append(namePart)
+                .build();
     }
 
     private WalletAccount resolveWallet(String username, CommandSource source) {
@@ -340,9 +447,28 @@ public final class AuctionCommandController {
     }
 
     private static void usage(CommandSource source) {
-        source.send(
-                "Usage: /larp auction <session start|rep|payee|open|countdown|close|forfeit|delivered|status|end> ...",
-                MessageKind.ERROR);
+        source.send(AuctionMessages.title("Auction commands"));
+        source.send(AuctionMessages.usage(
+                "/larp auction <session start|rep|payee|open|countdown|close|forfeit|delivered|status|end>"));
+    }
+
+    private static String friendlySession(AuctionSessionStatus status) {
+        return switch (status) {
+            case SETUP -> "Setup (register bidders)";
+            case ACTIVE -> "Active";
+            case CLOSED -> "Closed";
+        };
+    }
+
+    private static String friendlyStatus(AuctionLotStatus status) {
+        return switch (status) {
+            case OPEN -> "Open for bids";
+            case COUNTDOWN -> "Final countdown";
+            case AWAITING_PAYMENT -> "Waiting for payment";
+            case PAID -> "Paid — deliver manually";
+            case DELIVERED -> "Delivered";
+            case UNSOLD -> "Unsold";
+        };
     }
 
     private static Long parseNonNegativeAmount(String raw) {

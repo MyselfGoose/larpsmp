@@ -17,6 +17,7 @@ import com.larpsmp.moneyevent.wallet.TransactionResult;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import net.kyori.adventure.text.Component;
 import org.junit.jupiter.api.Test;
 
 class AuctionServiceTest {
@@ -236,7 +237,7 @@ class AuctionServiceTest {
         private final TeamService teams;
         private final List<UUID> createdTeams = new ArrayList<>();
         private final JdbcAuctionRepository repository;
-        private final List<String> broadcasts = new ArrayList<>();
+        private final List<Component> broadcasts = new ArrayList<>();
         private final List<String> extraPayees = new ArrayList<>();
         private AuctionService service;
         private final String amiraUsername = AuctionConfig.DEFAULT_PAYMENT_USERNAME

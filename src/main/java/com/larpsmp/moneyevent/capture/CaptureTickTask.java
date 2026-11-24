@@ -66,4 +66,8 @@ public final class CaptureTickTask extends BukkitRunnable {
     public static void broadcast(String message) {
         Bukkit.getServer().broadcast(net.kyori.adventure.text.Component.text(message));
     }
+
+    public static void broadcast(net.kyori.adventure.text.Component message) {
+        Bukkit.getServer().broadcast(message);
+    }
 }

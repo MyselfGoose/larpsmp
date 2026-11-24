@@ -49,13 +49,15 @@ Organizer contact email from draft: `amiraarts8@gmail.com`. In-game payment reci
 | `/larp auction status` / `end` | Inspect / end session |
 | `/bid <amount>` | Representative bid |
 
-Public chat shows high bid without revealing contents, e.g.:
+Public chat uses the same aqua/gold standings style as `/top`, e.g.:
 
 ```text
-[Auction] Lot 2: "Something Explosive". Starting bid: $20.
-[Auction] Blue bids $35.
-[Auction] Sold to Red for $60. Waiting for payment.
+[Auction] Lot 2 — "Something Explosive" · start $20
+[Auction] Blue bids $35
+[Auction] Sold to Red for $60 — pay akiracreates
 ```
+
+Admin feedback (`/larp auction status`, `rep`, `payee`, …) uses titled sections (`— Auction status —`) instead of raw UUID dumps.
 
 Minimum bid increase for v1: whole dollars, strictly greater than current high bid (or `>=` starting bid if none).
 

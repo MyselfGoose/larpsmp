@@ -4,7 +4,6 @@ import com.larpsmp.moneyevent.auth.Account;
 import com.larpsmp.moneyevent.auth.AccountRepository;
 import com.larpsmp.moneyevent.team.Team;
 import com.larpsmp.moneyevent.team.TeamService;
-import com.larpsmp.moneyevent.wallet.MoneyFormats;
 import com.larpsmp.moneyevent.wallet.MoneyService;
 import com.larpsmp.moneyevent.wallet.WalletAccount;
 import java.sql.SQLException;
@@ -18,6 +17,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.function.Consumer;
+import net.kyori.adventure.text.Component;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -193,10 +193,7 @@ public final class AuctionService {
             }
 
             boolean awaiting = activeLot != null && activeLot.status().isPaymentPending();
-            broadcast("[Auction] Payment recipient is now " + payee.username() + "."
-                    + (awaiting
-                    ? " Outstanding lot payment must go to this account."
-                    : ""));
+            broadcast(AuctionMessages.broadcastPayeeChanged(payee.username(), awaiting));
             return PayeeResult.changed(previous, payee.username(), awaiting);
         }
     }
@@ -245,7 +242,7 @@ public final class AuctionService {
             }
             activeSession = session;
             activeLot = null;
-            broadcast("[Auction] Session started. Register one representative per team.");
+            broadcast(AuctionMessages.broadcastSessionStarted());
             return SessionStartResult.started(session);
         }
     }
@@ -278,7 +275,7 @@ public final class AuctionService {
                 return RepResult.failed(exception.getMessage());
             }
             String username = resolveUsername(accountId);
-            broadcast("[Auction] " + team.get().displayName() + " representative: " + username + ".");
+            broadcast(AuctionMessages.broadcastRep(team.get(), username));
             return RepResult.ok(representative, team.get());
         }
     }
@@ -351,8 +348,7 @@ public final class AuctionService {
                 return OpenLotResult.failed(exception.getMessage());
             }
             activeLot = lot;
-            broadcast("[Auction] Lot " + lot.lotNumber() + ": \"" + lot.theme() + "\". Starting bid: "
-                    + MoneyFormats.currency(lot.startingBid()) + ".");
+            broadcast(AuctionMessages.broadcastLotOpen(lot.lotNumber(), lot.theme(), lot.startingBid()));
             return OpenLotResult.opened(lot);
         }
     }
@@ -370,7 +366,7 @@ public final class AuctionService {
                 errorLogger.accept("Failed to start auction countdown: " + exception.getMessage());
                 return AdminResult.fail(exception.getMessage());
             }
-            broadcast("[Auction] Final countdown — no new bids.");
+            broadcast(AuctionMessages.broadcastCountdown());
             return AdminResult.ok("Countdown started.");
         }
     }
@@ -394,7 +390,7 @@ public final class AuctionService {
                 }
                 AuctionLot closed = activeLot;
                 activeLot = null;
-                broadcast("[Auction] Lot " + closed.lotNumber() + " closed with no bids (unsold).");
+                broadcast(AuctionMessages.broadcastUnsold(closed.lotNumber()));
                 return CloseLotResult.unsold(closed);
             }
 
@@ -407,9 +403,12 @@ public final class AuctionService {
                 errorLogger.accept("Failed to close auction lot: " + exception.getMessage());
                 return CloseLotResult.failed(exception.getMessage());
             }
-            String teamName = teamDisplayNameForAccount(winnerAccountId);
-            broadcast("[Auction] Sold to " + teamName + " for " + MoneyFormats.currency(amount)
-                    + ". Waiting for payment to " + config.paymentUsername() + ".");
+            Optional<Team> winnerTeam = teams.teamOf(winnerAccountId);
+            broadcast(AuctionMessages.broadcastSold(
+                    winnerTeam.map(Team::displayName).orElse(resolveUsername(winnerAccountId)),
+                    winnerTeam.map(Team::color).orElse(null),
+                    amount,
+                    config.paymentUsername()));
             return CloseLotResult.awaitingPayment(activeLot);
         }
     }
@@ -475,8 +474,11 @@ public final class AuctionService {
                 errorLogger.accept("Failed to persist auction bid: " + exception.getMessage());
                 return BidResult.failed(exception.getMessage());
             }
-            String teamName = teams.teamOf(accountId).map(Team::displayName).orElse("Unknown");
-            broadcast("[Auction] " + teamName + " bids " + MoneyFormats.currency(amount) + ".");
+            Optional<Team> bidderTeam = teams.teamOf(accountId);
+            broadcast(AuctionMessages.broadcastBid(
+                    bidderTeam.map(Team::displayName).orElse("Unknown"),
+                    bidderTeam.map(Team::color).orElse(null),
+                    amount));
             return BidResult.accepted(bid, activeLot);
         }
     }
@@ -524,9 +526,11 @@ public final class AuctionService {
                 errorLogger.accept("Failed to mark lot paid: " + exception.getMessage());
                 return PaymentMatchResult.failed(exception.getMessage());
             }
-            String teamName = teamDisplayNameForAccount(activeLot.owedAccountId());
-            broadcast("[Auction] Payment received from " + teamName + " for "
-                    + MoneyFormats.currency(event.amount()) + ". Deliver the lot manually.");
+            Optional<Team> payerTeam = teams.teamOf(activeLot.owedAccountId());
+            broadcast(AuctionMessages.broadcastPaymentReceived(
+                    payerTeam.map(Team::displayName).orElse(resolveUsername(activeLot.owedAccountId())),
+                    payerTeam.map(Team::color).orElse(null),
+                    event.amount()));
             return PaymentMatchResult.matched(activeLot);
         }
     }
@@ -576,9 +580,12 @@ public final class AuctionService {
                     errorLogger.accept("Failed to offer lot to previous bidder: " + exception.getMessage());
                     return ForfeitResult.failed(exception.getMessage());
                 }
-                String teamName = teamDisplayNameForAccount(candidate.accountId());
-                broadcast("[Auction] Previous bidder " + teamName + " may pay "
-                        + MoneyFormats.currency(candidate.amount()) + " to " + config.paymentUsername() + ".");
+                Optional<Team> offeredTeam = teams.teamOf(candidate.accountId());
+                broadcast(AuctionMessages.broadcastPreviousBidder(
+                        offeredTeam.map(Team::displayName).orElse(resolveUsername(candidate.accountId())),
+                        offeredTeam.map(Team::color).orElse(null),
+                        candidate.amount(),
+                        config.paymentUsername()));
                 return ForfeitResult.offered(activeLot, candidate);
             }
 
@@ -592,7 +599,7 @@ public final class AuctionService {
             }
             AuctionLot unsold = activeLot;
             activeLot = null;
-            broadcast("[Auction] Lot " + unsold.lotNumber() + " unsold — no previous bidder could pay.");
+            broadcast(AuctionMessages.broadcastUnsold(unsold.lotNumber()));
             return ForfeitResult.unsold(unsold);
         }
     }
@@ -613,7 +620,7 @@ public final class AuctionService {
             }
             AuctionLot lot = activeLot;
             activeLot = null;
-            broadcast("[Auction] Lot " + lot.lotNumber() + " marked delivered.");
+            broadcast(AuctionMessages.broadcastDelivered(lot.lotNumber()));
             return AdminResult.ok("Lot " + lot.lotNumber() + " marked delivered.");
         }
     }
@@ -635,11 +642,10 @@ public final class AuctionService {
                 errorLogger.accept("Failed to end auction session: " + exception.getMessage());
                 return AdminResult.fail(exception.getMessage());
             }
-            AuctionSession closed = activeSession;
             activeSession = null;
             activeLot = null;
-            broadcast("[Auction] Session ended.");
-            return AdminResult.ok("Auction session " + closed.sessionId() + " closed.");
+            broadcast(AuctionMessages.broadcastSessionEnded());
+            return AdminResult.ok("Auction session closed.");
         }
     }
 
@@ -675,7 +681,7 @@ public final class AuctionService {
         return activeSession != null && activeSession.status() == AuctionSessionStatus.ACTIVE;
     }
 
-    private void broadcast(String message) {
+    private void broadcast(Component message) {
         for (AuctionEventListener listener : listeners) {
             listener.onBroadcast(message);
         }
@@ -689,12 +695,8 @@ public final class AuctionService {
         }
     }
 
-    private String teamDisplayNameForAccount(UUID accountId) {
-        return teams.teamOf(accountId).map(Team::displayName).orElse(resolveUsername(accountId));
-    }
-
     public interface AuctionEventListener {
-        void onBroadcast(String message);
+        void onBroadcast(Component message);
     }
 
     public record StatusSnapshot(
