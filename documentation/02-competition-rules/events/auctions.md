@@ -31,7 +31,7 @@ Organizer contact email from draft: `amiraarts8@gmail.com`. In-game payment reci
 3. Admin: `/larp auction session start`, register reps, `/larp auction open <theme> <startingBid>`.
 4. Representatives bid with `/bid <amount>`.
 5. Admin: `/larp auction countdown` then `/larp auction close` (or close directly).
-6. Winner pays exact amount to the current payee (`/larp auction payee` / default `akiracreates`) with `/pay <payee> <amount>` — plugin marks paid.
+6. Winner pays **exact** amount to the current payee (`/larp auction payee` / default `akiracreates`) with `/pay <payee> <amount>` — only that exact transfer marks the lot paid. A wrong amount still moves money via `/pay` but does **not** settle the lot (payer gets a private warning).
 7. After payment, Amira delivers the shulker manually; optional `/larp auction delivered`.
 
 ## Plugin commands (Implemented)

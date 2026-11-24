@@ -443,6 +443,11 @@ public final class MoneyEventPlugin extends JavaPlugin {
                     moneyAccounts,
                     message -> getLogger().severe(message));
             auctionService.setConfigPersister(updated -> AuctionConfigWriter.write(this, updated));
+            auctionService.setPlayerNotifier((playerId, message) -> {
+                if (onlinePlayers.isOnline(playerId)) {
+                    onlinePlayers.send(playerId, message);
+                }
+            });
             auctionService.addListener(CaptureTickTask::broadcast);
             moneyService.addTransferSuccessListener(auctionService::onTransferSuccess);
             auctionService.restoreFromDatabase();

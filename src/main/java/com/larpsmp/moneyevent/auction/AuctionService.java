@@ -16,6 +16,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import net.kyori.adventure.text.Component;
 import org.jetbrains.annotations.Nullable;
@@ -36,6 +37,8 @@ public final class AuctionService {
 
     private AuctionConfig config;
     private Consumer<AuctionConfig> configPersister = ignored -> {
+    };
+    private BiConsumer<UUID, Component> playerNotifier = (ignoredId, ignoredMessage) -> {
     };
     private @Nullable AuctionSession activeSession;
     private @Nullable AuctionLot activeLot;
@@ -76,6 +79,13 @@ public final class AuctionService {
      */
     public void setConfigPersister(Consumer<AuctionConfig> configPersister) {
         this.configPersister = Objects.requireNonNull(configPersister, "configPersister");
+    }
+
+    /**
+     * Optional private chat to an online player (minecraft UUID) for payment match feedback.
+     */
+    public void setPlayerNotifier(BiConsumer<UUID, Component> playerNotifier) {
+        this.playerNotifier = Objects.requireNonNull(playerNotifier, "playerNotifier");
     }
 
     public AuctionConfig config() {
@@ -485,6 +495,10 @@ public final class AuctionService {
 
     /**
      * Match a successful {@code /pay} transfer to the pending lot payment.
+     *
+     * <p>Only an exact amount from the owed winner to the configured payee settles the lot.
+     * A wrong-amount transfer from that winner to that payee still moves money via {@code /pay},
+     * but does not mark the lot paid — the payer is told so explicitly.
      */
     public PaymentMatchResult onTransferSuccess(MoneyService.TransferSuccessEvent event) {
         synchronized (lock) {
@@ -494,20 +508,28 @@ public final class AuctionService {
             if (activeLot.owedAccountId() == null || activeLot.owedAmount() == null) {
                 return PaymentMatchResult.ignored();
             }
-            if (event.amount() != activeLot.owedAmount()) {
-                return PaymentMatchResult.ignored();
-            }
-            if (!event.sourceAccountId().equals(activeLot.owedAccountId())) {
-                return PaymentMatchResult.ignored();
-            }
-            Optional<Account> amira;
+            Optional<Account> payee;
             try {
-                amira = accounts.findByUsernameIgnoreCase(config.paymentUsername());
+                payee = accounts.findByUsernameIgnoreCase(config.paymentUsername());
             } catch (SQLException exception) {
                 errorLogger.accept("Failed to resolve auction payment recipient: " + exception.getMessage());
                 return PaymentMatchResult.failed(exception.getMessage());
             }
-            if (amira.isEmpty() || !amira.get().id().equals(event.destinationAccountId())) {
+            boolean fromWinner = event.sourceAccountId().equals(activeLot.owedAccountId());
+            boolean toPayee = payee.isPresent() && payee.get().id().equals(event.destinationAccountId());
+            long owed = activeLot.owedAmount();
+            if (fromWinner && toPayee && event.amount() != owed) {
+                notifyPlayer(event.sourceMinecraftUuid(),
+                        AuctionMessages.paymentWrongAmount(event.amount(), owed, config.paymentUsername()));
+                return PaymentMatchResult.wrongAmount(event.amount(), owed);
+            }
+            if (event.amount() != owed) {
+                return PaymentMatchResult.ignored();
+            }
+            if (!fromWinner) {
+                return PaymentMatchResult.ignored();
+            }
+            if (!toPayee) {
                 return PaymentMatchResult.ignored();
             }
 
@@ -685,6 +707,13 @@ public final class AuctionService {
         for (AuctionEventListener listener : listeners) {
             listener.onBroadcast(message);
         }
+    }
+
+    private void notifyPlayer(@Nullable UUID minecraftUuid, Component message) {
+        if (minecraftUuid == null) {
+            return;
+        }
+        playerNotifier.accept(minecraftUuid, message);
     }
 
     private String resolveUsername(UUID accountId) {
@@ -940,6 +969,9 @@ public final class AuctionService {
         record Ignored() implements PaymentMatchResult {
         }
 
+        record WrongAmount(long paid, long owed) implements PaymentMatchResult {
+        }
+
         record Failed(String message) implements PaymentMatchResult {
         }
 
@@ -949,6 +981,10 @@ public final class AuctionService {
 
         static PaymentMatchResult ignored() {
             return new Ignored();
+        }
+
+        static PaymentMatchResult wrongAmount(long paid, long owed) {
+            return new WrongAmount(paid, owed);
         }
 
         static PaymentMatchResult failed(String message) {

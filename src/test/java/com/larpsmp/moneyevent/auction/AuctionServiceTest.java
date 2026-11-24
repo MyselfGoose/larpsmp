@@ -83,11 +83,18 @@ class AuctionServiceTest {
                     fixture.service().bid(fixture.accountId(redRep), 25));
             assertInstanceOf(AuctionService.CloseLotResult.AwaitingPayment.class, fixture.service().closeLot());
 
-            // Wrong amount ignored.
+            // Wrong amount: /pay succeeds, lot stays unpaid, matcher reports WrongAmount.
+            List<Component> privateNotices = new ArrayList<>();
+            fixture.service().setPlayerNotifier((playerId, message) -> {
+                if (playerId.equals(redRep.minecraftUuid())) {
+                    privateNotices.add(message);
+                }
+            });
             TransactionResult wrong = fixture.money().transfer(
                     redRep.minecraftUuid(), amira.minecraftUuid(), 24, "wrong", redRep.minecraftUuid());
             assertTrue(wrong.successful());
             assertEquals(AuctionLotStatus.AWAITING_PAYMENT, fixture.service().activeLot().orElseThrow().status());
+            assertEquals(1, privateNotices.size());
 
             TransactionResult paid = fixture.money().transfer(
                     redRep.minecraftUuid(), amira.minecraftUuid(), 25, "auction win", redRep.minecraftUuid());

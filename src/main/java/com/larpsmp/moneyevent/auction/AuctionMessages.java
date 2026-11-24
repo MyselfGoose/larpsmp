@@ -185,6 +185,26 @@ public final class AuctionMessages {
                 .build());
     }
 
+    /**
+     * Private feedback when the winning bidder {@code /pay}s the host but not the exact owed amount.
+     * The transfer still completes; it simply does not settle the lot.
+     */
+    public static Component paymentWrongAmount(long paid, long owed, String payee) {
+        return Component.text()
+                .append(title("Auction payment"))
+                .append(Component.newline())
+                .append(Component.text("That ", LABEL))
+                .append(Component.text(MoneyFormats.currency(paid), MONEY))
+                .append(Component.text(" transfer did not settle the lot.", NamedTextColor.YELLOW))
+                .append(Component.newline())
+                .append(Component.text("Pay exactly ", LABEL))
+                .append(Component.text(MoneyFormats.currency(owed), MONEY))
+                .append(Component.text(" to ", LABEL))
+                .append(Component.text(payee, VALUE))
+                .append(Component.text(" in one /pay.", LABEL))
+                .build();
+    }
+
     public static Component broadcastPreviousBidder(
             String teamName, @Nullable TeamColor color, long amount, String payee) {
         TextColor teamText = color == null ? VALUE : TextColor.color(color.rgb());
