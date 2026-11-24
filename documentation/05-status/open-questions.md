@@ -6,8 +6,8 @@ Only items that are **still unresolved**. Settled Karim answers are recorded in 
 
 | Question | Notes |
 |----------|-------|
-| May auction teammates `/pay` the representative **during** live bidding? | Funding before bidding is Confirmed |
-| Auction item delivery: manual or plugin-controlled? | |
+| May auction teammates `/pay` the representative **during** live bidding? | **v1: allowed** (no restriction). Funding before bidding is Confirmed; revisit if Karim wants a block |
+| Auction item delivery: manual or plugin-controlled? | **v1: manual** (`/larp auction delivered` tracks handoff only) |
 | Individual kill-money override: applies to victim, killer, or both? | Suggestion: victim authoritative |
 | Final sidebar / player-list density (balances, captain markers, tiers) | Sidebar + team/tier tab grouping shipped; balances/captain markers in list still open |
 | Exact Ace Hunt point values (hunt placements + survival placements) | Structure Confirmed; numbers Open |

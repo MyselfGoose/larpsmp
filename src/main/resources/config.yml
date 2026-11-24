@@ -15,6 +15,10 @@ spawn:
     max-y: 0
     max-z: 0
 
+# Mystery shulker auctions. Winners pay this LarpSMP username via /pay.
+auction:
+  payment-username: akiracreates
+
 # Capture points (regions set in-game via /larp capture define <id> pos1|pos2).
 capture:
   tick-seconds: 1

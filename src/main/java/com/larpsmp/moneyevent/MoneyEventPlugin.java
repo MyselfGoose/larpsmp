@@ -1,5 +1,12 @@
 package com.larpsmp.moneyevent;
 
+import com.larpsmp.moneyevent.auction.AuctionCommandController;
+import com.larpsmp.moneyevent.auction.AuctionConfig;
+import com.larpsmp.moneyevent.auction.AuctionConfigWriter;
+import com.larpsmp.moneyevent.auction.AuctionPayCommandController;
+import com.larpsmp.moneyevent.auction.AuctionService;
+import com.larpsmp.moneyevent.auction.BidCommandController;
+import com.larpsmp.moneyevent.auction.JdbcAuctionRepository;
 import com.larpsmp.moneyevent.auth.AccountAdminRepository;
 import com.larpsmp.moneyevent.auth.AccountAdminService;
 import com.larpsmp.moneyevent.auth.AccountRepository;
@@ -427,9 +434,45 @@ public final class MoneyEventPlugin extends JavaPlugin {
                         spawnService.replaceConfig(SpawnConfig.from(getConfig()));
                     });
 
+            AuctionConfig auctionConfig = AuctionConfig.from(getConfig());
+            JdbcAuctionRepository auctionRepository = new JdbcAuctionRepository(dataSource);
+            AuctionService auctionService = new AuctionService(
+                    auctionConfig,
+                    auctionRepository,
+                    moneyService,
+                    teamService,
+                    moneyAccounts,
+                    message -> getLogger().severe(message));
+            auctionService.setConfigPersister(updated -> AuctionConfigWriter.write(this, updated));
+            auctionService.setPlayerNotifier((playerId, message) -> {
+                if (onlinePlayers.isOnline(playerId)) {
+                    onlinePlayers.send(playerId, message);
+                }
+            });
+            auctionService.addListener(CaptureTickTask::broadcast);
+            moneyService.addTransferSuccessListener(auctionService::onTransferSuccess);
+            auctionService.restoreFromDatabase();
+            // Keep config.yml aligned with durable DB payee after restore.
+            AuctionConfigWriter.write(this, auctionService.config());
+            WalletPlayerLookup walletLookup = new WalletPlayerLookup(moneyService, onlinePlayers);
+            AuctionCommandController auctionCommands = new AuctionCommandController(
+                    auctionService,
+                    moneyService,
+                    teamService,
+                    walletLookup,
+                    message -> getLogger().severe(message));
+            BidCommandController bidCommands = new BidCommandController(
+                    auctionService,
+                    moneyService,
+                    message -> getLogger().severe(message));
+            AuctionPayCommandController auctionPayCommands = new AuctionPayCommandController(
+                    auctionService,
+                    moneyService,
+                    message -> getLogger().severe(message));
+
             MoneyCommandController controller = new MoneyCommandController(
                     moneyService,
-                    new WalletPlayerLookup(moneyService, onlinePlayers),
+                    walletLookup,
                     onlinePlayers,
                     notifications,
                     message -> getLogger().severe(message),
@@ -440,14 +483,16 @@ public final class MoneyEventPlugin extends JavaPlugin {
                     accountAdmins,
                     captureCommands,
                     spawnCommands,
+                    auctionCommands,
                     killRepository,
                     moneyAccounts);
             TeamInfoCommandController teamInfoCommands = new TeamInfoCommandController(
                     moneyService, teamService, message -> getLogger().severe(message));
             PlayerHelpCommandController playerHelp = new PlayerHelpCommandController();
             BukkitMoneyCommands commands = new BukkitMoneyCommands(
-                    controller, teamInfoCommands, playerHelp, accountAdmins);
-            for (String commandName : new String[] {"balance", "pay", "top", "team", "help", "larp"}) {
+                    controller, teamInfoCommands, playerHelp, accountAdmins, bidCommands, auctionPayCommands);
+            for (String commandName : new String[] {
+                    "balance", "pay", "top", "team", "help", "bid", "auction", "larp"}) {
                 var command = Objects.requireNonNull(getCommand(commandName),
                         "Command missing from plugin.yml: " + commandName);
                 command.setExecutor(commands);
@@ -502,6 +547,8 @@ public final class MoneyEventPlugin extends JavaPlugin {
             getLogger().info("Economy settlement APIs ready (split/death/rescue/kill-money).");
             getLogger().info("Kill attribution ready (60s last-attacker window → death settlement).");
             getLogger().info("Capture points ready (/larp capture start|pause|resume|stop|define).");
+            getLogger().info("Auctions ready (/larp auction …, /bid, /auction pay; settlements to "
+                    + auctionService.config().paymentUsername() + ").");
             getLogger().info("Spawn protection ready (/larp spawn define|status|reload; "
                     + spawnService.config().protectionSeconds() + "s after respawn in region).");
             getLogger().info("Teams administration ready (dialog UI + /larp team|captain|tier|teams).");

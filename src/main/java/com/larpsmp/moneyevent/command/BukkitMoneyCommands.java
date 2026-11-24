@@ -1,5 +1,7 @@
 package com.larpsmp.moneyevent.command;
 
+import com.larpsmp.moneyevent.auction.AuctionPayCommandController;
+import com.larpsmp.moneyevent.auction.BidCommandController;
 import com.larpsmp.moneyevent.auth.AccountAdminService;
 import java.util.List;
 import java.util.Locale;
@@ -15,13 +17,15 @@ public final class BukkitMoneyCommands implements CommandExecutor, TabCompleter 
     private final @Nullable TeamInfoCommandController teamInfo;
     private final @Nullable PlayerHelpCommandController playerHelp;
     private final @Nullable AccountAdminService accountAdmins;
+    private final @Nullable BidCommandController bidCommands;
+    private final @Nullable AuctionPayCommandController auctionPayCommands;
 
     public BukkitMoneyCommands(MoneyCommandController controller) {
-        this(controller, null, null, null);
+        this(controller, null, null, null, null, null);
     }
 
     public BukkitMoneyCommands(MoneyCommandController controller, @Nullable AccountAdminService accountAdmins) {
-        this(controller, null, null, accountAdmins);
+        this(controller, null, null, accountAdmins, null, null);
     }
 
     public BukkitMoneyCommands(
@@ -29,10 +33,31 @@ public final class BukkitMoneyCommands implements CommandExecutor, TabCompleter 
             @Nullable TeamInfoCommandController teamInfo,
             @Nullable PlayerHelpCommandController playerHelp,
             @Nullable AccountAdminService accountAdmins) {
+        this(controller, teamInfo, playerHelp, accountAdmins, null, null);
+    }
+
+    public BukkitMoneyCommands(
+            MoneyCommandController controller,
+            @Nullable TeamInfoCommandController teamInfo,
+            @Nullable PlayerHelpCommandController playerHelp,
+            @Nullable AccountAdminService accountAdmins,
+            @Nullable BidCommandController bidCommands) {
+        this(controller, teamInfo, playerHelp, accountAdmins, bidCommands, null);
+    }
+
+    public BukkitMoneyCommands(
+            MoneyCommandController controller,
+            @Nullable TeamInfoCommandController teamInfo,
+            @Nullable PlayerHelpCommandController playerHelp,
+            @Nullable AccountAdminService accountAdmins,
+            @Nullable BidCommandController bidCommands,
+            @Nullable AuctionPayCommandController auctionPayCommands) {
         this.controller = controller;
         this.teamInfo = teamInfo;
         this.playerHelp = playerHelp;
         this.accountAdmins = accountAdmins;
+        this.bidCommands = bidCommands;
+        this.auctionPayCommands = auctionPayCommands;
     }
 
     @Override
@@ -60,6 +85,20 @@ public final class BukkitMoneyCommands implements CommandExecutor, TabCompleter 
                     playerHelp.help(source);
                 }
             }
+            case "bid" -> {
+                if (bidCommands == null) {
+                    source.send("Auctions are not available.", MessageKind.ERROR);
+                } else {
+                    bidCommands.bid(source, arguments);
+                }
+            }
+            case "auction" -> {
+                if (auctionPayCommands == null) {
+                    source.send("Auctions are not available.", MessageKind.ERROR);
+                } else {
+                    auctionPayCommands.auction(source, arguments);
+                }
+            }
             case "larp" -> controller.larp(source, arguments);
             default -> {
                 return false;
@@ -80,6 +119,12 @@ public final class BukkitMoneyCommands implements CommandExecutor, TabCompleter 
         }
         if (name.equals("help")) {
             return List.of();
+        }
+        if (name.equals("bid")) {
+            return bidCommands == null ? List.of() : bidCommands.tabComplete(arguments);
+        }
+        if (name.equals("auction")) {
+            return auctionPayCommands == null ? List.of() : auctionPayCommands.tabComplete(arguments);
         }
         return controller.tabComplete(name, CommandSources.of(sender, accountAdmins), arguments);
     }

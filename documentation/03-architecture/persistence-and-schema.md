@@ -1,6 +1,6 @@
 # Persistence and schema
 
-**Status:** Migrations **V001–V010 Implemented** (`V010` on `feature/capture-points`).
+**Status:** Migrations **V001–V011 Implemented** (`V011` on `feature/auctions`).
 
 Migrations live under `src/main/resources/db/migrations/` and run via `MigrationRunner` on plugin enable when auth/DB is available.
 
@@ -18,6 +18,8 @@ Migrations live under `src/main/resources/db/migrations/` and run via `Migration
 | 008 | `V008__account_plugin_admins.sql` | account-based plugin admins |
 | 009 | `V009__combat_kills.sql` | attributed kills ledger (`event_kill` for future `/top kills`) |
 | 010 | `V010__capture_points.sql` | capture sessions, day completions, temp blocks, runtime pointer |
+| 011 | `V011__auctions.sql` | auction sessions, representatives, lots, bids, runtime pointer |
+| 012 | `V012__auction_payment_username.sql` | durable `auction_runtime.payment_username` for `/larp auction payee` |
 
 Also: `schema_migrations` tracks applied versions.
 
@@ -45,6 +47,11 @@ Also: `schema_migrations` tracks applied versions.
 | `capture_day_completions` | Points already captured for a UTC day key |
 | `capture_temp_blocks` | Temporary platform blocks with prior block data + expiry |
 | `capture_runtime` | Singleton active `capture_id` + paused flag |
+| `auction_sessions` | Auction event runs (`SETUP` / `ACTIVE` / `CLOSED`) |
+| `auction_representatives` | Fixed per-team reps for a session |
+| `auction_lots` | Lot theme, bids, payment/delivery state |
+| `auction_bids` | Append-only bid history (previous-bidder fallback) |
+| `auction_runtime` | Singleton active session + lot pointers + payment username |
 | `schema_migrations` | Applied versions |
 
 ## Economy persistence notes

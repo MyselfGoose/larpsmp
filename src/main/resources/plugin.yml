@@ -25,6 +25,12 @@ commands:
     description: Lists LarpSMP player commands.
     usage: /help
     aliases: [larphelp]
+  bid:
+    description: Place a bid on the open auction lot (representatives only).
+    usage: /bid <amount>
+  auction:
+    description: Player auction actions (pay after winning a lot).
+    usage: /auction pay
   larp:
-    description: Protected LarpSMP administration commands (money, kill money, visibility, account ops, capture, spawn, teams).
-    usage: /larp <money|killmoney|killreward|visibility|op|deop|ops|capture|spawn|teams|team|captain|tier> ...
+    description: Protected LarpSMP administration commands (money, kill money, visibility, account ops, capture, spawn, auction, teams).
+    usage: /larp <money|killmoney|killreward|visibility|op|deop|ops|capture|spawn|auction|teams|team|captain|tier> ...

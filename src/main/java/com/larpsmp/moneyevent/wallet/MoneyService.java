@@ -34,6 +34,7 @@ public final class MoneyService implements AutoCloseable {
     private final Consumer<String> storageErrorLogger;
     private final List<BalanceChangeListener> balanceListeners = new CopyOnWriteArrayList<>();
     private final List<SettlementNoticeListener> settlementNoticeListeners = new CopyOnWriteArrayList<>();
+    private final List<TransferSuccessListener> transferSuccessListeners = new CopyOnWriteArrayList<>();
     private volatile @Nullable TeamService teams;
     private boolean closed;
 
@@ -56,6 +57,10 @@ public final class MoneyService implements AutoCloseable {
 
     public void addSettlementNoticeListener(SettlementNoticeListener listener) {
         settlementNoticeListeners.add(Objects.requireNonNull(listener, "listener"));
+    }
+
+    public void addTransferSuccessListener(TransferSuccessListener listener) {
+        transferSuccessListeners.add(Objects.requireNonNull(listener, "listener"));
     }
 
     public synchronized BalanceResult balance(UUID minecraftUuid) {
@@ -406,14 +411,53 @@ public final class MoneyService implements AutoCloseable {
             long amount,
             String reason,
             UUID actorMinecraftUuid) {
+        return twoPartyTransfer(
+                TransactionType.TRANSFER,
+                sourceMinecraftUuid,
+                destinationMinecraftUuid,
+                amount,
+                reason,
+                actorMinecraftUuid,
+                true);
+    }
+
+    /**
+     * Auction lot settlement transfer ({@link TransactionType#AUCTION_PAYMENT}).
+     * Does not fire {@code /pay} transfer-success listeners — auction settlement is owned by
+     * {@code AuctionService.payOutstanding}, not by matching player {@code /pay} commands.
+     */
+    public synchronized TransactionResult auctionPayment(
+            UUID sourceMinecraftUuid,
+            UUID destinationMinecraftUuid,
+            long amount,
+            String reason,
+            UUID actorMinecraftUuid) {
+        return twoPartyTransfer(
+                TransactionType.AUCTION_PAYMENT,
+                sourceMinecraftUuid,
+                destinationMinecraftUuid,
+                amount,
+                reason,
+                actorMinecraftUuid,
+                false);
+    }
+
+    private TransactionResult twoPartyTransfer(
+            TransactionType type,
+            UUID sourceMinecraftUuid,
+            UUID destinationMinecraftUuid,
+            long amount,
+            String reason,
+            UUID actorMinecraftUuid,
+            boolean notifyPayListeners) {
         UUID transactionId = UUID.randomUUID();
         Instant timestamp = Instant.now();
         if (sourceMinecraftUuid.equals(destinationMinecraftUuid)) {
-            return failure(transactionId, timestamp, TransactionType.TRANSFER, amount, reason, null,
+            return failure(transactionId, timestamp, type, amount, reason, null,
                     null, null, null, null, TransactionStatus.SAME_WALLET,
                     "Source and destination wallets must be different", MoneyAuditContext.EMPTY);
         }
-        TransactionResult validation = validate(transactionId, timestamp, TransactionType.TRANSFER,
+        TransactionResult validation = validate(transactionId, timestamp, type,
                 amount, reason, null, null, false, MoneyAuditContext.EMPTY);
         if (validation != null) {
             return validation;
@@ -427,11 +471,11 @@ public final class MoneyService implements AutoCloseable {
             destination = money.findWalletByMinecraftUuid(destinationMinecraftUuid).orElse(null);
             actorAccountId = resolveActorAccountId(actorMinecraftUuid);
         } catch (SQLException exception) {
-            return storageFailure(transactionId, timestamp, TransactionType.TRANSFER, amount, reason,
+            return storageFailure(transactionId, timestamp, type, amount, reason,
                     null, null, null, null, null, exception, MoneyAuditContext.EMPTY);
         }
         if (source == null || destination == null) {
-            return failure(transactionId, timestamp, TransactionType.TRANSFER, amount, reason, actorAccountId,
+            return failure(transactionId, timestamp, type, amount, reason, actorAccountId,
                     source == null ? null : source.accountId(),
                     destination == null ? null : destination.accountId(),
                     source == null ? null : source.balance(),
@@ -444,7 +488,7 @@ public final class MoneyService implements AutoCloseable {
         long sourceBefore = source.balance();
         long destinationBefore = destination.balance();
         if (sourceBefore < amount) {
-            return failure(transactionId, timestamp, TransactionType.TRANSFER, amount, reason, actorAccountId,
+            return failure(transactionId, timestamp, type, amount, reason, actorAccountId,
                     source.accountId(), destination.accountId(), sourceBefore, destinationBefore,
                     TransactionStatus.INSUFFICIENT_FUNDS, "Source wallet has insufficient funds",
                     MoneyAuditContext.EMPTY);
@@ -453,13 +497,13 @@ public final class MoneyService implements AutoCloseable {
         try {
             destinationAfter = Math.addExact(destinationBefore, amount);
         } catch (ArithmeticException exception) {
-            return failure(transactionId, timestamp, TransactionType.TRANSFER, amount, reason, actorAccountId,
+            return failure(transactionId, timestamp, type, amount, reason, actorAccountId,
                     source.accountId(), destination.accountId(), sourceBefore, destinationBefore,
                     TransactionStatus.INVALID_AMOUNT, "Amount would overflow destination balance",
                     MoneyAuditContext.EMPTY);
         }
         long sourceAfter = sourceBefore - amount;
-        TransactionRecord success = record(transactionId, timestamp, TransactionType.TRANSFER,
+        TransactionRecord success = record(transactionId, timestamp, type,
                 TransactionStatus.SUCCESS, amount, reason, actorAccountId,
                 source.accountId(), destination.accountId(),
                 sourceBefore, sourceAfter, destinationBefore, destinationAfter, "", MoneyAuditContext.EMPTY);
@@ -467,9 +511,18 @@ public final class MoneyService implements AutoCloseable {
             money.commitTransfer(source.accountId(), sourceAfter, destination.accountId(), destinationAfter, success);
             notifyBalanceChanged(source.minecraftUuid(), sourceAfter);
             notifyBalanceChanged(destination.minecraftUuid(), destinationAfter);
+            if (notifyPayListeners) {
+                notifyTransferSuccess(
+                        source.minecraftUuid(),
+                        destination.minecraftUuid(),
+                        source.accountId(),
+                        destination.accountId(),
+                        amount,
+                        transactionId);
+            }
             return TransactionResult.from(success);
         } catch (SQLException exception) {
-            return storageFailure(transactionId, timestamp, TransactionType.TRANSFER, amount, reason,
+            return storageFailure(transactionId, timestamp, type, amount, reason,
                     actorAccountId, source.accountId(), destination.accountId(),
                     sourceBefore, destinationBefore, exception, MoneyAuditContext.EMPTY);
         }
@@ -1271,9 +1324,92 @@ public final class MoneyService implements AutoCloseable {
         }
     }
 
+    private void notifyTransferSuccess(
+            @Nullable UUID sourceMinecraftUuid,
+            @Nullable UUID destinationMinecraftUuid,
+            UUID sourceAccountId,
+            UUID destinationAccountId,
+            long amount,
+            UUID transactionId) {
+        TransferSuccessEvent event = new TransferSuccessEvent(
+                sourceMinecraftUuid,
+                destinationMinecraftUuid,
+                sourceAccountId,
+                destinationAccountId,
+                amount,
+                transactionId);
+        for (TransferSuccessListener listener : transferSuccessListeners) {
+            listener.onTransferSuccess(event);
+        }
+    }
+
     private void notifySettlement(UUID accountId, String message) {
         for (SettlementNoticeListener listener : settlementNoticeListeners) {
             listener.notifyAccount(accountId, message);
+        }
+    }
+
+    /**
+     * Idempotent auction payment proof: records that {@code lotId} was paid via an existing transfer.
+     *
+     * @return {@code true} when the settlement row exists after this call (inserted or already present)
+     */
+    public synchronized boolean ensureAuctionPaymentSettlement(
+            String lotId,
+            UUID paymentTransactionId,
+            long amount) {
+        Objects.requireNonNull(lotId, "lotId");
+        Objects.requireNonNull(paymentTransactionId, "paymentTransactionId");
+        if (lotId.isBlank()) {
+            return false;
+        }
+        if (amount <= 0) {
+            return false;
+        }
+        try {
+            Optional<JdbcMoneyRepository.SettlementRow> existing =
+                    money.findSettlement(EconomyRules.SETTLEMENT_KIND_AUCTION, lotId);
+            if (existing.isPresent()) {
+                return true;
+            }
+            money.insertSettlementApplied(
+                    EconomyRules.SETTLEMENT_KIND_AUCTION,
+                    lotId,
+                    paymentTransactionId,
+                    amount,
+                    "{\"paymentTransactionId\":\"" + paymentTransactionId + "\"}");
+            return true;
+        } catch (SQLException exception) {
+            logStorageFailure("auction settlement " + lotId, exception);
+            return false;
+        }
+    }
+
+    public synchronized boolean hasAuctionPaymentSettlement(String lotId) {
+        Objects.requireNonNull(lotId, "lotId");
+        try {
+            return money.findSettlement(EconomyRules.SETTLEMENT_KIND_AUCTION, lotId).isPresent();
+        } catch (SQLException exception) {
+            logStorageFailure("read auction settlement " + lotId, exception);
+            return false;
+        }
+    }
+
+    /**
+     * Records an admin configuration change in {@code economy_admin_audit}.
+     */
+    public synchronized void recordAdminAudit(
+            String action,
+            String scope,
+            String oldValue,
+            String newValue,
+            String reason,
+            String actorUsername,
+            String senderType) {
+        try {
+            audit(action, scope, oldValue, newValue, reason, actorUsername, senderType);
+        } catch (SQLException exception) {
+            logStorageFailure("admin audit " + action, exception);
         }
     }
 
@@ -1322,5 +1458,19 @@ public final class MoneyService implements AutoCloseable {
     @FunctionalInterface
     public interface SettlementNoticeListener {
         void notifyAccount(UUID accountId, String message);
+    }
+
+    @FunctionalInterface
+    public interface TransferSuccessListener {
+        void onTransferSuccess(TransferSuccessEvent event);
+    }
+
+    public record TransferSuccessEvent(
+            @Nullable UUID sourceMinecraftUuid,
+            @Nullable UUID destinationMinecraftUuid,
+            UUID sourceAccountId,
+            UUID destinationAccountId,
+            long amount,
+            UUID transactionId) {
     }
 }

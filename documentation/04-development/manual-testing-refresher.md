@@ -2,7 +2,7 @@
 
 Use this to **boot the stack**, reconnect mentally with what is already on `main`, and **verify it with two Minecraft clients**.
 
-This covers **Implemented features** suitable for a two-client smoke pass. Auctions, Ace Hunt, and Gladiators are still not coded.
+This covers **Implemented features** suitable for a two-client smoke pass. Ace Hunt and Gladiators are still not coded. Auction automation is Implemented (`/bid`, `/auction pay`, `/larp auction`); a full auction smoke pass is optional beyond the core wallet/pay checks below.
 
 Related: [Getting started](getting-started.md) · [Implementation status](../05-status/implementation-status.md) · [Roadmap](../05-status/roadmap.md)
 
@@ -459,8 +459,10 @@ Console: `op <name>` · `stop`
 
 Do not expect these to work yet:
 
-- Auctions, Ace Hunt, Gladiators  
-- `/bid`, competitor role flags  
+- Ace Hunt, Gladiators  
+- Competitor role flags  
 - Captain markers / balances in the tab list (density still open)  
+- Plugin-controlled shulker item delivery (auctions: manual handoff; `/larp auction delivered` is tracking only)  
+
 
 If something above **should** work and fails, note: which test ID, both usernames, exact command, and server log lines.

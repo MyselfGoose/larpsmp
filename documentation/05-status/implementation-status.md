@@ -48,7 +48,7 @@ For ordered “what to build next,” see [roadmap.md](roadmap.md). Labels: **Do
 | Colored nametags / tab grouping | Done | `TeamPresenceDisplay` on owned scoreboards |
 | `/top kills` | Done | `MoneyCommandController.top` + `normalKillLeaderboard` |
 | Player `/team`, `/help` | Done | `TeamInfoCommandController`, `PlayerHelpCommandController` |
-| Captain auction abilities | Not started | — |
+| Captain auction abilities | Partial | Admin registers reps via `/larp auction rep` (captain nomination is ops/process) |
 
 ## Events / world
 
@@ -58,7 +58,7 @@ For ordered “what to build next,” see [roadmap.md](roadmap.md). Labels: **Do
 | Capture points engine | Done (`capture/` → `processCaptureReward`; boss bar; `/larp capture`) |
 | Capture temporary blocks | Done (`capture_temp_blocks` + 30s restore across restart) |
 | Kill attribution | Done (`combat/` → `processDeathPayment`; `combat_kills` ledger) |
-| Auctions automation | Not started |
+| Auctions automation | Done (`auction/` → `/bid`, `/auction pay`, `/larp auction`, forfeit fallback; manual delivery) |
 | Ace Hunt systems | Not started |
 | Gladiators automation | Not started |
 | Natural disasters | Not confirmed / not started |
@@ -71,6 +71,6 @@ For ordered “what to build next,” see [roadmap.md](roadmap.md). Labels: **Do
 | 3–7 | Rules constants, wallets, service, logs, `/balance` `/pay` | Mostly Done for basics |
 | 8–9 | Admin money + team wealth/leaderboards | Done (`/top teams\|money`) |
 | 10–13 | Split, death, rescue, kill-money | Done on `feature/economy-settlement` |
-| 14–16 | Kill/capture/auction connections | Partial (kill + capture callers Done; auction Not started) |
+| 14–16 | Kill/capture/auction connections | Done (kill + capture + auction payment settlements) |
 | 17–18 | Money UI polish + restart protection extras | Partial (sidebar + visibility done) |
 | 19–20 | Full automated + multiplayer battery | Partial (settlement unit/integration tests exist) |
