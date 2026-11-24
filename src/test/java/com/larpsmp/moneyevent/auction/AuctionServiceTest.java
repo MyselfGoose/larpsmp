@@ -16,6 +16,7 @@ import com.larpsmp.moneyevent.wallet.TestDatabaseSupport;
 import com.larpsmp.moneyevent.wallet.TransactionResult;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.UUID;
 import net.kyori.adventure.text.Component;
 import org.junit.jupiter.api.Test;
@@ -81,31 +82,33 @@ class AuctionServiceTest {
                     fixture.service().bid(fixture.accountId(blueRep), 15));
             assertInstanceOf(AuctionService.BidResult.Accepted.class,
                     fixture.service().bid(fixture.accountId(redRep), 25));
-            assertInstanceOf(AuctionService.CloseLotResult.AwaitingPayment.class, fixture.service().closeLot());
-
-            // Wrong amount: /pay succeeds, lot stays unpaid, matcher reports WrongAmount.
             List<Component> privateNotices = new ArrayList<>();
             fixture.service().setPlayerNotifier((playerId, message) -> {
                 if (playerId.equals(redRep.minecraftUuid())) {
                     privateNotices.add(message);
                 }
             });
-            TransactionResult wrong = fixture.money().transfer(
-                    redRep.minecraftUuid(), amira.minecraftUuid(), 24, "wrong", redRep.minecraftUuid());
-            assertTrue(wrong.successful());
-            assertEquals(AuctionLotStatus.AWAITING_PAYMENT, fixture.service().activeLot().orElseThrow().status());
+            assertInstanceOf(AuctionService.CloseLotResult.AwaitingPayment.class, fixture.service().closeLot());
             assertEquals(1, privateNotices.size());
 
-            TransactionResult paid = fixture.money().transfer(
-                    redRep.minecraftUuid(), amira.minecraftUuid(), 25, "auction win", redRep.minecraftUuid());
-            assertTrue(paid.successful());
+            // /pay never settles the lot — winner is told to use /auction pay.
+            TransactionResult mistakenPay = fixture.money().transfer(
+                    redRep.minecraftUuid(), amira.minecraftUuid(), 25, "mistaken pay", redRep.minecraftUuid());
+            assertTrue(mistakenPay.successful());
+            assertEquals(AuctionLotStatus.AWAITING_PAYMENT, fixture.service().activeLot().orElseThrow().status());
+            assertEquals(2, privateNotices.size());
+
+            assertInstanceOf(AuctionService.PayLotResult.Paid.class,
+                    fixture.service().payOutstanding(fixture.accountId(redRep)));
             AuctionLot paidLot = fixture.service().activeLot().orElseThrow();
             assertEquals(AuctionLotStatus.PAID, paidLot.status());
             assertTrue(fixture.money().hasAuctionPaymentSettlement(paidLot.lotId().toString()));
 
-            // Idempotent settlement.
+            // Idempotent settlement record.
             assertTrue(fixture.money().ensureAuctionPaymentSettlement(
-                    paidLot.lotId().toString(), paid.transactionId(), 25));
+                    paidLot.lotId().toString(),
+                    Objects.requireNonNull(paidLot.paymentTransactionId()),
+                    25));
 
             assertInstanceOf(AuctionService.AdminResult.Ok.class, fixture.service().markDelivered());
             assertTrue(fixture.service().activeLot().isEmpty());
@@ -178,8 +181,7 @@ class AuctionServiceTest {
             reopened.restoreFromDatabase();
             assertEquals(hostB.username(), reopened.config().paymentUsername());
 
-            // Wire payment matching on the restored service and run a lot.
-            fixture.money().addTransferSuccessListener(reopened::onTransferSuccess);
+            // Restored payee drives /auction pay settlement destination.
             reopened.startSession();
             reopened.registerRepresentative(fixture.accountId(blueRep));
             reopened.registerRepresentative(fixture.accountId(redRep));
@@ -188,17 +190,15 @@ class AuctionServiceTest {
             reopened.bid(fixture.accountId(blueRep), 30);
             reopened.closeLot();
 
-            TransactionResult toOldHost = fixture.money().transfer(
-                    blueRep.minecraftUuid(), hostA.minecraftUuid(), 30, "wrong host",
-                    blueRep.minecraftUuid());
-            assertTrue(toOldHost.successful());
-            assertEquals(AuctionLotStatus.AWAITING_PAYMENT, reopened.activeLot().orElseThrow().status());
-
-            TransactionResult toNewHost = fixture.money().transfer(
-                    blueRep.minecraftUuid(), hostB.minecraftUuid(), 30, "correct host",
-                    blueRep.minecraftUuid());
-            assertTrue(toNewHost.successful());
+            long hostBBefore = fixture.money().account(hostB.minecraftUuid()).orElseThrow().balance();
+            long hostABefore = fixture.money().account(hostA.minecraftUuid()).orElseThrow().balance();
+            assertInstanceOf(AuctionService.PayLotResult.Paid.class,
+                    reopened.payOutstanding(fixture.accountId(blueRep)));
             assertEquals(AuctionLotStatus.PAID, reopened.activeLot().orElseThrow().status());
+            assertEquals(hostBBefore + 30,
+                    fixture.money().account(hostB.minecraftUuid()).orElseThrow().balance());
+            assertEquals(hostABefore,
+                    fixture.money().account(hostA.minecraftUuid()).orElseThrow().balance());
         }
     }
 

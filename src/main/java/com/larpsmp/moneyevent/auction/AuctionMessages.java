@@ -155,16 +155,41 @@ public final class AuctionMessages {
                 .build());
     }
 
-    public static Component broadcastSold(String teamName, @Nullable TeamColor color, long amount, String payee) {
+    public static Component broadcastSold(String teamName, @Nullable TeamColor color, long amount) {
         TextColor teamText = color == null ? VALUE : TextColor.color(color.rgb());
         return tagged(Component.text()
                 .append(Component.text("Sold to ", LABEL))
                 .append(Component.text(teamName, teamText, TextDecoration.BOLD))
                 .append(Component.text(" for ", LABEL))
                 .append(Component.text(MoneyFormats.currency(amount), MONEY))
-                .append(Component.text(" — pay ", LABEL))
-                .append(Component.text(payee, VALUE))
+                .append(Component.text(" — winner: ", LABEL))
+                .append(Component.text("/auction pay", NamedTextColor.AQUA, TextDecoration.BOLD))
                 .build());
+    }
+
+    /**
+     * Private instructions shown to the winning bidder when a lot closes (or is offered after forfeit).
+     */
+    public static Component winnerPaymentInstructions(
+            int lotNumber,
+            String theme,
+            long amount,
+            String payeeUsername) {
+        return Component.text()
+                .append(title("You won the auction"))
+                .append(Component.newline())
+                .append(labelValue("Lot", lotNumber + " — \"" + theme + "\""))
+                .append(Component.newline())
+                .append(labelMoney("Amount due", amount))
+                .append(Component.newline())
+                .append(labelValue("Goes to", payeeUsername))
+                .append(Component.newline())
+                .append(Component.text("Pay with ", LABEL))
+                .append(Component.text("/auction pay", NamedTextColor.AQUA, TextDecoration.BOLD))
+                .append(Component.text(" — pays the exact amount automatically.", LABEL))
+                .append(Component.newline())
+                .append(Component.text("Do not use /pay for auction wins.", NamedTextColor.YELLOW))
+                .build();
     }
 
     public static Component broadcastUnsold(int lotNumber) {
@@ -186,35 +211,33 @@ public final class AuctionMessages {
     }
 
     /**
-     * Private feedback when the winning bidder {@code /pay}s the host but not the exact owed amount.
-     * The transfer still completes; it simply does not settle the lot.
+     * Private feedback when someone uses {@code /pay} toward the host while a lot awaits settlement.
+     * {@code /pay} never settles auctions — only {@code /auction pay} does.
      */
-    public static Component paymentWrongAmount(long paid, long owed, String payee) {
+    public static Component useAuctionPayInstead(long owed) {
         return Component.text()
                 .append(title("Auction payment"))
                 .append(Component.newline())
-                .append(Component.text("That ", LABEL))
-                .append(Component.text(MoneyFormats.currency(paid), MONEY))
-                .append(Component.text(" transfer did not settle the lot.", NamedTextColor.YELLOW))
+                .append(Component.text("/pay does not settle auction wins.", NamedTextColor.YELLOW))
                 .append(Component.newline())
-                .append(Component.text("Pay exactly ", LABEL))
+                .append(Component.text("Amount still due: ", LABEL))
                 .append(Component.text(MoneyFormats.currency(owed), MONEY))
-                .append(Component.text(" to ", LABEL))
-                .append(Component.text(payee, VALUE))
-                .append(Component.text(" in one /pay.", LABEL))
+                .append(Component.newline())
+                .append(Component.text("Run ", LABEL))
+                .append(Component.text("/auction pay", NamedTextColor.AQUA, TextDecoration.BOLD))
+                .append(Component.text(" to pay the exact amount.", LABEL))
                 .build();
     }
 
-    public static Component broadcastPreviousBidder(
-            String teamName, @Nullable TeamColor color, long amount, String payee) {
+    public static Component broadcastPreviousBidder(String teamName, @Nullable TeamColor color, long amount) {
         TextColor teamText = color == null ? VALUE : TextColor.color(color.rgb());
         return tagged(Component.text()
                 .append(Component.text("Previous bidder ", LABEL))
                 .append(Component.text(teamName, teamText, TextDecoration.BOLD))
                 .append(Component.text(" may pay ", LABEL))
                 .append(Component.text(MoneyFormats.currency(amount), MONEY))
-                .append(Component.text(" to ", LABEL))
-                .append(Component.text(payee, VALUE))
+                .append(Component.text(" with ", LABEL))
+                .append(Component.text("/auction pay", NamedTextColor.AQUA, TextDecoration.BOLD))
                 .build());
     }
 

@@ -1,6 +1,6 @@
 # Development roadmap (by branch)
 
-You are here: **`feature/auctions`** (`/bid`, fixed reps, lot lifecycle, `/pay` proof, previous-bidder fallback).  
+You are here: **`feature/auctions`** (`/bid`, `/auction pay`, fixed reps, lot lifecycle, previous-bidder fallback).  
 **After this lands:** [`feature/ace-hunt`](#11-featureace-hunt--queued-day-3).
 
 Status key on this page:
@@ -223,7 +223,7 @@ Full automation shipped on this branch. Item delivery stays manual; mid-bid team
 | --- | ------------------------------------------------ | ------ |
 | 1   | `/bid`, lot open/close, reject over-balance bids | DONE |
 | 2   | Register fixed representatives per session       | DONE |
-| 3   | Prove payment to `akiracreates` for exact amount | DONE (`/pay` match + `AUCTION` settlement) |
+| 3   | Prove payment to `akiracreates` for exact amount | DONE (`/auction pay` + `AUCTION` settlement) |
 | 4   | Previous-bidder fallback if winner cannot pay    | DONE (`/larp auction forfeit`) |
 | 5   | Item delivery                                    | Manual v1 (`/larp auction delivered` tracks only) |
 | 6   | Mid-bid teammate `/pay`                          | Allowed v1 (no restriction; revisable) |

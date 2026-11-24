@@ -58,7 +58,7 @@ For ordered “what to build next,” see [roadmap.md](roadmap.md). Labels: **Do
 | Capture points engine | Done (`capture/` → `processCaptureReward`; boss bar; `/larp capture`) |
 | Capture temporary blocks | Done (`capture_temp_blocks` + 30s restore across restart) |
 | Kill attribution | Done (`combat/` → `processDeathPayment`; `combat_kills` ledger) |
-| Auctions automation | Done (`auction/` → `/bid`, `/larp auction`, `/pay` proof, forfeit fallback; manual delivery) |
+| Auctions automation | Done (`auction/` → `/bid`, `/auction pay`, `/larp auction`, forfeit fallback; manual delivery) |
 | Ace Hunt systems | Not started |
 | Gladiators automation | Not started |
 | Natural disasters | Not confirmed / not started |

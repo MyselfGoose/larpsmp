@@ -411,14 +411,53 @@ public final class MoneyService implements AutoCloseable {
             long amount,
             String reason,
             UUID actorMinecraftUuid) {
+        return twoPartyTransfer(
+                TransactionType.TRANSFER,
+                sourceMinecraftUuid,
+                destinationMinecraftUuid,
+                amount,
+                reason,
+                actorMinecraftUuid,
+                true);
+    }
+
+    /**
+     * Auction lot settlement transfer ({@link TransactionType#AUCTION_PAYMENT}).
+     * Does not fire {@code /pay} transfer-success listeners — auction settlement is owned by
+     * {@code AuctionService.payOutstanding}, not by matching player {@code /pay} commands.
+     */
+    public synchronized TransactionResult auctionPayment(
+            UUID sourceMinecraftUuid,
+            UUID destinationMinecraftUuid,
+            long amount,
+            String reason,
+            UUID actorMinecraftUuid) {
+        return twoPartyTransfer(
+                TransactionType.AUCTION_PAYMENT,
+                sourceMinecraftUuid,
+                destinationMinecraftUuid,
+                amount,
+                reason,
+                actorMinecraftUuid,
+                false);
+    }
+
+    private TransactionResult twoPartyTransfer(
+            TransactionType type,
+            UUID sourceMinecraftUuid,
+            UUID destinationMinecraftUuid,
+            long amount,
+            String reason,
+            UUID actorMinecraftUuid,
+            boolean notifyPayListeners) {
         UUID transactionId = UUID.randomUUID();
         Instant timestamp = Instant.now();
         if (sourceMinecraftUuid.equals(destinationMinecraftUuid)) {
-            return failure(transactionId, timestamp, TransactionType.TRANSFER, amount, reason, null,
+            return failure(transactionId, timestamp, type, amount, reason, null,
                     null, null, null, null, TransactionStatus.SAME_WALLET,
                     "Source and destination wallets must be different", MoneyAuditContext.EMPTY);
         }
-        TransactionResult validation = validate(transactionId, timestamp, TransactionType.TRANSFER,
+        TransactionResult validation = validate(transactionId, timestamp, type,
                 amount, reason, null, null, false, MoneyAuditContext.EMPTY);
         if (validation != null) {
             return validation;
@@ -432,11 +471,11 @@ public final class MoneyService implements AutoCloseable {
             destination = money.findWalletByMinecraftUuid(destinationMinecraftUuid).orElse(null);
             actorAccountId = resolveActorAccountId(actorMinecraftUuid);
         } catch (SQLException exception) {
-            return storageFailure(transactionId, timestamp, TransactionType.TRANSFER, amount, reason,
+            return storageFailure(transactionId, timestamp, type, amount, reason,
                     null, null, null, null, null, exception, MoneyAuditContext.EMPTY);
         }
         if (source == null || destination == null) {
-            return failure(transactionId, timestamp, TransactionType.TRANSFER, amount, reason, actorAccountId,
+            return failure(transactionId, timestamp, type, amount, reason, actorAccountId,
                     source == null ? null : source.accountId(),
                     destination == null ? null : destination.accountId(),
                     source == null ? null : source.balance(),
@@ -449,7 +488,7 @@ public final class MoneyService implements AutoCloseable {
         long sourceBefore = source.balance();
         long destinationBefore = destination.balance();
         if (sourceBefore < amount) {
-            return failure(transactionId, timestamp, TransactionType.TRANSFER, amount, reason, actorAccountId,
+            return failure(transactionId, timestamp, type, amount, reason, actorAccountId,
                     source.accountId(), destination.accountId(), sourceBefore, destinationBefore,
                     TransactionStatus.INSUFFICIENT_FUNDS, "Source wallet has insufficient funds",
                     MoneyAuditContext.EMPTY);
@@ -458,13 +497,13 @@ public final class MoneyService implements AutoCloseable {
         try {
             destinationAfter = Math.addExact(destinationBefore, amount);
         } catch (ArithmeticException exception) {
-            return failure(transactionId, timestamp, TransactionType.TRANSFER, amount, reason, actorAccountId,
+            return failure(transactionId, timestamp, type, amount, reason, actorAccountId,
                     source.accountId(), destination.accountId(), sourceBefore, destinationBefore,
                     TransactionStatus.INVALID_AMOUNT, "Amount would overflow destination balance",
                     MoneyAuditContext.EMPTY);
         }
         long sourceAfter = sourceBefore - amount;
-        TransactionRecord success = record(transactionId, timestamp, TransactionType.TRANSFER,
+        TransactionRecord success = record(transactionId, timestamp, type,
                 TransactionStatus.SUCCESS, amount, reason, actorAccountId,
                 source.accountId(), destination.accountId(),
                 sourceBefore, sourceAfter, destinationBefore, destinationAfter, "", MoneyAuditContext.EMPTY);
@@ -472,16 +511,18 @@ public final class MoneyService implements AutoCloseable {
             money.commitTransfer(source.accountId(), sourceAfter, destination.accountId(), destinationAfter, success);
             notifyBalanceChanged(source.minecraftUuid(), sourceAfter);
             notifyBalanceChanged(destination.minecraftUuid(), destinationAfter);
-            notifyTransferSuccess(
-                    source.minecraftUuid(),
-                    destination.minecraftUuid(),
-                    source.accountId(),
-                    destination.accountId(),
-                    amount,
-                    transactionId);
+            if (notifyPayListeners) {
+                notifyTransferSuccess(
+                        source.minecraftUuid(),
+                        destination.minecraftUuid(),
+                        source.accountId(),
+                        destination.accountId(),
+                        amount,
+                        transactionId);
+            }
             return TransactionResult.from(success);
         } catch (SQLException exception) {
-            return storageFailure(transactionId, timestamp, TransactionType.TRANSFER, amount, reason,
+            return storageFailure(transactionId, timestamp, type, amount, reason,
                     actorAccountId, source.accountId(), destination.accountId(),
                     sourceBefore, destinationBefore, exception, MoneyAuditContext.EMPTY);
         }

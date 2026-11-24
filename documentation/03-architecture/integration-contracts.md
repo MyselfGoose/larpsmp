@@ -54,7 +54,7 @@ Capture system sends `captureId`, point id, winning team, amount, time. Economy 
 
 ### Auction → economy
 
-**Implemented:** available balance check and bid validation in `AuctionService`; proof that winner paid the configured host (default `akiracreates`, changeable via `/larp auction payee`) the exact amount via `/pay` transfer listener; idempotent `economy_settlements` kind `AUCTION` + `lotId`. Payee is durable in `auction_runtime.payment_username` (mirrored to `config.yml`). No escrow. Item delivery stays outside economy (manual handoff; optional `/larp auction delivered` tracking).
+**Implemented:** available balance check and bid validation in `AuctionService`; winner settles via `/auction pay` (exact owed amount to configured host, default `akiracreates`, changeable via `/larp auction payee`); ledger type `AUCTION_PAYMENT` plus idempotent `economy_settlements` kind `AUCTION` + `lotId`. Peer `/pay` does not settle lots. Payee is durable in `auction_runtime.payment_username` (mirrored to `config.yml`). No escrow. Item delivery stays outside economy (manual handoff; optional `/larp auction delivered` tracking).
 
 ## 4. Shared file ownership
 

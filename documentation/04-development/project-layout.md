@@ -12,7 +12,7 @@ LarpSMP/
   src/main/java/com/larpsmp/moneyevent/
     MoneyEventPlugin.java
     auth/
-    auction/                # Mystery shulker auctions (/bid, reps, lot lifecycle, /pay proof)
+    auction/                # Mystery shulker auctions (/bid, /auction pay, reps, lot lifecycle)
     capture/                # Capture points (progress, boss bar, temp blocks → capture reward)
     combat/                 # Kill attribution (60s last-attacker → death settlement)
     spawn/                  # Respawn-only spawn protection + unbreakable spawn blocks

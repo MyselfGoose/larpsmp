@@ -1,6 +1,6 @@
 # Mystery shulker auctions
 
-**Status:** Event **Confirmed**. Economy payment rules **Confirmed**. Auction automation **Implemented** on `feature/auctions` (`/bid`, fixed reps, lot lifecycle, `/pay` proof to host, previous-bidder fallback). Item delivery remains **manual** for v1.
+**Status:** Event **Confirmed**. Economy payment rules **Confirmed**. Auction automation **Implemented** on `feature/auctions` (`/bid`, `/auction pay`, fixed reps, lot lifecycle, previous-bidder fallback). Item delivery remains **manual** for v1.
 
 ## Idea
 
@@ -18,7 +18,7 @@ Organizer contact email from draft: `amiraarts8@gmail.com`. In-game payment reci
 | Bids above current wallet **rejected** | Confirmed · Implemented |
 | Payment required **immediately** after win | Confirmed · Implemented (awaiting-payment state; admin forfeit) |
 | If winner cannot pay → offer to **previous bidder** | Confirmed · Implemented (`/larp auction forfeit`) |
-| Payment to Amira; leaves competing wealth | Confirmed · Implemented via `/pay` match |
+| Payment to Amira; leaves competing wealth | Confirmed · Implemented via `/auction pay` |
 | Representatives **cannot** change between lots | Confirmed · Implemented (locked after first lot opens) |
 | No escrow while bidding (winner pays afterward) | Confirmed · Implemented |
 | New bids **not** accepted during final countdown | Confirmed · Implemented (`/larp auction countdown`) |
@@ -31,7 +31,7 @@ Organizer contact email from draft: `amiraarts8@gmail.com`. In-game payment reci
 3. Admin: `/larp auction session start`, register reps, `/larp auction open <theme> <startingBid>`.
 4. Representatives bid with `/bid <amount>`.
 5. Admin: `/larp auction countdown` then `/larp auction close` (or close directly).
-6. Winner pays **exact** amount to the current payee (`/larp auction payee` / default `akiracreates`) with `/pay <payee> <amount>` — only that exact transfer marks the lot paid. A wrong amount still moves money via `/pay` but does **not** settle the lot (payer gets a private warning).
+6. Winner runs **`/auction pay`** — plugin transfers the exact owed amount to the current payee (`/larp auction payee` / default `akiracreates`) and marks the lot paid. Peer `/pay` never settles auction wins (winner is warned if they try).
 7. After payment, Amira delivers the shulker manually; optional `/larp auction delivered`.
 
 ## Plugin commands (Implemented)
@@ -48,14 +48,17 @@ Organizer contact email from draft: `amiraarts8@gmail.com`. In-game payment reci
 | `/larp auction delivered` | Mark paid lot delivered (tracking only) |
 | `/larp auction status` / `end` | Inspect / end session |
 | `/bid <amount>` | Representative bid |
+| `/auction pay` | Winner settles exact owed amount to the payee |
 
 Public chat uses the same aqua/gold standings style as `/top`, e.g.:
 
 ```text
 [Auction] Lot 2 — "Something Explosive" · start $20
 [Auction] Blue bids $35
-[Auction] Sold to Red for $60 — pay akiracreates
+[Auction] Sold to Red for $60 — winner: /auction pay
 ```
+
+The winning bidder also gets a private notice with lot theme, amount due, payee, and `/auction pay`.
 
 Admin feedback (`/larp auction status`, `rep`, `payee`, …) uses titled sections (`— Auction status —`) instead of raw UUID dumps.
 

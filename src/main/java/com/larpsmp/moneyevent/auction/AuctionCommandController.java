@@ -156,8 +156,8 @@ public final class AuctionCommandController {
                         .build());
                 if (changed.lotAwaitingPayment()) {
                     source.send(Component.text(
-                            "A lot is waiting for payment — winner must /pay "
-                                    + changed.newUsername() + " the exact amount.",
+                            "A lot is waiting for payment — winner must /auction pay (to "
+                                    + changed.newUsername() + ").",
                             NamedTextColor.YELLOW));
                 }
             }
@@ -273,7 +273,7 @@ public final class AuctionCommandController {
                 source.send(AuctionMessages.labelValue("Winner", winner));
                 source.send(AuctionMessages.labelMoney("Amount", owed));
                 source.send(AuctionMessages.labelValue("Pay to", auctionService.config().paymentUsername()));
-                source.send(AuctionMessages.info("Waiting for /pay of the exact amount."));
+                source.send(AuctionMessages.info("Waiting for winner /auction pay."));
             }
             case AuctionService.CloseLotResult.Unsold unsold -> {
                 source.send(AuctionMessages.title("Lot " + unsold.lot().lotNumber()));
@@ -294,6 +294,7 @@ public final class AuctionCommandController {
                 source.send(AuctionMessages.labelValue("Offered to", bidder));
                 source.send(AuctionMessages.labelMoney("Amount", offered.bid().amount()));
                 source.send(AuctionMessages.labelValue("Pay to", auctionService.config().paymentUsername()));
+                source.send(AuctionMessages.info("Waiting for /auction pay from that bidder."));
             }
             case AuctionService.ForfeitResult.Unsold unsold -> {
                 source.send(AuctionMessages.title("Lot " + unsold.lot().lotNumber()));

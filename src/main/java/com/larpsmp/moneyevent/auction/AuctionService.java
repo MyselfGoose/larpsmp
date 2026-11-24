@@ -5,6 +5,8 @@ import com.larpsmp.moneyevent.auth.AccountRepository;
 import com.larpsmp.moneyevent.team.Team;
 import com.larpsmp.moneyevent.team.TeamService;
 import com.larpsmp.moneyevent.wallet.MoneyService;
+import com.larpsmp.moneyevent.wallet.TransactionResult;
+import com.larpsmp.moneyevent.wallet.TransactionStatus;
 import com.larpsmp.moneyevent.wallet.WalletAccount;
 import java.sql.SQLException;
 import java.time.Clock;
@@ -149,7 +151,7 @@ public final class AuctionService {
     }
 
     /**
-     * Sets the LarpSMP account that must receive exact winning {@code /pay} transfers.
+     * Sets the LarpSMP account that receives winning {@code /auction pay} settlements.
      *
      * <p>Persists to Postgres (source of truth), updates live matching, mirrors {@code config.yml},
      * and writes an admin audit row. Safe to call mid-session; if a lot is awaiting payment,
@@ -417,8 +419,8 @@ public final class AuctionService {
             broadcast(AuctionMessages.broadcastSold(
                     winnerTeam.map(Team::displayName).orElse(resolveUsername(winnerAccountId)),
                     winnerTeam.map(Team::color).orElse(null),
-                    amount,
-                    config.paymentUsername()));
+                    amount));
+            notifyWinnerPaymentDue(activeLot);
             return CloseLotResult.awaitingPayment(activeLot);
         }
     }
@@ -494,11 +496,8 @@ public final class AuctionService {
     }
 
     /**
-     * Match a successful {@code /pay} transfer to the pending lot payment.
-     *
-     * <p>Only an exact amount from the owed winner to the configured payee settles the lot.
-     * A wrong-amount transfer from that winner to that payee still moves money via {@code /pay},
-     * but does not mark the lot paid — the payer is told so explicitly.
+     * Warn when a {@code /pay} looks like an attempted auction settlement.
+     * {@code /pay} never settles lots — only {@link #payOutstanding(UUID)} via {@code /auction pay}.
      */
     public PaymentMatchResult onTransferSuccess(MoneyService.TransferSuccessEvent event) {
         synchronized (lock) {
@@ -517,43 +516,110 @@ public final class AuctionService {
             }
             boolean fromWinner = event.sourceAccountId().equals(activeLot.owedAccountId());
             boolean toPayee = payee.isPresent() && payee.get().id().equals(event.destinationAccountId());
+            if (!fromWinner || !toPayee) {
+                return PaymentMatchResult.ignored();
+            }
             long owed = activeLot.owedAmount();
-            if (fromWinner && toPayee && event.amount() != owed) {
-                notifyPlayer(event.sourceMinecraftUuid(),
-                        AuctionMessages.paymentWrongAmount(event.amount(), owed, config.paymentUsername()));
-                return PaymentMatchResult.wrongAmount(event.amount(), owed);
+            notifyPlayer(event.sourceMinecraftUuid(), AuctionMessages.useAuctionPayInstead(owed));
+            return PaymentMatchResult.useAuctionPay(owed);
+        }
+    }
+
+    /**
+     * Settles the outstanding lot by transferring the exact owed amount to the configured payee.
+     * Invoked by {@code /auction pay}; peer {@code /pay} cannot settle auctions.
+     */
+    public PayLotResult payOutstanding(UUID payerAccountId) {
+        Objects.requireNonNull(payerAccountId, "payerAccountId");
+        synchronized (lock) {
+            if (activeLot == null || !activeLot.status().isPaymentPending()) {
+                return PayLotResult.nothingDue();
             }
-            if (event.amount() != owed) {
-                return PaymentMatchResult.ignored();
+            if (activeLot.owedAccountId() == null || activeLot.owedAmount() == null) {
+                return PayLotResult.nothingDue();
             }
-            if (!fromWinner) {
-                return PaymentMatchResult.ignored();
+            if (!payerAccountId.equals(activeLot.owedAccountId())) {
+                return PayLotResult.notWinner();
             }
-            if (!toPayee) {
-                return PaymentMatchResult.ignored();
+
+            long amount = activeLot.owedAmount();
+            Optional<WalletAccount> payerWallet;
+            try {
+                payerWallet = money.accountByAccountId(payerAccountId);
+            } catch (Exception exception) {
+                errorLogger.accept("Failed to load auction payer wallet: " + exception.getMessage());
+                return PayLotResult.failed(exception.getMessage());
+            }
+            if (payerWallet.isEmpty() || payerWallet.get().minecraftUuid() == null) {
+                return PayLotResult.walletMissing();
+            }
+            if (payerWallet.get().balance() < amount) {
+                return PayLotResult.insufficientFunds(payerWallet.get().balance(), amount);
+            }
+
+            Optional<Account> payeeAccount;
+            try {
+                payeeAccount = accounts.findByUsernameIgnoreCase(config.paymentUsername());
+            } catch (SQLException exception) {
+                errorLogger.accept("Failed to resolve auction payee: " + exception.getMessage());
+                return PayLotResult.failed(exception.getMessage());
+            }
+            if (payeeAccount.isEmpty()) {
+                return PayLotResult.payeeMissing(config.paymentUsername());
+            }
+            Optional<WalletAccount> payeeWallet;
+            try {
+                payeeWallet = money.accountByAccountId(payeeAccount.get().id());
+            } catch (Exception exception) {
+                errorLogger.accept("Failed to load auction payee wallet: " + exception.getMessage());
+                return PayLotResult.failed(exception.getMessage());
+            }
+            if (payeeWallet.isEmpty() || payeeWallet.get().minecraftUuid() == null) {
+                return PayLotResult.payeeMissing(config.paymentUsername());
+            }
+
+            String reason = "Auction lot " + activeLot.lotNumber() + " \"" + activeLot.theme() + "\"";
+            TransactionResult transfer = money.auctionPayment(
+                    payerWallet.get().minecraftUuid(),
+                    payeeWallet.get().minecraftUuid(),
+                    amount,
+                    reason,
+                    payerWallet.get().minecraftUuid());
+            if (!transfer.successful()) {
+                if (transfer.status() == TransactionStatus.INSUFFICIENT_FUNDS) {
+                    long balance = transfer.sourceBalanceBefore() == null
+                            ? payerWallet.get().balance()
+                            : transfer.sourceBalanceBefore();
+                    return PayLotResult.insufficientFunds(balance, amount);
+                }
+                if (transfer.status() == TransactionStatus.SAME_WALLET) {
+                    return PayLotResult.failed("Auction payee cannot be the same wallet as the winner.");
+                }
+                String detail = transfer.failureReason() == null || transfer.failureReason().isBlank()
+                        ? transfer.status().name()
+                        : transfer.failureReason();
+                return PayLotResult.failed(detail);
             }
 
             Instant now = clock.instant();
             boolean settled = money.ensureAuctionPaymentSettlement(
-                    activeLot.lotId().toString(), event.transactionId(), event.amount());
+                    activeLot.lotId().toString(), transfer.transactionId(), amount);
             if (!settled) {
-                return PaymentMatchResult.failed("Could not record auction payment settlement.");
+                return PayLotResult.failed("Payment moved but settlement could not be recorded. Contact an admin.");
             }
-            activeLot.markPaid(event.transactionId(), now);
+            activeLot.markPaid(transfer.transactionId(), now);
             try {
                 repository.upsertLot(activeLot);
-                // Keep the paid lot as the active pointer so /larp auction delivered works;
-                // openLot is allowed because PAID does not blockNewLot.
             } catch (SQLException exception) {
-                errorLogger.accept("Failed to mark lot paid: " + exception.getMessage());
-                return PaymentMatchResult.failed(exception.getMessage());
+                errorLogger.accept("Failed to mark lot paid after /auction pay: " + exception.getMessage());
+                return PayLotResult.failed(exception.getMessage());
             }
-            Optional<Team> payerTeam = teams.teamOf(activeLot.owedAccountId());
+            Optional<Team> payerTeam = teams.teamOf(payerAccountId);
             broadcast(AuctionMessages.broadcastPaymentReceived(
-                    payerTeam.map(Team::displayName).orElse(resolveUsername(activeLot.owedAccountId())),
+                    payerTeam.map(Team::displayName).orElse(resolveUsername(payerAccountId)),
                     payerTeam.map(Team::color).orElse(null),
-                    event.amount()));
-            return PaymentMatchResult.matched(activeLot);
+                    amount));
+            return PayLotResult.paid(activeLot, transfer, config.paymentUsername());
         }
     }
 
@@ -606,8 +672,8 @@ public final class AuctionService {
                 broadcast(AuctionMessages.broadcastPreviousBidder(
                         offeredTeam.map(Team::displayName).orElse(resolveUsername(candidate.accountId())),
                         offeredTeam.map(Team::color).orElse(null),
-                        candidate.amount(),
-                        config.paymentUsername()));
+                        candidate.amount()));
+                notifyWinnerPaymentDue(activeLot);
                 return ForfeitResult.offered(activeLot, candidate);
             }
 
@@ -714,6 +780,29 @@ public final class AuctionService {
             return;
         }
         playerNotifier.accept(minecraftUuid, message);
+    }
+
+    private void notifyWinnerPaymentDue(AuctionLot lot) {
+        if (lot.owedAccountId() == null || lot.owedAmount() == null) {
+            return;
+        }
+        Optional<WalletAccount> wallet;
+        try {
+            wallet = money.accountByAccountId(lot.owedAccountId());
+        } catch (Exception exception) {
+            errorLogger.accept("Failed to resolve winner for payment notice: " + exception.getMessage());
+            return;
+        }
+        if (wallet.isEmpty() || wallet.get().minecraftUuid() == null) {
+            return;
+        }
+        notifyPlayer(
+                wallet.get().minecraftUuid(),
+                AuctionMessages.winnerPaymentInstructions(
+                        lot.lotNumber(),
+                        lot.theme(),
+                        lot.owedAmount(),
+                        config.paymentUsername()));
     }
 
     private String resolveUsername(UUID accountId) {
@@ -963,31 +1052,75 @@ public final class AuctionService {
     }
 
     public sealed interface PaymentMatchResult {
-        record Matched(AuctionLot lot) implements PaymentMatchResult {
-        }
-
         record Ignored() implements PaymentMatchResult {
         }
 
-        record WrongAmount(long paid, long owed) implements PaymentMatchResult {
+        record UseAuctionPay(long owed) implements PaymentMatchResult {
         }
 
         record Failed(String message) implements PaymentMatchResult {
-        }
-
-        static PaymentMatchResult matched(AuctionLot lot) {
-            return new Matched(lot);
         }
 
         static PaymentMatchResult ignored() {
             return new Ignored();
         }
 
-        static PaymentMatchResult wrongAmount(long paid, long owed) {
-            return new WrongAmount(paid, owed);
+        static PaymentMatchResult useAuctionPay(long owed) {
+            return new UseAuctionPay(owed);
         }
 
         static PaymentMatchResult failed(String message) {
+            return new Failed(message);
+        }
+    }
+
+    public sealed interface PayLotResult {
+        record Paid(AuctionLot lot, TransactionResult transfer, String payeeUsername) implements PayLotResult {
+        }
+
+        record NothingDue() implements PayLotResult {
+        }
+
+        record NotWinner() implements PayLotResult {
+        }
+
+        record InsufficientFunds(long balance, long owed) implements PayLotResult {
+        }
+
+        record WalletMissing() implements PayLotResult {
+        }
+
+        record PayeeMissing(String username) implements PayLotResult {
+        }
+
+        record Failed(String message) implements PayLotResult {
+        }
+
+        static PayLotResult paid(AuctionLot lot, TransactionResult transfer, String payeeUsername) {
+            return new Paid(lot, transfer, payeeUsername);
+        }
+
+        static PayLotResult nothingDue() {
+            return new NothingDue();
+        }
+
+        static PayLotResult notWinner() {
+            return new NotWinner();
+        }
+
+        static PayLotResult insufficientFunds(long balance, long owed) {
+            return new InsufficientFunds(balance, owed);
+        }
+
+        static PayLotResult walletMissing() {
+            return new WalletMissing();
+        }
+
+        static PayLotResult payeeMissing(String username) {
+            return new PayeeMissing(username);
+        }
+
+        static PayLotResult failed(String message) {
             return new Failed(message);
         }
     }

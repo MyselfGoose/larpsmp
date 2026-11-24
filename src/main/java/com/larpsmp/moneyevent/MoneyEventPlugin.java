@@ -3,6 +3,7 @@ package com.larpsmp.moneyevent;
 import com.larpsmp.moneyevent.auction.AuctionCommandController;
 import com.larpsmp.moneyevent.auction.AuctionConfig;
 import com.larpsmp.moneyevent.auction.AuctionConfigWriter;
+import com.larpsmp.moneyevent.auction.AuctionPayCommandController;
 import com.larpsmp.moneyevent.auction.AuctionService;
 import com.larpsmp.moneyevent.auction.BidCommandController;
 import com.larpsmp.moneyevent.auction.JdbcAuctionRepository;
@@ -464,6 +465,10 @@ public final class MoneyEventPlugin extends JavaPlugin {
                     auctionService,
                     moneyService,
                     message -> getLogger().severe(message));
+            AuctionPayCommandController auctionPayCommands = new AuctionPayCommandController(
+                    auctionService,
+                    moneyService,
+                    message -> getLogger().severe(message));
 
             MoneyCommandController controller = new MoneyCommandController(
                     moneyService,
@@ -485,8 +490,9 @@ public final class MoneyEventPlugin extends JavaPlugin {
                     moneyService, teamService, message -> getLogger().severe(message));
             PlayerHelpCommandController playerHelp = new PlayerHelpCommandController();
             BukkitMoneyCommands commands = new BukkitMoneyCommands(
-                    controller, teamInfoCommands, playerHelp, accountAdmins, bidCommands);
-            for (String commandName : new String[] {"balance", "pay", "top", "team", "help", "bid", "larp"}) {
+                    controller, teamInfoCommands, playerHelp, accountAdmins, bidCommands, auctionPayCommands);
+            for (String commandName : new String[] {
+                    "balance", "pay", "top", "team", "help", "bid", "auction", "larp"}) {
                 var command = Objects.requireNonNull(getCommand(commandName),
                         "Command missing from plugin.yml: " + commandName);
                 command.setExecutor(commands);
@@ -541,7 +547,7 @@ public final class MoneyEventPlugin extends JavaPlugin {
             getLogger().info("Economy settlement APIs ready (split/death/rescue/kill-money).");
             getLogger().info("Kill attribution ready (60s last-attacker window → death settlement).");
             getLogger().info("Capture points ready (/larp capture start|pause|resume|stop|define).");
-            getLogger().info("Auctions ready (/larp auction …, /bid; payments to "
+            getLogger().info("Auctions ready (/larp auction …, /bid, /auction pay; settlements to "
                     + auctionService.config().paymentUsername() + ").");
             getLogger().info("Spawn protection ready (/larp spawn define|status|reload; "
                     + spawnService.config().protectionSeconds() + "s after respawn in region).");
