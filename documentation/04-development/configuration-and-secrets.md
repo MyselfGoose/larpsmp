@@ -34,6 +34,7 @@ Major sections:
 
 - `spawn` — protection seconds after respawn, AABB region (`/larp spawn define`)
 - `capture` — tick rate, heights, durations, named points, messages
+- `auction` — default `payment-username` (install default; runtime authority is Postgres via `/larp auction payee`)
 - `player-state` — autosave seconds, default spawn
 - `auth` — enabled flag, timeout, auto-login, database, signup limits, rate limits, email challenge settings, dialog message strings
 

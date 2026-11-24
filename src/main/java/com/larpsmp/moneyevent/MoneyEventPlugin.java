@@ -2,6 +2,7 @@ package com.larpsmp.moneyevent;
 
 import com.larpsmp.moneyevent.auction.AuctionCommandController;
 import com.larpsmp.moneyevent.auction.AuctionConfig;
+import com.larpsmp.moneyevent.auction.AuctionConfigWriter;
 import com.larpsmp.moneyevent.auction.AuctionService;
 import com.larpsmp.moneyevent.auction.BidCommandController;
 import com.larpsmp.moneyevent.auction.JdbcAuctionRepository;
@@ -441,9 +442,12 @@ public final class MoneyEventPlugin extends JavaPlugin {
                     teamService,
                     moneyAccounts,
                     message -> getLogger().severe(message));
+            auctionService.setConfigPersister(updated -> AuctionConfigWriter.write(this, updated));
             auctionService.addListener(message -> CaptureTickTask.broadcast(message));
             moneyService.addTransferSuccessListener(auctionService::onTransferSuccess);
             auctionService.restoreFromDatabase();
+            // Keep config.yml aligned with durable DB payee after restore.
+            AuctionConfigWriter.write(this, auctionService.config());
             WalletPlayerLookup walletLookup = new WalletPlayerLookup(moneyService, onlinePlayers);
             AuctionCommandController auctionCommands = new AuctionCommandController(
                     auctionService,
@@ -532,7 +536,7 @@ public final class MoneyEventPlugin extends JavaPlugin {
             getLogger().info("Kill attribution ready (60s last-attacker window → death settlement).");
             getLogger().info("Capture points ready (/larp capture start|pause|resume|stop|define).");
             getLogger().info("Auctions ready (/larp auction …, /bid; payments to "
-                    + auctionConfig.paymentUsername() + ").");
+                    + auctionService.config().paymentUsername() + ").");
             getLogger().info("Spawn protection ready (/larp spawn define|status|reload; "
                     + spawnService.config().protectionSeconds() + "s after respawn in region).");
             getLogger().info("Teams administration ready (dialog UI + /larp team|captain|tier|teams).");

@@ -19,6 +19,7 @@ Migrations live under `src/main/resources/db/migrations/` and run via `Migration
 | 009 | `V009__combat_kills.sql` | attributed kills ledger (`event_kill` for future `/top kills`) |
 | 010 | `V010__capture_points.sql` | capture sessions, day completions, temp blocks, runtime pointer |
 | 011 | `V011__auctions.sql` | auction sessions, representatives, lots, bids, runtime pointer |
+| 012 | `V012__auction_payment_username.sql` | durable `auction_runtime.payment_username` for `/larp auction payee` |
 
 Also: `schema_migrations` tracks applied versions.
 
@@ -50,7 +51,7 @@ Also: `schema_migrations` tracks applied versions.
 | `auction_representatives` | Fixed per-team reps for a session |
 | `auction_lots` | Lot theme, bids, payment/delivery state |
 | `auction_bids` | Append-only bid history (previous-bidder fallback) |
-| `auction_runtime` | Singleton active session + lot pointers |
+| `auction_runtime` | Singleton active session + lot pointers + payment username |
 | `schema_migrations` | Applied versions |
 
 ## Economy persistence notes

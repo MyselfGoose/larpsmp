@@ -67,6 +67,8 @@ class AuctionServiceTest {
             var redRep = fixture.addMember(red, "PayR");
             var yellowRep = fixture.addMember(yellow, "PayY");
             var amira = fixture.registerAmira();
+            assertInstanceOf(AuctionService.PayeeResult.Changed.class,
+                    fixture.service().setPaymentRecipient(amira.username(), "admin", "console"));
 
             fixture.service().startSession();
             fixture.service().registerRepresentative(fixture.accountId(blueRep));
@@ -111,7 +113,8 @@ class AuctionServiceTest {
             var blueRep = fixture.addMember(blue, "FbB");
             var redRep = fixture.addMember(red, "FbR");
             var yellowRep = fixture.addMember(yellow, "FbY");
-            fixture.registerAmira();
+            var amira = fixture.registerAmira();
+            fixture.service().setPaymentRecipient(amira.username(), "admin", "console");
 
             fixture.service().startSession();
             fixture.service().registerRepresentative(fixture.accountId(blueRep));
@@ -132,6 +135,62 @@ class AuctionServiceTest {
             AuctionLot offered = ((AuctionService.ForfeitResult.Offered) forfeit).lot();
             assertEquals(fixture.accountId(blueRep), offered.owedAccountId());
             assertEquals(20L, offered.owedAmount());
+        }
+    }
+
+    @Test
+    void payeeCommandPersistsRejectsUnknownAndDrivesPaymentMatch() throws Exception {
+        try (AuctionFixture fixture = open()) {
+            Team blue = fixture.createTeam("PayeeBlue", TeamColor.BLUE);
+            Team red = fixture.createTeam("PayeeRed", TeamColor.RED);
+            Team yellow = fixture.createTeam("PayeeYellow", TeamColor.YELLOW);
+            var blueRep = fixture.addMember(blue, "PayeeB");
+            var redRep = fixture.addMember(red, "PayeeR");
+            var yellowRep = fixture.addMember(yellow, "PayeeY");
+            var hostA = fixture.registerAmira();
+            var hostB = fixture.registerExtraPayee(
+                    "hostb_" + Integer.toHexString(UUID.randomUUID().hashCode()));
+
+            assertInstanceOf(AuctionService.PayeeResult.AccountNotFound.class,
+                    fixture.service().setPaymentRecipient("nobody_here", "admin", "console"));
+
+            AuctionService.PayeeResult setA = fixture.service().setPaymentRecipient(
+                    hostA.username(), "admin", "console");
+            assertInstanceOf(AuctionService.PayeeResult.Changed.class, setA);
+            assertEquals(hostA.username(), fixture.service().config().paymentUsername());
+
+            AuctionService.PayeeResult setB = fixture.service().setPaymentRecipient(
+                    hostB.username(), "admin", "player");
+            assertInstanceOf(AuctionService.PayeeResult.Changed.class, setB);
+            assertEquals(hostB.username(),
+                    ((AuctionService.PayeeResult.Changed) setB).newUsername());
+
+            // Survives restore from Postgres.
+            AuctionService reopened = fixture.reopenService();
+            reopened.restoreFromDatabase();
+            assertEquals(hostB.username(), reopened.config().paymentUsername());
+
+            // Wire payment matching on the restored service and run a lot.
+            fixture.money().addTransferSuccessListener(reopened::onTransferSuccess);
+            reopened.startSession();
+            reopened.registerRepresentative(fixture.accountId(blueRep));
+            reopened.registerRepresentative(fixture.accountId(redRep));
+            reopened.registerRepresentative(fixture.accountId(yellowRep));
+            reopened.openLot("Payee Lot", 10);
+            reopened.bid(fixture.accountId(blueRep), 30);
+            reopened.closeLot();
+
+            TransactionResult toOldHost = fixture.money().transfer(
+                    blueRep.minecraftUuid(), hostA.minecraftUuid(), 30, "wrong host",
+                    blueRep.minecraftUuid());
+            assertTrue(toOldHost.successful());
+            assertEquals(AuctionLotStatus.AWAITING_PAYMENT, reopened.activeLot().orElseThrow().status());
+
+            TransactionResult toNewHost = fixture.money().transfer(
+                    blueRep.minecraftUuid(), hostB.minecraftUuid(), 30, "correct host",
+                    blueRep.minecraftUuid());
+            assertTrue(toNewHost.successful());
+            assertEquals(AuctionLotStatus.PAID, reopened.activeLot().orElseThrow().status());
         }
     }
 
@@ -178,6 +237,7 @@ class AuctionServiceTest {
         private final List<UUID> createdTeams = new ArrayList<>();
         private final JdbcAuctionRepository repository;
         private final List<String> broadcasts = new ArrayList<>();
+        private final List<String> extraPayees = new ArrayList<>();
         private AuctionService service;
         private final String amiraUsername = AuctionConfig.DEFAULT_PAYMENT_USERNAME
                 + "_"
@@ -199,7 +259,7 @@ class AuctionServiceTest {
                 }
             });
             this.repository = new JdbcAuctionRepository(fixture.dataSource());
-            this.service = newService(amiraUsername, true);
+            this.service = newService(AuctionConfig.DEFAULT_PAYMENT_USERNAME, true);
             scrubAuctionTables();
             scrubAllMemberships();
         }
@@ -213,7 +273,7 @@ class AuctionServiceTest {
         }
 
         AuctionService reopenService() {
-            this.service = newService(amiraUsername, false);
+            this.service = newService(AuctionConfig.DEFAULT_PAYMENT_USERNAME, false);
             return service;
         }
 
@@ -249,14 +309,22 @@ class AuctionServiceTest {
         }
 
         TestDatabaseSupport.RegisteredPlayer registerAmira() throws Exception {
+            return registerExtraPayee(amiraUsername);
+        }
+
+        TestDatabaseSupport.RegisteredPlayer registerExtraPayee(String username) throws Exception {
             UUID minecraftUuid = UUID.randomUUID();
+            String unique = username.toLowerCase(java.util.Locale.ROOT);
+            if (!unique.equals(amiraUsername) && !extraPayees.contains(unique)) {
+                extraPayees.add(unique);
+            }
             fixture.accounts().createAccountWithIdentity(
-                    amiraUsername,
-                    amiraUsername + "@example.com",
+                    unique,
+                    unique + "@example.com",
                     "test-hash",
                     minecraftUuid,
-                    amiraUsername);
-            return new TestDatabaseSupport.RegisteredPlayer(minecraftUuid, amiraUsername);
+                    unique);
+            return new TestDatabaseSupport.RegisteredPlayer(minecraftUuid, unique);
         }
 
         UUID accountId(TestDatabaseSupport.RegisteredPlayer player) throws Exception {
@@ -267,7 +335,9 @@ class AuctionServiceTest {
             try (var connection = fixture.dataSource().getConnection();
                  var statement = connection.createStatement()) {
                 statement.executeUpdate("DELETE FROM auction_bids");
-                statement.executeUpdate("UPDATE auction_runtime SET active_session_id = NULL, active_lot_id = NULL");
+                statement.executeUpdate(
+                        "UPDATE auction_runtime SET active_session_id = NULL, active_lot_id = NULL, "
+                                + "payment_username = 'akiracreates'");
                 statement.executeUpdate("DELETE FROM auction_lots");
                 statement.executeUpdate("DELETE FROM auction_representatives");
                 statement.executeUpdate("DELETE FROM auction_sessions");
@@ -294,37 +364,41 @@ class AuctionServiceTest {
                 teams.deleteTeam(teamId);
             }
             scrubAllMemberships();
-            // Clean amira account if present.
+            // Clean ephemeral payee accounts created for auction payment tests.
+            List<String> payees = new ArrayList<>(extraPayees);
+            payees.add(amiraUsername);
             try (var connection = fixture.dataSource().getConnection()) {
-                try (var deleteTx = connection.prepareStatement(
-                        """
-                        DELETE FROM wallet_transactions
-                        WHERE source_account_id IN (SELECT id FROM accounts WHERE username = ?)
-                           OR destination_account_id IN (SELECT id FROM accounts WHERE username = ?)
-                           OR actor_account_id IN (SELECT id FROM accounts WHERE username = ?)
-                        """)) {
-                    deleteTx.setString(1, amiraUsername);
-                    deleteTx.setString(2, amiraUsername);
-                    deleteTx.setString(3, amiraUsername);
-                    deleteTx.executeUpdate();
-                }
-                try (var deleteWallet = connection.prepareStatement(
-                        "DELETE FROM wallets WHERE account_id IN (SELECT id FROM accounts WHERE username = ?)")) {
-                    deleteWallet.setString(1, amiraUsername);
-                    deleteWallet.executeUpdate();
-                }
-                try (var deleteIdentity = connection.prepareStatement(
-                        """
-                        DELETE FROM account_minecraft_identities
-                        WHERE account_id IN (SELECT id FROM accounts WHERE username = ?)
-                        """)) {
-                    deleteIdentity.setString(1, amiraUsername);
-                    deleteIdentity.executeUpdate();
-                }
-                try (var deleteAccount = connection.prepareStatement(
-                        "DELETE FROM accounts WHERE username = ?")) {
-                    deleteAccount.setString(1, amiraUsername);
-                    deleteAccount.executeUpdate();
+                for (String username : payees) {
+                    try (var deleteTx = connection.prepareStatement(
+                            """
+                            DELETE FROM wallet_transactions
+                            WHERE source_account_id IN (SELECT id FROM accounts WHERE username = ?)
+                               OR destination_account_id IN (SELECT id FROM accounts WHERE username = ?)
+                               OR actor_account_id IN (SELECT id FROM accounts WHERE username = ?)
+                            """)) {
+                        deleteTx.setString(1, username);
+                        deleteTx.setString(2, username);
+                        deleteTx.setString(3, username);
+                        deleteTx.executeUpdate();
+                    }
+                    try (var deleteWallet = connection.prepareStatement(
+                            "DELETE FROM wallets WHERE account_id IN (SELECT id FROM accounts WHERE username = ?)")) {
+                        deleteWallet.setString(1, username);
+                        deleteWallet.executeUpdate();
+                    }
+                    try (var deleteIdentity = connection.prepareStatement(
+                            """
+                            DELETE FROM account_minecraft_identities
+                            WHERE account_id IN (SELECT id FROM accounts WHERE username = ?)
+                            """)) {
+                        deleteIdentity.setString(1, username);
+                        deleteIdentity.executeUpdate();
+                    }
+                    try (var deleteAccount = connection.prepareStatement(
+                            "DELETE FROM accounts WHERE username = ?")) {
+                        deleteAccount.setString(1, username);
+                        deleteAccount.executeUpdate();
+                    }
                 }
             }
             fixture.close();

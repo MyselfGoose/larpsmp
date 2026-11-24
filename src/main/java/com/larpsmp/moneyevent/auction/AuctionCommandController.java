@@ -53,6 +53,7 @@ public final class AuctionCommandController {
         switch (action) {
             case "session" -> session(source, arguments);
             case "rep" -> rep(source, arguments);
+            case "payee", "recipient" -> payee(source, arguments);
             case "open" -> open(source, arguments);
             case "countdown" -> respond(source, auctionService.countdown());
             case "close" -> close(source);
@@ -77,14 +78,17 @@ public final class AuctionCommandController {
         }
         if (arguments.length == 2) {
             return filterPrefix(
-                    List.of("session", "rep", "open", "countdown", "close", "forfeit", "delivered",
-                            "status", "end"),
+                    List.of("session", "rep", "payee", "open", "countdown", "close", "forfeit",
+                            "delivered", "status", "end"),
                     arguments[1]);
         }
         if (arguments.length == 3 && arguments[1].equalsIgnoreCase("session")) {
             return filterPrefix(List.of("start"), arguments[2]);
         }
-        if (arguments.length == 3 && arguments[1].equalsIgnoreCase("rep")) {
+        if (arguments.length == 3
+                && (arguments[1].equalsIgnoreCase("rep")
+                || arguments[1].equalsIgnoreCase("payee")
+                || arguments[1].equalsIgnoreCase("recipient"))) {
             String prefix = arguments[2].toLowerCase(Locale.ROOT);
             List<String> matches = new ArrayList<>();
             for (String name : playerLookup.suggestions()) {
@@ -111,6 +115,49 @@ public final class AuctionCommandController {
                             + already.session().sessionId() + ").", MessageKind.ERROR);
             case AuctionService.SessionStartResult.Failed failed ->
                     source.send("Could not start auction session: " + failed.message(), MessageKind.ERROR);
+        }
+    }
+
+    private void payee(CommandSource source, String[] arguments) {
+        if (arguments.length == 2) {
+            source.send(
+                    "Auction payment recipient: " + auctionService.config().paymentUsername()
+                            + ". Change with /larp auction payee <player>.",
+                    MessageKind.INFO);
+            return;
+        }
+        if (arguments.length != 3) {
+            source.send("Usage: /larp auction payee <player>", MessageKind.ERROR);
+            return;
+        }
+        WalletAccount wallet = resolveWallet(arguments[2], source);
+        if (wallet == null) {
+            return;
+        }
+        String senderType = source.isConsole() ? "console" : "player";
+        switch (auctionService.setPaymentRecipient(wallet.lastKnownUsername(), source.name(), senderType)) {
+            case AuctionService.PayeeResult.Changed changed -> {
+                source.send("Auction payment recipient: "
+                                + changed.previousUsername() + " → " + changed.newUsername() + ".",
+                        MessageKind.SUCCESS);
+                if (changed.lotAwaitingPayment()) {
+                    source.send(
+                            "A lot is awaiting payment — the winner must /pay "
+                                    + changed.newUsername() + " the exact owed amount.",
+                            MessageKind.INFO);
+                }
+            }
+            case AuctionService.PayeeResult.Unchanged unchanged ->
+                    source.send("Payment recipient is already " + unchanged.username() + ".",
+                            MessageKind.INFO);
+            case AuctionService.PayeeResult.InvalidUsername ignored ->
+                    source.send("Usage: /larp auction payee <player>", MessageKind.ERROR);
+            case AuctionService.PayeeResult.AccountNotFound missing ->
+                    source.send("No LarpSMP account named '" + missing.username() + "'.", MessageKind.ERROR);
+            case AuctionService.PayeeResult.WalletMissing missing ->
+                    source.send("Account '" + missing.username() + "' has no wallet.", MessageKind.ERROR);
+            case AuctionService.PayeeResult.Failed failed ->
+                    source.send("Could not update payment recipient: " + failed.message(), MessageKind.ERROR);
         }
     }
 
@@ -294,7 +341,7 @@ public final class AuctionCommandController {
 
     private static void usage(CommandSource source) {
         source.send(
-                "Usage: /larp auction <session start|rep|open|countdown|close|forfeit|delivered|status|end> ...",
+                "Usage: /larp auction <session start|rep|payee|open|countdown|close|forfeit|delivered|status|end> ...",
                 MessageKind.ERROR);
     }
 

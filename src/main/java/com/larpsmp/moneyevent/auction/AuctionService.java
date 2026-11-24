@@ -35,6 +35,8 @@ public final class AuctionService {
     private final List<AuctionEventListener> listeners = new ArrayList<>();
 
     private AuctionConfig config;
+    private Consumer<AuctionConfig> configPersister = ignored -> {
+    };
     private @Nullable AuctionSession activeSession;
     private @Nullable AuctionLot activeLot;
 
@@ -69,6 +71,13 @@ public final class AuctionService {
         listeners.add(Objects.requireNonNull(listener, "listener"));
     }
 
+    /**
+     * Optional mirror of durable settings into {@code config.yml} (wired by the plugin).
+     */
+    public void setConfigPersister(Consumer<AuctionConfig> configPersister) {
+        this.configPersister = Objects.requireNonNull(configPersister, "configPersister");
+    }
+
     public AuctionConfig config() {
         return config;
     }
@@ -95,6 +104,8 @@ public final class AuctionService {
         synchronized (lock) {
             try {
                 JdbcAuctionRepository.RuntimeState runtime = repository.loadRuntime();
+                // Payment recipient is independent of whether a session is active.
+                this.config = config.withPaymentUsername(runtime.paymentUsername());
                 if (runtime.activeSessionId() == null) {
                     activeSession = null;
                     activeLot = null;
@@ -125,6 +136,97 @@ public final class AuctionService {
                 activeLot = null;
             }
         }
+    }
+
+    /**
+     * Sets the LarpSMP account that must receive exact winning {@code /pay} transfers.
+     *
+     * <p>Persists to Postgres (source of truth), updates live matching, mirrors {@code config.yml},
+     * and writes an admin audit row. Safe to call mid-session; if a lot is awaiting payment,
+     * winners must pay the <em>new</em> recipient going forward.
+     */
+    public PayeeResult setPaymentRecipient(
+            String rawUsername,
+            String actorUsername,
+            String senderType) {
+        synchronized (lock) {
+            String requested = rawUsername == null ? "" : rawUsername.trim();
+            if (requested.isEmpty()) {
+                return PayeeResult.invalidUsername();
+            }
+            Optional<Account> account;
+            try {
+                account = accounts.findByUsernameIgnoreCase(requested);
+            } catch (SQLException exception) {
+                errorLogger.accept("Failed to resolve auction payee: " + exception.getMessage());
+                return PayeeResult.failed(exception.getMessage());
+            }
+            if (account.isEmpty()) {
+                return PayeeResult.accountNotFound(requested);
+            }
+            Account payee = account.get();
+            try {
+                Optional<WalletAccount> wallet = money.accountByAccountId(payee.id());
+                if (wallet.isEmpty()) {
+                    return PayeeResult.walletMissing(payee.username());
+                }
+            } catch (Exception exception) {
+                errorLogger.accept("Failed to load auction payee wallet: " + exception.getMessage());
+                return PayeeResult.failed(exception.getMessage());
+            }
+
+            String previous = config.paymentUsername();
+            if (previous.equalsIgnoreCase(payee.username())) {
+                // Canonicalize casing in memory/DB if needed.
+                if (!previous.equals(payee.username())) {
+                    applyPaymentUsername(payee.username(), actorUsername, senderType, previous);
+                }
+                return PayeeResult.unchanged(payee.username());
+            }
+
+            try {
+                applyPaymentUsername(payee.username(), actorUsername, senderType, previous);
+            } catch (RuntimeException exception) {
+                return PayeeResult.failed(exception.getMessage() == null
+                        ? "Could not update payment recipient."
+                        : exception.getMessage());
+            }
+
+            boolean awaiting = activeLot != null && activeLot.status().isPaymentPending();
+            broadcast("[Auction] Payment recipient is now " + payee.username() + "."
+                    + (awaiting
+                    ? " Outstanding lot payment must go to this account."
+                    : ""));
+            return PayeeResult.changed(previous, payee.username(), awaiting);
+        }
+    }
+
+    private void applyPaymentUsername(
+            String canonicalUsername,
+            String actorUsername,
+            String senderType,
+            String previousUsername) {
+        Instant now = clock.instant();
+        try {
+            repository.setPaymentUsername(canonicalUsername, now);
+        } catch (SQLException exception) {
+            errorLogger.accept("Failed to persist auction payment username: " + exception.getMessage());
+            throw new IllegalStateException(exception.getMessage(), exception);
+        }
+        this.config = config.withPaymentUsername(canonicalUsername);
+        try {
+            configPersister.accept(config);
+        } catch (RuntimeException exception) {
+            errorLogger.accept("Failed to mirror auction payee into config.yml: " + exception.getMessage());
+        }
+        money.recordAdminAudit(
+                "AUCTION_PAYMENT_RECIPIENT",
+                "auction",
+                previousUsername,
+                canonicalUsername,
+                "Updated via /larp auction payee",
+                actorUsername,
+                senderType);
     }
 
     public SessionStartResult startSession() {
@@ -895,6 +997,51 @@ public final class AuctionService {
 
         static AdminResult fail(String message) {
             return new Fail(message);
+        }
+    }
+
+    public sealed interface PayeeResult {
+        record Changed(String previousUsername, String newUsername, boolean lotAwaitingPayment)
+                implements PayeeResult {
+        }
+
+        record Unchanged(String username) implements PayeeResult {
+        }
+
+        record InvalidUsername() implements PayeeResult {
+        }
+
+        record AccountNotFound(String username) implements PayeeResult {
+        }
+
+        record WalletMissing(String username) implements PayeeResult {
+        }
+
+        record Failed(String message) implements PayeeResult {
+        }
+
+        static PayeeResult changed(String previous, String next, boolean awaiting) {
+            return new Changed(previous, next, awaiting);
+        }
+
+        static PayeeResult unchanged(String username) {
+            return new Unchanged(username);
+        }
+
+        static PayeeResult invalidUsername() {
+            return new InvalidUsername();
+        }
+
+        static PayeeResult accountNotFound(String username) {
+            return new AccountNotFound(username);
+        }
+
+        static PayeeResult walletMissing(String username) {
+            return new WalletMissing(username);
+        }
+
+        static PayeeResult failed(String message) {
+            return new Failed(message);
         }
     }
 }

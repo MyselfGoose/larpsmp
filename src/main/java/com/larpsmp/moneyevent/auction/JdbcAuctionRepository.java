@@ -9,6 +9,7 @@ import java.sql.Types;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 import javax.sql.DataSource;
@@ -238,9 +239,29 @@ public final class JdbcAuctionRepository {
         }
     }
 
+    public void setPaymentUsername(String paymentUsername, Instant now) throws SQLException {
+        Objects.requireNonNull(paymentUsername, "paymentUsername");
+        String trimmed = paymentUsername.trim();
+        if (trimmed.isEmpty()) {
+            throw new IllegalArgumentException("paymentUsername cannot be blank");
+        }
+        String sql = """
+                UPDATE auction_runtime
+                SET payment_username = ?, updated_at = ?
+                WHERE singleton_key = ?
+                """;
+        try (Connection connection = dataSource.getConnection();
+             PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setString(1, trimmed);
+            statement.setTimestamp(2, Timestamp.from(now));
+            statement.setString(3, RUNTIME_KEY);
+            statement.executeUpdate();
+        }
+    }
+
     public RuntimeState loadRuntime() throws SQLException {
         String sql = """
-                SELECT active_session_id, active_lot_id
+                SELECT active_session_id, active_lot_id, payment_username
                 FROM auction_runtime
                 WHERE singleton_key = ?
                 """;
@@ -249,11 +270,16 @@ public final class JdbcAuctionRepository {
             statement.setString(1, RUNTIME_KEY);
             try (ResultSet resultSet = statement.executeQuery()) {
                 if (!resultSet.next()) {
-                    return new RuntimeState(null, null);
+                    return new RuntimeState(null, null, AuctionConfig.DEFAULT_PAYMENT_USERNAME);
+                }
+                String paymentUsername = resultSet.getString("payment_username");
+                if (paymentUsername == null || paymentUsername.isBlank()) {
+                    paymentUsername = AuctionConfig.DEFAULT_PAYMENT_USERNAME;
                 }
                 return new RuntimeState(
                         resultSet.getObject("active_session_id", UUID.class),
-                        resultSet.getObject("active_lot_id", UUID.class));
+                        resultSet.getObject("active_lot_id", UUID.class),
+                        paymentUsername.trim());
             }
         }
     }
@@ -363,6 +389,9 @@ public final class JdbcAuctionRepository {
         return timestamp == null ? null : timestamp.toInstant();
     }
 
-    public record RuntimeState(@Nullable UUID activeSessionId, @Nullable UUID activeLotId) {
+    public record RuntimeState(
+            @Nullable UUID activeSessionId,
+            @Nullable UUID activeLotId,
+            String paymentUsername) {
     }
 }

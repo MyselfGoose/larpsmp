@@ -29,4 +29,8 @@ public final class AuctionConfig {
     public String paymentUsername() {
         return paymentUsername;
     }
+
+    public AuctionConfig withPaymentUsername(String username) {
+        return new AuctionConfig(username);
+    }
 }

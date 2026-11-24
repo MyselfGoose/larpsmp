@@ -6,7 +6,7 @@
 
 Amira hosts. Three representatives (one per team), nominated by captains, bid on **mystery shulkers**. Contents stay hidden; bidders get a short **theme or category** hint.
 
-Organizer contact email from draft: `amiraarts8@gmail.com`. In-game payment recipient: **`akiracreates`** (configurable as `auction.payment-username`).
+Organizer contact email from draft: `amiraarts8@gmail.com`. In-game payment recipient defaults to **`akiracreates`**. Change at runtime with `/larp auction payee <player>` (persisted in Postgres; mirrored to `auction.payment-username` in `config.yml`).
 
 ## Money rules
 
@@ -31,7 +31,7 @@ Organizer contact email from draft: `amiraarts8@gmail.com`. In-game payment reci
 3. Admin: `/larp auction session start`, register reps, `/larp auction open <theme> <startingBid>`.
 4. Representatives bid with `/bid <amount>`.
 5. Admin: `/larp auction countdown` then `/larp auction close` (or close directly).
-6. Winner pays exact amount to Amira with `/pay akiracreates <amount>` — plugin marks paid.
+6. Winner pays exact amount to the current payee (`/larp auction payee` / default `akiracreates`) with `/pay <payee> <amount>` — plugin marks paid.
 7. After payment, Amira delivers the shulker manually; optional `/larp auction delivered`.
 
 ## Plugin commands (Implemented)
@@ -40,6 +40,7 @@ Organizer contact email from draft: `amiraarts8@gmail.com`. In-game payment reci
 |---------|------|
 | `/larp auction session start` | Start session |
 | `/larp auction rep <player>` | Register fixed team representative |
+| `/larp auction payee [player]` | Show or set payment recipient (must be a registered account with a wallet) |
 | `/larp auction open <theme…> <startingBid>` | Open named lot |
 | `/larp auction countdown` | Lock new bids |
 | `/larp auction close` | Close lot; await payment or unsold |

@@ -1354,6 +1354,24 @@ public final class MoneyService implements AutoCloseable {
         }
     }
 
+    /**
+     * Records an admin configuration change in {@code economy_admin_audit}.
+     */
+    public synchronized void recordAdminAudit(
+            String action,
+            String scope,
+            String oldValue,
+            String newValue,
+            String reason,
+            String actorUsername,
+            String senderType) {
+        try {
+            audit(action, scope, oldValue, newValue, reason, actorUsername, senderType);
+        } catch (SQLException exception) {
+            logStorageFailure("admin audit " + action, exception);
+        }
+    }
+
     private void logStorageFailure(String context, Exception exception) {
         storageErrorLogger.accept("Wallet storage failure during " + context + ": " + exception.getMessage());
     }
