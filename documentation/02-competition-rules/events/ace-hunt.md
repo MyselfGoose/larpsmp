@@ -1,46 +1,49 @@
 # Ace Hunt (Day 3)
 
-**Status:** Event design **Confirmed** from Karim’s Day 3 notes. Plugin systems **not Implemented**. Some map/border logistics **Open**.
+**Status:** Event design **Confirmed** from Karim’s Day 3 notes. Plugin systems **Implemented** on `feature/ace-hunt`. Map build (territories / bedrock lockup) remains ops.
 
 ## Timeline
 
 ![Ace Hunt timeline: aces picked, 2–3 hours prepare while others play normally, then ace hunt begins](../../assets/ace-hunt-timeline.png)
 
-1. **Aces are picked** (one player per team).
-2. **2–3 hours** prep: aces are on a separated island / bordered territory; the rest of the server plays as usual.
-3. **Ace hunt begins.**
+1. **Aces are picked** (one player per team) via `/larp acehunt ace`.
+2. **2–3 hours** prep (`/larp acehunt prep`): aces are teleported to their territory with a per-player world border; the rest of the server plays as usual. Prep length is ops/schedule (no plugin timer).
+3. **Ace hunt begins** (`/larp acehunt begin`).
 
 ## Core loop
 
-- Each team hunts **another team’s ace**.
-- After a timed hunt window (**Suggestion:** ~15–20 minutes), aces get **1 minute to surface** as underground becomes banned.
+- Each team hunts **another team’s ace** (`/larp acehunt hunt` or `/larp acehunt cycle`).
+- After a timed hunt window (default **18 minutes**, configurable; suggestion range 15–20), aces get **1 minute to surface**, then underground becomes banned.
 - Points for:
   - Your hunt of an ace (placement-based: first / second / third kill)
   - Your ace’s survival (placement-based: died first / second / last)
-- Example from Karim: kill the ace you are hunting first **and** your ace survives longest → **2 + 2 = 4** points (exact point table **Open**).
-- Placements from points; on a tie, both teams get the award for the **lower** placement.
+- **Point table (shipped default):** `2 / 1 / 0` for both hunt and survival placements. Matches Karim’s example: first hunt kill + longest survival → **2 + 2 = 4**. Values live in `config.yml` under `ace-hunt.points`.
+- Placements from points; on a tie, both teams get the award for the **worse** (lower) placement.
+- On-screen counter: **boss bar** (sidebar is already full).
 
 ## Player rules
 
 | Rule | Detail |
 |------|--------|
 | Loot | You **can** collect and keep blocks/resources from the ace hunt map |
-| Respawn | You **do** respawn; **3 minute** respawn lock |
-| Inventory | **Keep inventory on** for this event |
-| Skybase | **Cannot** skybase |
-| Dead ace’s hunters | When a team kills the ace they are hunting, those hunters go to **spectator** |
-| Ace death | When an ace dies, they go to **spectator** |
+| Respawn | Non-aces respawn in a **bedrock box** (map-built; plugin confines) for **3 minutes**, then return to the hunter spawn |
+| Inventory | **Keep inventory on** for event participants only (not the world gamerule) |
+| Skybase | **Cannot** skybase — block place above per-territory `max-legal-y` is cancelled |
+| Dead ace’s hunters | When the assigned hunting team’s ace target dies, those hunters go to **spectator** (their own ace keeps playing) |
+| Ace death | When an ace dies during hunt/surface/ban, they go to **spectator** |
+| Underground ban | After the surface minute, participants below territory `surface-y` take damage and cannot break/place |
 
-## Systems to figure out / build
+## Territory vs world border
 
-1. **Separated ace territories** despite world border — preferably outside the main border. Alternatives: expand border with bedrock walls for others; other isolation approaches **Open**.
-2. **Points system** with on-screen counter (hunt placement + survival placement). Exact point values **Open**.
-3. **Non-ace respawn:** players who are not the ace respawn in a **bedrock box** for **3 minutes**; when the ace dies they become spectators.
-4. **Spectator transitions** for successful hunting teams and dead aces.
+**Resolved for this branch:** do not move the server world border. Admins define one cuboid per team. Participating players get a **per-player world border** around that cuboid so ace islands can sit outside the main border. Cuboid clamp still blocks pearls / corners. The plugin does not paste or delete terrain.
 
 ## Economy / kill money
 
-Whether Ace Hunt uses normal death money is **not** explicitly settled in Karim’s Day 3 note. Default event practice elsewhere: disable kill money during structured events and award event points/prizes separately. Treat as **Open** until confirmed; do not assume death money applies during Ace Hunt.
+**Resolved for this branch:** kill money is **off** for Ace Hunt participants via event scope `ace-hunt`. Aces are registered at prep; hunters are added at begin. Event deaths are marked `event_kill` and stay off `/top kills`. No dollar prize payout for Ace Hunt points in v1.
+
+## Admin commands
+
+`/larp acehunt …` — `ace`, `hunt`, `cycle`, `define`, `spawn`, `y`, `lockup`, `prep`, `begin`, `stop`, `status`, `reload`.
 
 ## Relation to calendar
 

@@ -32,5 +32,5 @@ commands:
     description: Player auction actions (pay after winning a lot).
     usage: /auction pay
   larp:
-    description: Protected LarpSMP administration commands (money, kill money, visibility, account ops, capture, spawn, auction, teams).
-    usage: /larp <money|killmoney|killreward|visibility|op|deop|ops|capture|spawn|auction|teams|team|captain|tier> ...
+    description: Protected LarpSMP administration commands (money, kill money, visibility, account ops, capture, spawn, auction, ace hunt, teams).
+    usage: /larp <money|killmoney|killreward|visibility|op|deop|ops|capture|spawn|auction|acehunt|teams|team|captain|tier> ...

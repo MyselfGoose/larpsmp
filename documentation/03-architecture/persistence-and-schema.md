@@ -1,6 +1,6 @@
 # Persistence and schema
 
-**Status:** Migrations **V001–V011 Implemented** (`V011` on `feature/auctions`).
+**Status:** Migrations **V001–V013 Implemented** (`V013` on `feature/ace-hunt`).
 
 Migrations live under `src/main/resources/db/migrations/` and run via `MigrationRunner` on plugin enable when auth/DB is available.
 
@@ -20,6 +20,7 @@ Migrations live under `src/main/resources/db/migrations/` and run via `Migration
 | 010 | `V010__capture_points.sql` | capture sessions, day completions, temp blocks, runtime pointer |
 | 011 | `V011__auctions.sql` | auction sessions, representatives, lots, bids, runtime pointer |
 | 012 | `V012__auction_payment_username.sql` | durable `auction_runtime.payment_username` for `/larp auction payee` |
+| 013 | `V013__ace_hunt.sql` | Ace Hunt sessions, aces, assignments, scored deaths, lockouts, snapshots, spectators, runtime |
 
 Also: `schema_migrations` tracks applied versions.
 
@@ -52,6 +53,14 @@ Also: `schema_migrations` tracks applied versions.
 | `auction_lots` | Lot theme, bids, payment/delivery state |
 | `auction_bids` | Append-only bid history (previous-bidder fallback) |
 | `auction_runtime` | Singleton active session + lot pointers + payment username |
+| `ace_hunt_sessions` | Ace Hunt phase lifecycle |
+| `ace_hunt_aces` | Nominated aces per session |
+| `ace_hunt_assignments` | Hunter team → target ace team |
+| `ace_hunt_scored_deaths` | Ace deaths with hunt-scored flag (unique per ace) |
+| `ace_hunt_lockouts` | Non-ace 3-minute respawn locks |
+| `ace_hunt_snapshots` | Pre-event location restore points |
+| `ace_hunt_spectators` | Dead aces / successful hunters |
+| `ace_hunt_runtime` | Singleton active session pointer |
 | `schema_migrations` | Applied versions |
 
 ## Economy persistence notes

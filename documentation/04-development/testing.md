@@ -20,6 +20,7 @@ JUnit 5 tests under `src/test/java/com/larpsmp/moneyevent/`. Many integration te
 | Combat | Attack memory window, block ownership, kill attribution → death settlement |
 | Capture | Advantage math, progress engine, session payout/idempotency/restart, temp-block rows, config load |
 | Auction | Session/reps lock, bid rejects, `/auction pay` settlement idempotency, previous-bidder forfeit, runtime restore |
+| Ace Hunt | Placement scoring (2/1/0, worse-place ties), prep non-scoring, hunt kill once, restart resume, phase timers, stop clears session |
 
 ### Gaps
 

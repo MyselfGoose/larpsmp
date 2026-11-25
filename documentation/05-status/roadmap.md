@@ -1,7 +1,7 @@
 # Development roadmap (by branch)
 
-You are here: **`feature/auctions`** (`/bid`, `/auction pay`, fixed reps, lot lifecycle, previous-bidder fallback).  
-**After this lands:** [`feature/ace-hunt`](#11-featureace-hunt--queued-day-3).
+You are here: **`feature/ace-hunt`** (Day 3 Ace Hunt engine).  
+**After this lands:** [`feature/gladiators`](#12-featuregladiators--queued-day-4-admin-first).
 
 Status key on this page:
 
@@ -32,7 +32,7 @@ DONE     feature/capture-points
 DONE     feature/spawn-protection
 DONE     feature/display-and-leaderboards
 DONE     feature/auctions
-QUEUED   feature/ace-hunt
+NEXT     feature/ace-hunt
 QUEUED   feature/gladiators          (light automation; admin-first OK)
 QUEUED   feature/roles-and-authz
 OPS      roster, calendar, map, hosting, playtest
@@ -230,20 +230,22 @@ Full automation shipped on this branch. Item delivery stays manual; mid-bid team
 
 ---
 
-## 11. `feature/ace-hunt` — QUEUED (Day 3)
+## 11. `feature/ace-hunt` — NEXT (Day 3)
 
 **Depends on:** event apply/restore helpers (keep inventory, spectator, maybe kill-money off), map territories.
 
-| # | Work item |
-|---|-----------|
-| 1 | Ace nomination / teleport to prep territories (2–3 h prep window is ops/schedule) |
-| 2 | Points: hunt placement + ace survival placement; on-screen counter |
-| 3 | Non-ace 3-minute bedrock-box respawn; keep inventory on |
-| 4 | Dead ace → spectator; successful hunters → spectator |
-| 5 | No skybase rule (enforce as designed) |
-| 6 | Surface minute / underground ban near end |
-| 7 | Territory vs world border solution (**Open** design) |
-| 8 | Exact point table (**Open** — ask Karim) |
+| #   | Work item                                                                         |
+| --- | --------------------------------------------------------------------------------- |
+| 1   | Ace nomination / teleport to prep territories (2–3 h prep window is ops/schedule) |
+| 2   | Points: hunt placement + ace survival placement; on-screen counter                |
+| 3   | Non-ace 3-minute bedrock-box respawn; keep inventory on                           |
+| 4   | Dead ace → spectator; successful hunters → spectator                              |
+| 5   | No skybase rule (enforce as designed)                                             |
+| 6   | Surface minute / underground ban near end                                         |
+| 7   | Territory vs world border: **Resolved** — per-player borders + cuboid confinement |
+| 8   | Exact point table: **Resolved for v1** — `2 / 1 / 0` (config.yml)                 |
+
+**Resolved decisions on this branch:** kill money off for participants (`ace-hunt` scope); default hunt 18 minutes then 60s surface then underground ban.
 
 ---
 
@@ -296,8 +298,9 @@ Not branches, but blockers for “event ready”:
 ## Recommended working order (what you do next)
 
 1. Economy settlement, kill attribution, capture, spawn protection, display/leaderboards, auctions — **Done**.  
-2. **Next:** `feature/ace-hunt` (or Gladiators as needed).  
-3. **Throughout:** chase Karim on [open questions](open-questions.md).
+2. **Current:** `feature/ace-hunt`.  
+3. **Next after merge:** `feature/gladiators` (or roles).  
+4. **Throughout:** chase Karim on [open questions](open-questions.md).
 
 ---
 

@@ -59,7 +59,7 @@ For ordered “what to build next,” see [roadmap.md](roadmap.md). Labels: **Do
 | Capture temporary blocks | Done (`capture_temp_blocks` + 30s restore across restart) |
 | Kill attribution | Done (`combat/` → `processDeathPayment`; `combat_kills` ledger) |
 | Auctions automation | Done (`auction/` → `/bid`, `/auction pay`, `/larp auction`, forfeit fallback; manual delivery) |
-| Ace Hunt systems | Not started |
+| Ace Hunt systems | Done (`acehunt/` → prep/begin/stop, scoring boss bar, lockup, skybase/underground, per-player borders; `/larp acehunt`) |
 | Gladiators automation | Not started |
 | Natural disasters | Not confirmed / not started |
 

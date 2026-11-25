@@ -26,6 +26,8 @@ Root: `src/main/java/com/larpsmp/moneyevent/`
 |---------|----------------|
 | `(root)` `MoneyEventPlugin` | Lifecycle, wiring, autosave task |
 | `auth` | Pre-join dialogs, accounts, UUID binding, rate limits, admin authorizers |
+| `acehunt` | Day 3 Ace Hunt (prep/hunt phases, scoring, lockup, borders, boss bar) |
+| `auction` | Mystery shulker auctions (/bid, /auction pay, reps, lot lifecycle) |
 | `capture` | Capture points (occupancy, progress, temp blocks, boss bar) → capture reward |
 | `combat` | Kill attribution (60s last-attacker, traps/hazards) → death settlement |
 | `spawn` | Respawn-only player-damage immunity + unbreakable spawn blocks |
@@ -72,7 +74,7 @@ From [`plugin.yml`](../../src/main/resources/plugin.yml):
 |---------|------|
 | `/balance [player]` | Public balances |
 | `/pay <player> <amount>` | Transfers |
-| `/larp …` | Admin money + capture + spawn + teams (`money`, `capture`, `spawn`, `teams`, `team`, `captain`, `tier`) |
+| `/larp …` | Admin money + capture + spawn + auction + ace hunt + teams (`money`, `capture`, `spawn`, `auction`, `acehunt`, `teams`, `team`, `captain`, `tier`) |
 
 ## Cross-cutting principles
 
@@ -83,6 +85,6 @@ From [`plugin.yml`](../../src/main/resources/plugin.yml):
 
 ## Intentionally not in this codebase yet
 
-Ace Hunt, Gladiators automation, competitor role flags, production permission model.
+Gladiators automation, competitor role flags, production permission model.
 
-Auctions automation is Implemented (`auction/` package).
+Auctions automation is Implemented (`auction/` package). Ace Hunt is Implemented (`acehunt/` package).

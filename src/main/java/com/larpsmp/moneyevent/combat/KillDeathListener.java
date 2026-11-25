@@ -28,6 +28,7 @@ public final class KillDeathListener implements Listener {
     private final AccountRepository accounts;
     private final OnlinePlayerAccess onlinePlayers;
     private final Logger logger;
+    private final @Nullable DeathOutcomeListener deathOutcomeListener;
 
     public KillDeathListener(
             KillAttributionService attribution,
@@ -35,10 +36,21 @@ public final class KillDeathListener implements Listener {
             OnlinePlayerAccess onlinePlayers,
             Logger logger
     ) {
+        this(attribution, accounts, onlinePlayers, logger, null);
+    }
+
+    public KillDeathListener(
+            KillAttributionService attribution,
+            AccountRepository accounts,
+            OnlinePlayerAccess onlinePlayers,
+            Logger logger,
+            @Nullable DeathOutcomeListener deathOutcomeListener
+    ) {
         this.attribution = attribution;
         this.accounts = accounts;
         this.onlinePlayers = onlinePlayers;
         this.logger = logger;
+        this.deathOutcomeListener = deathOutcomeListener;
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
@@ -60,6 +72,9 @@ public final class KillDeathListener implements Listener {
                     + ": " + outcome.detail());
             case SKIPPED, DUPLICATE -> logger.info("Kill attribution skipped for " + victim.getUniqueId()
                     + ": " + outcome.detail());
+        }
+        if (deathOutcomeListener != null) {
+            deathOutcomeListener.onDeathOutcome(victim.getUniqueId(), outcome);
         }
     }
 
