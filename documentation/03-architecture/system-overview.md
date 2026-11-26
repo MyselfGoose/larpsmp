@@ -83,10 +83,10 @@ From [`plugin.yml`](../../src/main/resources/plugin.yml):
 - **Account ID** is the persistence key; Minecraft UUID/name are bind + display.
 - **Money mutations** must go through `MoneyService` (do not edit wallet rows from event code).
 - **Teams** are the roster source of truth; economy queries teams rather than duplicating membership.
-- **Dev authorizer:** `DevelopmentConsoleOpAuthorizer` (console/op) — temporary until production authz adapter lands.
+- **Authorizer:** `AccountPermissionAuthorizer` — console, plugin admin (`/larp op`), or server operator (`/larp serverop`). Bukkit op syncs from server-operator grants only.
 
-## Intentionally not in this codebase yet
+## Roles (Implemented)
 
-Competitor role flags, production permission model.
+Competitor / spectator on `account_participation`. Plugin admin on `account_plugin_admins`. Server operator on `account_server_operators`.
 
-Auctions automation is Implemented (`auction/` package). Ace Hunt is Implemented (`acehunt/` package). Gladiators is Implemented (`gladiator/` package).
+Auctions, Ace Hunt, and Gladiators packages are Implemented.

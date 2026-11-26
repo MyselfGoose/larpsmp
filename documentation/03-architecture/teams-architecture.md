@@ -2,7 +2,7 @@
 
 Merged from the former `docs/TEAMS.md` implementation sections.
 
-**Status:** Admin teams/tiers/captains **Implemented** on `feature/teams`. Competitor/admin/spectator role flags **Deferred**.
+**Status:** Admin teams/tiers/captains **Implemented**. Competitor/spectator participation **Implemented** on `feature/roles-and-authz`.
 
 ## Package
 
@@ -38,7 +38,8 @@ Blue / Red / Yellow are seeded if missing.
 | Player → tier | Death cost; display | Implemented |
 | Captain of team | Auction nomination (ops); admin registers via `/larp auction rep` | Partial (rep registration Implemented; captain self-serve command not required for v1) |
 | Team list / colors | Nametags, list, chat | Implemented (colors + `TeamPresenceDisplay` nametags/tab grouping) |
-| Competitor / admin / spectator | Eligibility filters | Deferred |
+| Competitor / spectator | Eligibility filters | Implemented (`account_participation`) |
+| Plugin admin / server operator | Authz | Implemented (`account_plugin_admins` / `account_server_operators`) |
 
 Economy must **not** maintain a second independent roster copy. `MoneyService.teamWealth` sums via SQL join to memberships.
 
@@ -48,19 +49,19 @@ Dialog console → brief chest GUI experiment → **dialog-only** again. Prefer 
 
 ## Authz
 
-Temporary: console or op via `DevelopmentConsoleOpAuthorizer` (same as money). Production adapter still needed.
+Console, plugin admin, or server operator via `AccountPermissionAuthorizer`. `/larp op` grants plugin admin; `/larp serverop` grants Bukkit op (and implies plugin admin).
 
 ## Acceptance checklist (from TEAMS.md)
 
 | # | Criterion | Progress |
 |---|-----------|----------|
-| 1 | Assign team, tier, captain with permissions | Done for team/tier/captain; roles deferred |
-| 2 | Queries for members, tier, captain, roles | Members/tier/captain done; roles deferred |
+| 1 | Assign team, tier, captain with permissions | Done |
+| 2 | Queries for members, tier, captain, roles | Done (`isCompetitor` / `isSpectator` / `competitorsOf`) |
 | 3 | Account-ID keyed; survives restart | Done |
 | 4 | Economy computes wealth from live roster | Done (`teamWealth`) |
 | 5 | Incomplete edits warn admins | Soft warnings implemented |
 | 6 | Public totals; admin hide | Done (HUD + `/larp visibility teamtotals`) |
-| 7 | Non-competitors excluded from standings | Partial — no first-class role flag yet |
+| 7 | Non-competitors excluded from standings | Done |
 | 8 | No substitute flow | Done (not built) |
 | 9 | Colored identity for nametags/list/chat | Nametags + tab Done; chat coloring not required |
 | 10 | Integration note for consumers | See [Integration contracts](integration-contracts.md) |

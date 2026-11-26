@@ -2,9 +2,13 @@ package com.larpsmp.moneyevent.command;
 
 import com.larpsmp.moneyevent.display.BalanceDisplayControl;
 import com.larpsmp.moneyevent.notification.PaymentNotificationStore;
+import com.larpsmp.moneyevent.playerstate.AccountSession;
 import com.larpsmp.moneyevent.playerstate.AccountSessionManager;
+import com.larpsmp.moneyevent.team.TeamService;
 import com.larpsmp.moneyevent.wallet.MoneyService;
 import java.io.IOException;
+import java.util.Objects;
+import java.util.Optional;
 import java.util.function.Consumer;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -15,6 +19,7 @@ import org.jetbrains.annotations.Nullable;
 
 public final class MoneyJoinListener implements Listener {
     private final MoneyService moneyService;
+    private final @Nullable TeamService teams;
     private final PaymentNotificationStore notifications;
     private final Consumer<String> errorLogger;
     private final BalanceDisplayControl display;
@@ -25,7 +30,7 @@ public final class MoneyJoinListener implements Listener {
             PaymentNotificationStore notifications,
             Consumer<String> errorLogger,
             BalanceDisplayControl display) {
-        this(moneyService, notifications, errorLogger, display, null);
+        this(moneyService, null, notifications, errorLogger, display, null);
     }
 
     public MoneyJoinListener(
@@ -34,10 +39,21 @@ public final class MoneyJoinListener implements Listener {
             Consumer<String> errorLogger,
             BalanceDisplayControl display,
             @Nullable AccountSessionManager accountSessions) {
-        this.moneyService = moneyService;
-        this.notifications = notifications;
-        this.errorLogger = errorLogger;
-        this.display = display;
+        this(moneyService, null, notifications, errorLogger, display, accountSessions);
+    }
+
+    public MoneyJoinListener(
+            MoneyService moneyService,
+            @Nullable TeamService teams,
+            PaymentNotificationStore notifications,
+            Consumer<String> errorLogger,
+            BalanceDisplayControl display,
+            @Nullable AccountSessionManager accountSessions) {
+        this.moneyService = Objects.requireNonNull(moneyService, "moneyService");
+        this.teams = teams;
+        this.notifications = Objects.requireNonNull(notifications, "notifications");
+        this.errorLogger = Objects.requireNonNull(errorLogger, "errorLogger");
+        this.display = Objects.requireNonNull(display, "display");
         this.accountSessions = accountSessions;
     }
 
@@ -52,6 +68,7 @@ public final class MoneyJoinListener implements Listener {
             errorLogger.accept("Could not update identity for " + player.getUniqueId()
                     + ": " + exception.getMessage());
         }
+        retryCompetitorStartingBalance(player);
         notifications.deliver(player.getUniqueId(),
                 message -> player.sendMessage(
                         BukkitOnlinePlayerAccess.component(message, MessageKind.SUCCESS)));
@@ -61,6 +78,25 @@ public final class MoneyJoinListener implements Listener {
     @EventHandler
     public void onQuit(PlayerQuitEvent event) {
         display.playerQuit(event.getPlayer().getUniqueId());
+    }
+
+    private void retryCompetitorStartingBalance(Player player) {
+        if (teams == null || accountSessions == null) {
+            return;
+        }
+        Optional<AccountSession> session = accountSessions.findByMinecraftUuid(player.getUniqueId());
+        if (session.isEmpty()) {
+            return;
+        }
+        if (!teams.isCompetitor(session.get().accountId())) {
+            return;
+        }
+        try {
+            moneyService.grantCompetitorStartingBalanceIfNeeded(session.get().accountId());
+        } catch (IOException exception) {
+            errorLogger.accept("Could not retry competitor starting balance for "
+                    + session.get().accountId() + ": " + exception.getMessage());
+        }
     }
 
     private String lastSeenMinecraftName(Player player) {

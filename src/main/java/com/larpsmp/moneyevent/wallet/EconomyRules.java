@@ -31,6 +31,7 @@ public final class EconomyRules {
     public static final String OUTCOME_NO_OP = "NO_OP";
     public static final String OUTCOME_SKIPPED_KILL_MONEY_OFF = "SKIPPED_KILL_MONEY_OFF";
     public static final String OUTCOME_SKIPPED_FRIENDLY_FIRE = "SKIPPED_FRIENDLY_FIRE";
+    public static final String OUTCOME_SKIPPED_NOT_COMPETITOR = "SKIPPED_NOT_COMPETITOR";
 
     private EconomyRules() {
     }

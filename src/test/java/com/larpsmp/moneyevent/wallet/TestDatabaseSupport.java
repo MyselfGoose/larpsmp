@@ -123,12 +123,23 @@ public final class TestDatabaseSupport {
         }
 
         /**
-         * Registers an account and grants the one-time competitor starting balance
+         * Registers an account, marks it as competitor, and grants the one-time starting balance
          * (simulates first team assignment without requiring a team).
          */
         public RegisteredPlayer registerCompetitor(String username) throws Exception {
             RegisteredPlayer player = register(username);
             var account = accounts.findByUsername(player.username()).orElseThrow();
+            try (java.sql.Connection connection = dataSource.getConnection();
+                 java.sql.PreparedStatement statement = connection.prepareStatement(
+                         """
+                         INSERT INTO account_participation (account_id, competitor, spectator, updated_at)
+                         VALUES (?, TRUE, FALSE, NOW())
+                         ON CONFLICT (account_id) DO UPDATE
+                         SET competitor = TRUE, spectator = FALSE, updated_at = NOW()
+                         """)) {
+                statement.setObject(1, account.id());
+                statement.executeUpdate();
+            }
             money.grantCompetitorStartingBalanceIfNeeded(account.id());
             return player;
         }
@@ -157,6 +168,22 @@ public final class TestDatabaseSupport {
                     try (PreparedStatement statement = connection.prepareStatement(
                             """
                             DELETE FROM account_plugin_admins
+                            WHERE account_id IN (SELECT id FROM accounts WHERE username = ?)
+                            """)) {
+                        statement.setString(1, username);
+                        statement.executeUpdate();
+                    }
+                    try (PreparedStatement statement = connection.prepareStatement(
+                            """
+                            DELETE FROM account_server_operators
+                            WHERE account_id IN (SELECT id FROM accounts WHERE username = ?)
+                            """)) {
+                        statement.setString(1, username);
+                        statement.executeUpdate();
+                    }
+                    try (PreparedStatement statement = connection.prepareStatement(
+                            """
+                            DELETE FROM account_participation
                             WHERE account_id IN (SELECT id FROM accounts WHERE username = ?)
                             """)) {
                         statement.setString(1, username);

@@ -12,7 +12,25 @@ public interface CommandSource {
 
     boolean isConsole();
 
+    /**
+     * True when the sender holds plugin admin and/or server operator.
+     * Prefer {@link #isPluginAdmin()} / {@link #isServerOperator()} for new checks.
+     */
     boolean isOperator();
+
+    /**
+     * True when the account is a LarpSMP plugin admin (or a server operator, which implies it).
+     */
+    default boolean isPluginAdmin() {
+        return isOperator();
+    }
+
+    /**
+     * True when the account holds full server operator (Bukkit op).
+     */
+    default boolean isServerOperator() {
+        return false;
+    }
 
     void send(String message, MessageKind kind);
 

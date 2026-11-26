@@ -73,11 +73,15 @@ public final class JdbcCombatKillRepository {
             return List.of();
         }
         String sql = """
-                SELECT killer_account_id, COUNT(*) AS kill_count
-                FROM combat_kills
-                WHERE event_kill = FALSE AND friendly_fire = FALSE
-                GROUP BY killer_account_id
-                ORDER BY kill_count DESC, killer_account_id
+                SELECT k.killer_account_id, COUNT(*) AS kill_count
+                FROM combat_kills k
+                INNER JOIN account_participation killer
+                    ON killer.account_id = k.killer_account_id AND killer.competitor = TRUE
+                INNER JOIN account_participation victim
+                    ON victim.account_id = k.victim_account_id AND victim.competitor = TRUE
+                WHERE k.event_kill = FALSE AND k.friendly_fire = FALSE
+                GROUP BY k.killer_account_id
+                ORDER BY kill_count DESC, k.killer_account_id
                 LIMIT ?
                 """;
         try (Connection connection = dataSource.getConnection();

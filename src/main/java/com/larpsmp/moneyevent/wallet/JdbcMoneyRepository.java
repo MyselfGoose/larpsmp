@@ -112,8 +112,8 @@ public final class JdbcMoneyRepository {
                        i.minecraft_uuid, i.minecraft_name
                 FROM wallets w
                 INNER JOIN accounts a ON a.id = w.account_id
+                INNER JOIN account_participation p ON p.account_id = w.account_id AND p.competitor = TRUE
                 LEFT JOIN account_minecraft_identities i ON i.account_id = w.account_id
-                WHERE w.starting_balance_granted = TRUE
                 ORDER BY w.balance DESC, a.username ASC
                 """;
         try (Connection connection = dataSource.getConnection();
@@ -135,6 +135,7 @@ public final class JdbcMoneyRepository {
         String sql = """
                 SELECT COALESCE(SUM(w.balance), 0)
                 FROM team_memberships m
+                INNER JOIN account_participation p ON p.account_id = m.account_id AND p.competitor = TRUE
                 LEFT JOIN wallets w ON w.account_id = m.account_id
                 WHERE m.team_id = ?
                 """;

@@ -46,7 +46,7 @@ Only items that are **still unresolved**. Settled Karim answers are recorded in 
 | Final twelve competitors (names/tags) | Unknown yet |
 | Team assignments, captains, tiers | Colors Blue/Red/Yellow confirmed likely |
 | Five dates, times, timezone, wealth cutoff | |
-| Who receives full server / ops access vs plugin admin permissions | |
+| Who receives full server / ops access vs plugin admin permissions | Mechanism decided: `/larp op` = plugin admin; `/larp serverop` = Bukkit op (implies plugin admin). Named recipients still Open |
 | Behavior when server is offline at a scheduled event start | |
 | Which active event states must resume after restart (full list) | |
 | Hosting provider selection | Budget ~6000 RUB mentioned |

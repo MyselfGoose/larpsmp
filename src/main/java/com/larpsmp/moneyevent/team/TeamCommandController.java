@@ -57,6 +57,10 @@ public final class TeamCommandController {
                 handleTier(source, arguments);
                 yield true;
             }
+            case "role" -> {
+                handleRole(source, arguments);
+                yield true;
+            }
             default -> false;
         };
     }
@@ -66,11 +70,13 @@ public final class TeamCommandController {
             List<String> roots = new ArrayList<>();
             if (authorizer.isAllowed(source, TeamAdminAction.TEAM_OPEN_UI)
                     || authorizer.isAllowed(source, TeamAdminAction.TEAM_VIEW)
-                    || authorizer.isAllowed(source, TeamAdminAction.TIER_SET)) {
+                    || authorizer.isAllowed(source, TeamAdminAction.TIER_SET)
+                    || authorizer.isAllowed(source, TeamAdminAction.TEAM_ASSIGN)) {
                 roots.add("teams");
                 roots.add("team");
                 roots.add("captain");
                 roots.add("tier");
+                roots.add("role");
             }
             return filter(roots, arguments[0]);
         }
@@ -83,6 +89,9 @@ public final class TeamCommandController {
         }
         if (root.equals("tier")) {
             return tabTier(source, arguments);
+        }
+        if (root.equals("role")) {
+            return tabRole(source, arguments);
         }
         return List.of();
     }
@@ -151,6 +160,70 @@ public final class TeamCommandController {
             case "list" -> listTiers(source);
             default -> source.send("Usage: /larp tier <set|clear|list> ...", MessageKind.ERROR);
         }
+    }
+
+    private void handleRole(CommandSource source, String[] arguments) {
+        if (arguments.length < 2) {
+            source.send("Usage: /larp role <set|clear> ...", MessageKind.ERROR);
+            return;
+        }
+        String action = arguments[1].toLowerCase(Locale.ROOT);
+        switch (action) {
+            case "set" -> setRole(source, arguments);
+            case "clear" -> clearRole(source, arguments);
+            default -> source.send("Usage: /larp role <set|clear> ...", MessageKind.ERROR);
+        }
+    }
+
+    private void setRole(CommandSource source, String[] arguments) {
+        if (!allowed(source, TeamAdminAction.TEAM_ASSIGN)) {
+            return;
+        }
+        if (arguments.length != 4) {
+            source.send("Usage: /larp role set <player> <competitor|spectator>", MessageKind.ERROR);
+            return;
+        }
+        Account account = requireAccount(source, arguments[2]);
+        if (account == null) {
+            return;
+        }
+        String role = arguments[3].toLowerCase(Locale.ROOT);
+        switch (role) {
+            case "competitor" -> sendResult(source, teams.setParticipation(account.id(), true, false));
+            case "spectator" -> sendResult(source, teams.setParticipation(account.id(), false, true));
+            default -> source.send("Usage: /larp role set <player> <competitor|spectator>", MessageKind.ERROR);
+        }
+    }
+
+    private void clearRole(CommandSource source, String[] arguments) {
+        if (!allowed(source, TeamAdminAction.TEAM_ASSIGN)) {
+            return;
+        }
+        if (arguments.length != 3) {
+            source.send("Usage: /larp role clear <player>", MessageKind.ERROR);
+            return;
+        }
+        Account account = requireAccount(source, arguments[2]);
+        if (account == null) {
+            return;
+        }
+        sendResult(source, teams.setParticipation(account.id(), false, false));
+    }
+
+    private List<String> tabRole(CommandSource source, String[] arguments) {
+        if (!authorizer.isAllowed(source, TeamAdminAction.TEAM_ASSIGN)) {
+            return List.of();
+        }
+        if (arguments.length == 2) {
+            return filter(List.of("set", "clear"), arguments[1]);
+        }
+        if (arguments.length == 3) {
+            return filter(accountUsernames(), arguments[2]);
+        }
+        if (arguments.length == 4 && arguments[1].equalsIgnoreCase("set")) {
+            return filter(List.of("competitor", "spectator"), arguments[3]);
+        }
+        return List.of();
     }
 
     private void setTier(CommandSource source, String[] arguments) {

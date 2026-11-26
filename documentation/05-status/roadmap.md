@@ -1,7 +1,6 @@
 # Development roadmap (by branch)
 
-You are here: **`feature/gladiators`** (Day 4 Gladiators engine).  
-**After this lands:** [`feature/roles-and-authz`](#13-featureroles-and-authz--queued).
+You are here: **`feature/roles-and-authz`** (competitor/spectator flags + production authz).
 
 Status key on this page:
 
@@ -33,8 +32,8 @@ DONE     feature/spawn-protection
 DONE     feature/display-and-leaderboards
 DONE     feature/auctions
 DONE     feature/ace-hunt
-NEXT     feature/gladiators          (light automation; admin-first OK)
-QUEUED   feature/roles-and-authz
+DONE     feature/gladiators
+NEXT     feature/roles-and-authz
 OPS      roster, calendar, map, hosting, playtest
 ```
 
@@ -236,7 +235,7 @@ Full automation shipped on this branch. Item delivery stays manual; mid-bid team
 
 ---
 
-## 12. `feature/gladiators` — NEXT (Day 4, admin-first)
+## 12. `feature/gladiators` — DONE (Day 4, admin-first)
 
 Karim: **chat + admin + command blocks may be enough**. This branch ships light automation so ops do not need command blocks for the core loop.
 
@@ -253,16 +252,14 @@ Do **not** block the roadmap on full automation.
 
 ---
 
-## 13. `feature/roles-and-authz` — QUEUED
+## 13. `feature/roles-and-authz` — NEXT
 
-| # | Work item |
-|---|-----------|
-| 1 | Competitor / admin / spectator flags on accounts |
-| 2 | Exclude non-competitors from standings / capture advantage / starting money |
-| 3 | Replace `DevelopmentConsoleOpAuthorizer` with production permissions |
-| 4 | Who gets full server ops vs plugin admin (**Open**) |
-
-Best after competitor-only starting balance is designed, or in the same PR series as that fix.
+| # | Work item | Status |
+|---|-----------|--------|
+| 1 | Competitor / admin / spectator flags on accounts | Competitor + spectator on `account_participation`; admin stays `account_plugin_admins` |
+| 2 | Exclude non-competitors from standings / capture advantage / starting money | Standings, team wealth, capture, splits, death, `/top kills` |
+| 3 | Replace `DevelopmentConsoleOpAuthorizer` with production permissions | `AccountPermissionAuthorizer` |
+| 4 | Who gets full server ops vs plugin admin | Mechanism: `/larp op` vs `/larp serverop` (split). Named recipients still **Open** |
 
 ---
 
@@ -284,24 +281,8 @@ Not branches, but blockers for “event ready”:
 
 ## Recommended working order (what you do next)
 
-1. Economy settlement, kill attribution, capture, spawn protection, display/leaderboards, auctions, Ace Hunt — **Done**.  
-2. **Current:** `feature/gladiators`.  
-3. **Next after merge:** `feature/roles-and-authz`.  
-4. **Throughout:** chase Karim on [open questions](open-questions.md).
+1. Economy settlement through Gladiators — **Done**.  
+2. **Current:** `feature/roles-and-authz`.  
+3. **Throughout:** chase Karim on [open questions](open-questions.md).
 
----
-
-## How to start the next branch
-
-```bash
-git checkout main
-git pull origin main
-git checkout -b feature/roles-and-authz
-```
-
-Read before coding:
-
-- [Roadmap §13](#13-featureroles-and-authz--queued)
-- [Known gaps](known-gaps-and-debt.md)
-
-When the branch is merge-ready: PR → `main` → delete the feature branch → pick the next **QUEUED** item.
+When the branch is merge-ready: PR → `main` → delete the feature branch → pick the next **QUEUED**/OPS item.

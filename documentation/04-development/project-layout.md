@@ -30,7 +30,7 @@ LarpSMP/
   src/main/resources/
     plugin.yml
     config.yml
-    db/migrations/          # V001–V014
+    db/migrations/          # V001–V015
   src/test/java/…           # JUnit 5 tests
   docker/
     docker-compose.yml      # Postgres + pgAdmin

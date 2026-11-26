@@ -1,6 +1,6 @@
 # Persistence and schema
 
-**Status:** Migrations **V001–V014 Implemented** (`V014` on `feature/gladiators`).
+**Status:** Migrations **V001–V015 Implemented** (`V015` on `feature/roles-and-authz`).
 
 Migrations live under `src/main/resources/db/migrations/` and run via `MigrationRunner` on plugin enable when auth/DB is available.
 
@@ -22,6 +22,7 @@ Migrations live under `src/main/resources/db/migrations/` and run via `Migration
 | 012 | `V012__auction_payment_username.sql` | durable `auction_runtime.payment_username` for `/larp auction payee` |
 | 013 | `V013__ace_hunt.sql` | Ace Hunt sessions, aces, assignments, scored deaths, lockouts, snapshots, spectators, runtime |
 | 014 | `V014__gladiators.sql` | Gladiators sessions, schedule, fights, quota, kits, body snapshots, barriers, runtime |
+| 015 | `V015__account_roles.sql` | `account_participation` (competitor/spectator); `account_server_operators`; backfill |
 
 Also: `schema_migrations` tracks applied versions.
 
@@ -43,7 +44,9 @@ Also: `schema_migrations` tracks applied versions.
 | `teams` | Team definitions + captain |
 | `team_memberships` | Roster links |
 | `competitor_tiers` | Tier 1–4 per account |
-| `account_plugin_admins` | LarpSMP-account plugin ops |
+| `account_plugin_admins` | LarpSMP-account plugin admins (`/larp op`) |
+| `account_participation` | Competitor / spectator flags (mutually exclusive) |
+| `account_server_operators` | Full server operators (`/larp serverop`; Bukkit op sync) |
 | `combat_kills` | Attributed deaths (`death_id`, cause, `event_kill`, settlement outcome) |
 | `capture_sessions` | Active/historical capture activations (`capture_id`, progress, status) |
 | `capture_day_completions` | Points already captured for a UTC day key |
@@ -76,7 +79,7 @@ Also: `schema_migrations` tracks applied versions.
 
 ## Economy persistence notes
 
-- Signup creates a **$0** wallet; competitor `$200` is granted once on first team assignment.
+- Signup creates a **$0** wallet; competitor `$200` is granted once when the account becomes a competitor (team assign or `/larp role set … competitor`).
 - Offline notification durability remains partially filesystem today.
 
 **Confirmed intent:** economy data should save after every completed transaction — do not wait for twice-daily world backups.

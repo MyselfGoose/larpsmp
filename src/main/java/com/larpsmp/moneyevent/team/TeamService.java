@@ -34,6 +34,7 @@ public final class TeamService {
     private static final Pattern SLUG_SANITIZE = Pattern.compile("[^a-z0-9]+");
 
     private final JdbcTeamRepository repository;
+    private final AccountParticipationRepository participation;
     private final AccountRepository accounts;
     private final Consumer<String> errorLogger;
     private final List<RosterChangeListener> rosterChangeListeners = new CopyOnWriteArrayList<>();
@@ -44,7 +45,17 @@ public final class TeamService {
             AccountRepository accounts,
             Consumer<String> errorLogger
     ) {
+        this(repository, new AccountParticipationRepository(repository.dataSource()), accounts, errorLogger);
+    }
+
+    public TeamService(
+            JdbcTeamRepository repository,
+            AccountParticipationRepository participation,
+            AccountRepository accounts,
+            Consumer<String> errorLogger
+    ) {
         this.repository = repository;
+        this.participation = participation;
         this.accounts = accounts;
         this.errorLogger = errorLogger;
     }
@@ -115,6 +126,111 @@ public final class TeamService {
         } catch (SQLException exception) {
             errorLogger.accept("Failed to resolve team for account " + accountId + ": " + exception.getMessage());
             return Optional.empty();
+        }
+    }
+
+    public boolean isCompetitor(UUID accountId) {
+        try {
+            return participation.isCompetitor(accountId);
+        } catch (SQLException exception) {
+            errorLogger.accept("Failed to load competitor flag for " + accountId + ": " + exception.getMessage());
+            return false;
+        }
+    }
+
+    public boolean isSpectator(UUID accountId) {
+        try {
+            return participation.isSpectator(accountId);
+        } catch (SQLException exception) {
+            errorLogger.accept("Failed to load spectator flag for " + accountId + ": " + exception.getMessage());
+            return false;
+        }
+    }
+
+    public AccountParticipation participationOf(UUID accountId) {
+        try {
+            return participation.find(accountId).orElseGet(() -> AccountParticipation.neither(accountId));
+        } catch (SQLException exception) {
+            errorLogger.accept("Failed to load participation for " + accountId + ": " + exception.getMessage());
+            return AccountParticipation.neither(accountId);
+        }
+    }
+
+    /**
+     * Roster members who currently hold the competitor flag (offline included).
+     */
+    public List<TeamMember> competitorsOf(UUID teamId) {
+        try {
+            List<TeamMember> members = repository.membersOf(teamId);
+            List<TeamMember> competitors = new ArrayList<>();
+            for (TeamMember member : members) {
+                if (participation.isCompetitor(member.accountId())) {
+                    competitors.add(member);
+                }
+            }
+            return List.copyOf(competitors);
+        } catch (SQLException exception) {
+            errorLogger.accept("Failed to list competitors for team " + teamId + ": " + exception.getMessage());
+            return List.of();
+        }
+    }
+
+    /**
+     * Sets explicit participation. Setting competitor grants starting balance via the enrollment hook.
+     * Spectator clears competitor. Clear drops both flags.
+     */
+    public TeamMutationResult setParticipation(UUID accountId, boolean competitor, boolean spectator) {
+        if (competitor && spectator) {
+            return TeamMutationResult.fail("An account cannot be both competitor and spectator.");
+        }
+        try {
+            Optional<Account> account = accounts.findById(accountId);
+            if (account.isEmpty()) {
+                return TeamMutationResult.fail("That account does not exist.");
+            }
+            boolean wasCompetitor = participation.isCompetitor(accountId);
+            participation.upsert(accountId, competitor, spectator);
+            Optional<TeamMember> membership = repository.findMembership(accountId);
+            Set<UUID> affectedTeams = membership.isEmpty()
+                    ? Set.of()
+                    : Set.of(membership.get().teamId());
+            notifyRosterChanged(affectedTeams, Set.of(accountId));
+            if (competitor && !wasCompetitor) {
+                notifyCompetitorEnrolled(accountId);
+            }
+            String username = account.get().username();
+            String message;
+            if (competitor) {
+                message = "Set " + username + " as competitor.";
+            } else if (spectator) {
+                message = "Set " + username + " as spectator.";
+            } else {
+                message = "Cleared competition roles for " + username + ".";
+            }
+            List<String> warnings = membership.isEmpty()
+                    ? List.of()
+                    : repository.findById(membership.get().teamId())
+                            .map(team -> {
+                                try {
+                                    return warningsForTeam(team);
+                                } catch (SQLException exception) {
+                                    return List.<String>of();
+                                }
+                            })
+                            .orElse(List.of());
+            return TeamMutationResult.ok(
+                    message,
+                    membership.flatMap(member -> {
+                        try {
+                            return repository.findById(member.teamId());
+                        } catch (SQLException exception) {
+                            return Optional.empty();
+                        }
+                    }).orElse(null),
+                    warnings);
+        } catch (SQLException exception) {
+            errorLogger.accept("Failed to set participation for " + accountId + ": " + exception.getMessage());
+            return TeamMutationResult.fail("Could not update roles.");
         }
     }
 
@@ -299,10 +415,16 @@ public final class TeamService {
                 }
                 int sortOrder = repository.nextMemberSortOrder(connection, teamId);
                 repository.insertMembership(connection, teamId, accountId, sortOrder, Instant.now());
+                boolean wasCompetitor = participation.find(connection, accountId)
+                        .map(AccountParticipation::competitor)
+                        .orElse(false);
+                participation.upsert(connection, accountId, true, false);
                 connection.commit();
                 Team refreshed = repository.findById(teamId).orElse(team.get());
                 notifyRosterChanged(affected, Set.of(accountId));
-                notifyCompetitorEnrolled(accountId);
+                if (!wasCompetitor) {
+                    notifyCompetitorEnrolled(accountId);
+                }
                 String message = existing.isPresent()
                         ? "Moved " + username + " to " + refreshed.displayName() + "."
                         : "Assigned " + username + " to " + refreshed.displayName() + ".";
@@ -332,6 +454,7 @@ public final class TeamService {
                 Optional<Team> team = repository.findById(member.teamId());
                 repository.clearCaptainIf(connection, member.teamId(), accountId);
                 repository.deleteMembership(connection, accountId);
+                participation.clearCompetitor(connection, accountId);
                 connection.commit();
                 notifyRosterChanged(Set.of(member.teamId()), Set.of(accountId));
                 Team refreshed = team.flatMap(value -> {
@@ -609,6 +732,10 @@ public final class TeamService {
         }
         Map<Integer, List<String>> byTier = new HashMap<>();
         for (TeamMember member : members) {
+            if (!participation.isCompetitor(member.accountId())) {
+                warnings.add(team.displayName() + " member " + member.username()
+                        + " is not marked as a competitor.");
+            }
             if (member.tier() == null) {
                 warnings.add(team.displayName() + " member " + member.username() + " has no tier.");
             } else {

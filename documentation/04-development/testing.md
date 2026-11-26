@@ -22,6 +22,7 @@ JUnit 5 tests under `src/test/java/com/larpsmp/moneyevent/`. Many integration te
 | Auction | Session/reps lock, bid rejects, `/auction pay` settlement idempotency, previous-bidder forfeit, runtime restore |
 | Ace Hunt | Placement scoring (2/1/0, worse-place ties), prep non-scoring, hunt kill once, restart resume, phase timers, stop clears session |
 | Gladiators | Double round-robin shape, kit-ban turns, 3v3/1v1 scoring, skip quota, payout idempotency ($0 place), kill money off/on, restart mid-session |
+| Roles / authz | Competitor/spectator mutual exclusion, standings/wealth filters, death skip for non-competitors, plugin admin vs server operator |
 
 ### Gaps
 

@@ -22,7 +22,7 @@ Gameplay body state is stored **per account**, not in vanilla UUID `playerdata` 
 - A Minecraft UUID links to at most one account; **successful login or signup moves that link**.
 - Username and email must be unique; passwords may be shared.
 - No seeded demo users — first account is created in-game via Sign up.
-- Signup creates a linked wallet with **$200** in the same DB transaction (**Implemented**; competition wants competitor-only grants — [known gaps](../05-status/known-gaps-and-debt.md)).
+- Signup creates a linked wallet with **$0**; competitor **$200** is granted once when the account becomes a competitor.
 - Requires `LARPSMP_RESEND_API_KEY` and `LARPSMP_RESEND_FROM_EMAIL` in `.env`.
 
 ## Local services
@@ -92,7 +92,7 @@ Compose pre-registers the `larpsmp` server (`docker/pgadmin/servers.json`). Brow
 
 Inspect after signup: `accounts`, `auth_email_challenges`, `account_minecraft_identities`, `wallets`, `wallet_transactions`, `account_player_states`, and (on teams branch) `teams`, `team_memberships`, `competitor_tiers`, `schema_migrations`.
 
-Migrations applied today: **001–006** (older auth doc said 001–004 only — **Superseded**).
+Migrations applied today: **001–015**.
 
 ## Reset local data
 

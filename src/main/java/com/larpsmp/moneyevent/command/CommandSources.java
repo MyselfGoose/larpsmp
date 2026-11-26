@@ -10,8 +10,8 @@ import org.bukkit.entity.Player;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Builds {@link CommandSource} views. Player operator status is account-based when an
- * {@link AccountAdminService} is supplied.
+ * Builds {@link CommandSource} views. Privilege bits come from LarpSMP account tables, never from
+ * {@link Player#isOp()}.
  */
 public final class CommandSources {
 
@@ -19,12 +19,21 @@ public final class CommandSources {
     }
 
     public static CommandSource of(CommandSender sender, @Nullable AccountAdminService admins) {
-        Predicate<UUID> operatorCheck = minecraftUuid ->
+        Predicate<UUID> pluginAdminCheck = minecraftUuid ->
                 admins != null && admins.isAdminMinecraftUuid(minecraftUuid);
-        return of(sender, operatorCheck);
+        Predicate<UUID> serverOpCheck = minecraftUuid ->
+                admins != null && admins.isServerOperatorMinecraftUuid(minecraftUuid);
+        return of(sender, pluginAdminCheck, serverOpCheck);
     }
 
     public static CommandSource of(CommandSender sender, Predicate<UUID> isAccountAdmin) {
+        return of(sender, isAccountAdmin, uuid -> false);
+    }
+
+    public static CommandSource of(
+            CommandSender sender,
+            Predicate<UUID> isPluginAdmin,
+            Predicate<UUID> isServerOperator) {
         return new CommandSource() {
             @Override
             public Optional<UUID> playerId() {
@@ -45,10 +54,23 @@ public final class CommandSources {
 
             @Override
             public boolean isOperator() {
+                return isPluginAdmin() || isServerOperator();
+            }
+
+            @Override
+            public boolean isPluginAdmin() {
                 if (!(sender instanceof Player player)) {
                     return true;
                 }
-                return isAccountAdmin.test(player.getUniqueId());
+                return isPluginAdmin.test(player.getUniqueId());
+            }
+
+            @Override
+            public boolean isServerOperator() {
+                if (!(sender instanceof Player player)) {
+                    return true;
+                }
+                return isServerOperator.test(player.getUniqueId());
             }
 
             @Override

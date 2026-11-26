@@ -134,7 +134,7 @@ public final class TeamAdminListener implements Listener {
             if (!player.isOnline()) {
                 return;
             }
-            // Force Paper op from LarpSMP account admin list (ignore client UUID ops.json).
+            // Force Paper op from LarpSMP server-operator list (ignore client UUID ops.json).
             accountAdmins.syncBukkitOperator(player);
             if (!isAuthorized(player, TeamAdminAction.TEAM_OPEN_UI)) {
                 tool.stripAll(player.getInventory());

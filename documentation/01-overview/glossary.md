@@ -20,4 +20,8 @@
 | **Gladiators** | Structured arena combat event (Day 4 design: team fights + 1v1s with kits). |
 | **Keep inventory** | Vanilla setting used for specific events (e.g. Ace Hunt); must be restored afterward. |
 | **Sidebar / Wallet HUD** | Always-on scoreboard panel showing Team Money and personal Wallet (**Implemented**). |
-| **Starting balance** | **$200** granted once per competitor (competition rule). Current code grants on every auth signup — see [known gaps](../05-status/known-gaps-and-debt.md). |
+| **Starting balance** | **$200** granted once when an account becomes a competitor (team assign or `/larp role set … competitor`). |
+| **Competitor** | Account with `account_participation.competitor = true`. Eligible for standings, capture advantage, death money, and starting balance. |
+| **Spectator (account)** | Account with `account_participation.spectator = true`. Does not count for capture or competing wealth. Distinct from Ace Hunt / Gladiators event spectator state. |
+| **Plugin admin** | Row in `account_plugin_admins`. Runs `/larp` admin commands. |
+| **Server operator** | Row in `account_server_operators`. Bukkit op + plugin admin. |
