@@ -553,10 +553,20 @@ public final class MoneyEventPlugin extends JavaPlugin {
                     message -> getLogger().severe(message)));
             aceHuntService.setOtherEventLiveGuard(gladiatorService::isLive);
             gladiatorService.setOtherEventLiveGuard(aceHuntService::isLive);
-            playerStateService.setFrozenBodySource(accountId ->
-                    gladiatorService.frozenBody(accountId)
-                            .map(BukkitGladiatorWorldActions::toAccountState));
-            teamService.addRosterChangeListener((teamIds, accountIds) -> gladiatorService.onRosterChanged());
+            playerStateService.setFrozenBodySource(accountId -> {
+                GladiatorService service = gladiatorService;
+                if (service == null) {
+                    return java.util.Optional.empty();
+                }
+                return service.frozenBody(accountId)
+                        .map(BukkitGladiatorWorldActions::toAccountState);
+            });
+            teamService.addRosterChangeListener((teamIds, accountIds) -> {
+                GladiatorService service = gladiatorService;
+                if (service != null) {
+                    service.onRosterChanged();
+                }
+            });
             GladiatorCommandController gladiatorCommands = new GladiatorCommandController(
                     gladiatorService,
                     teamService,
