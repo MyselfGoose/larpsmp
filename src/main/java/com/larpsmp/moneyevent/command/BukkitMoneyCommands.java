@@ -3,6 +3,7 @@ package com.larpsmp.moneyevent.command;
 import com.larpsmp.moneyevent.auction.AuctionPayCommandController;
 import com.larpsmp.moneyevent.auction.BidCommandController;
 import com.larpsmp.moneyevent.auth.AccountAdminService;
+import com.larpsmp.moneyevent.gladiator.GladiatorPlayerCommandController;
 import java.util.List;
 import java.util.Locale;
 import org.bukkit.command.Command;
@@ -19,13 +20,14 @@ public final class BukkitMoneyCommands implements CommandExecutor, TabCompleter 
     private final @Nullable AccountAdminService accountAdmins;
     private final @Nullable BidCommandController bidCommands;
     private final @Nullable AuctionPayCommandController auctionPayCommands;
+    private final @Nullable GladiatorPlayerCommandController gladiatorPlayerCommands;
 
     public BukkitMoneyCommands(MoneyCommandController controller) {
-        this(controller, null, null, null, null, null);
+        this(controller, null, null, null, null, null, null);
     }
 
     public BukkitMoneyCommands(MoneyCommandController controller, @Nullable AccountAdminService accountAdmins) {
-        this(controller, null, null, accountAdmins, null, null);
+        this(controller, null, null, accountAdmins, null, null, null);
     }
 
     public BukkitMoneyCommands(
@@ -33,7 +35,7 @@ public final class BukkitMoneyCommands implements CommandExecutor, TabCompleter 
             @Nullable TeamInfoCommandController teamInfo,
             @Nullable PlayerHelpCommandController playerHelp,
             @Nullable AccountAdminService accountAdmins) {
-        this(controller, teamInfo, playerHelp, accountAdmins, null, null);
+        this(controller, teamInfo, playerHelp, accountAdmins, null, null, null);
     }
 
     public BukkitMoneyCommands(
@@ -42,7 +44,7 @@ public final class BukkitMoneyCommands implements CommandExecutor, TabCompleter 
             @Nullable PlayerHelpCommandController playerHelp,
             @Nullable AccountAdminService accountAdmins,
             @Nullable BidCommandController bidCommands) {
-        this(controller, teamInfo, playerHelp, accountAdmins, bidCommands, null);
+        this(controller, teamInfo, playerHelp, accountAdmins, bidCommands, null, null);
     }
 
     public BukkitMoneyCommands(
@@ -52,12 +54,24 @@ public final class BukkitMoneyCommands implements CommandExecutor, TabCompleter 
             @Nullable AccountAdminService accountAdmins,
             @Nullable BidCommandController bidCommands,
             @Nullable AuctionPayCommandController auctionPayCommands) {
+        this(controller, teamInfo, playerHelp, accountAdmins, bidCommands, auctionPayCommands, null);
+    }
+
+    public BukkitMoneyCommands(
+            MoneyCommandController controller,
+            @Nullable TeamInfoCommandController teamInfo,
+            @Nullable PlayerHelpCommandController playerHelp,
+            @Nullable AccountAdminService accountAdmins,
+            @Nullable BidCommandController bidCommands,
+            @Nullable AuctionPayCommandController auctionPayCommands,
+            @Nullable GladiatorPlayerCommandController gladiatorPlayerCommands) {
         this.controller = controller;
         this.teamInfo = teamInfo;
         this.playerHelp = playerHelp;
         this.accountAdmins = accountAdmins;
         this.bidCommands = bidCommands;
         this.auctionPayCommands = auctionPayCommands;
+        this.gladiatorPlayerCommands = gladiatorPlayerCommands;
     }
 
     @Override
@@ -99,6 +113,13 @@ public final class BukkitMoneyCommands implements CommandExecutor, TabCompleter 
                     auctionPayCommands.auction(source, arguments);
                 }
             }
+            case "gladiator" -> {
+                if (gladiatorPlayerCommands == null) {
+                    source.send("Gladiators are not available.", MessageKind.ERROR);
+                } else {
+                    gladiatorPlayerCommands.handle(source, arguments);
+                }
+            }
             case "larp" -> controller.larp(source, arguments);
             default -> {
                 return false;
@@ -125,6 +146,11 @@ public final class BukkitMoneyCommands implements CommandExecutor, TabCompleter 
         }
         if (name.equals("auction")) {
             return auctionPayCommands == null ? List.of() : auctionPayCommands.tabComplete(arguments);
+        }
+        if (name.equals("gladiator")) {
+            return gladiatorPlayerCommands == null
+                    ? List.of()
+                    : gladiatorPlayerCommands.tabComplete(CommandSources.of(sender, accountAdmins), arguments);
         }
         return controller.tabComplete(name, CommandSources.of(sender, accountAdmins), arguments);
     }

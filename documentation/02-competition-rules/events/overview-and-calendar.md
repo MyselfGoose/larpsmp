@@ -1,6 +1,6 @@
 # Events overview and calendar
 
-**Status:** Event set partly **Confirmed**. Schedules and some formats **Open**. Almost all event automation **not Implemented**.
+**Status:** Event set partly **Confirmed**. Schedules and some formats **Open**. Capture, auctions, Ace Hunt, and Gladiators automation are **Implemented**; natural disasters remain unconfirmed.
 
 ## Confirmed event types
 

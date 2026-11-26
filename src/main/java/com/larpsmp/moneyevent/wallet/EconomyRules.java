@@ -25,6 +25,7 @@ public final class EconomyRules {
     public static final String SETTLEMENT_KIND_RESCUE = "RESCUE";
     public static final String SETTLEMENT_KIND_CAPTURE = "CAPTURE";
     public static final String SETTLEMENT_KIND_AUCTION = "AUCTION";
+    public static final String SETTLEMENT_KIND_GLADIATOR = "GLADIATOR";
 
     public static final String OUTCOME_APPLIED = "APPLIED";
     public static final String OUTCOME_NO_OP = "NO_OP";

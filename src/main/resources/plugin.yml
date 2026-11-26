@@ -31,6 +31,9 @@ commands:
   auction:
     description: Player auction actions (pay after winning a lot).
     usage: /auction pay
+  gladiator:
+    description: Shows Gladiators fight quota and team points; ban kits during 1v1s.
+    usage: /gladiator [ban <kit>]
   larp:
-    description: Protected LarpSMP administration commands (money, kill money, visibility, account ops, capture, spawn, auction, ace hunt, teams).
-    usage: /larp <money|killmoney|killreward|visibility|op|deop|ops|capture|spawn|auction|acehunt|teams|team|captain|tier> ...
+    description: Protected LarpSMP administration commands (money, kill money, visibility, account ops, capture, spawn, auction, ace hunt, gladiators, teams).
+    usage: /larp <money|killmoney|killreward|visibility|op|deop|ops|capture|spawn|auction|acehunt|gladiators|teams|team|captain|tier> ...

@@ -7,6 +7,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -31,6 +32,7 @@ public final class PlayerStateService {
     private final PlayerStateConfig config;
     private final Logger logger;
     private @Nullable Predicate<ItemStack> captureExcludedItem;
+    private @Nullable Function<UUID, Optional<AccountPlayerState>> frozenBodySource;
 
     public PlayerStateService(
             AccountPlayerStateRepository repository,
@@ -47,6 +49,14 @@ public final class PlayerStateService {
      */
     public void setCaptureExcludedItem(@Nullable Predicate<ItemStack> captureExcludedItem) {
         this.captureExcludedItem = captureExcludedItem;
+    }
+
+    /**
+     * When present, autosave/quit persist this frozen body instead of the live kit inventory.
+     * Used by Gladiators so event kits do not overwrite personal survival gear.
+     */
+    public void setFrozenBodySource(@Nullable Function<UUID, Optional<AccountPlayerState>> frozenBodySource) {
+        this.frozenBodySource = frozenBodySource;
     }
 
     public PlayerStateConfig config() {
@@ -283,7 +293,17 @@ public final class PlayerStateService {
 
     public boolean savePlayer(Player player, UUID accountId) {
         try {
-            AccountPlayerState state = capture(player, accountId);
+            AccountPlayerState state;
+            if (frozenBodySource != null) {
+                Optional<AccountPlayerState> frozen = frozenBodySource.apply(accountId);
+                if (frozen != null && frozen.isPresent()) {
+                    state = frozen.get();
+                } else {
+                    state = capture(player, accountId);
+                }
+            } else {
+                state = capture(player, accountId);
+            }
             save(state);
             return true;
         } catch (IOException | SQLException exception) {

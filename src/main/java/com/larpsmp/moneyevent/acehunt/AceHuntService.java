@@ -16,6 +16,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
 import org.jetbrains.annotations.Nullable;
 
@@ -31,6 +32,7 @@ public final class AceHuntService {
     private final Clock clock;
     private final Consumer<String> errorLogger;
     private AceHuntWorldActions world = AceHuntWorldActions.NOOP;
+    private BooleanSupplier otherEventLive = () -> false;
 
     private AceHuntConfig config;
     private @Nullable AceHuntSession activeSession;
@@ -68,6 +70,16 @@ public final class AceHuntService {
 
     public void setWorldActions(AceHuntWorldActions world) {
         this.world = Objects.requireNonNull(world, "world");
+    }
+
+    public void setOtherEventLiveGuard(BooleanSupplier otherEventLive) {
+        this.otherEventLive = Objects.requireNonNull(otherEventLive, "otherEventLive");
+    }
+
+    public boolean isLive() {
+        synchronized (lock) {
+            return activeSession != null && activeSession.phase().isLive();
+        }
     }
 
     public AceHuntConfig config() {
@@ -203,6 +215,9 @@ public final class AceHuntService {
         synchronized (lock) {
             if (activeSession != null && activeSession.phase().isLive()) {
                 return AdminResult.error("Ace Hunt is already active.");
+            }
+            if (otherEventLive.getAsBoolean()) {
+                return AdminResult.error("Another event is live. Stop it before starting Ace Hunt.");
             }
             if (pendingAces.size() < 2) {
                 return AdminResult.error("Nominate aces for at least two teams before prep.");

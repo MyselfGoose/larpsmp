@@ -60,7 +60,7 @@ For ordered “what to build next,” see [roadmap.md](roadmap.md). Labels: **Do
 | Kill attribution | Done (`combat/` → `processDeathPayment`; `combat_kills` ledger) |
 | Auctions automation | Done (`auction/` → `/bid`, `/auction pay`, `/larp auction`, forfeit fallback; manual delivery) |
 | Ace Hunt systems | Done (`acehunt/` → prep/begin/stop, scoring boss bar, lockup, skybase/underground, per-player borders; `/larp acehunt`) |
-| Gladiators automation | Not started |
+| Gladiators automation | Done (`gladiator/` → arena/seats/barriers, kits, quota, 3v3 schedule, 1v1 kit bans, boss bar, payout; `/larp gladiators`, `/gladiator`) |
 | Natural disasters | Not confirmed / not started |
 
 ## Economy phase plan progress (Amira track)

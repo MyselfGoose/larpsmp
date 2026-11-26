@@ -672,6 +672,67 @@ public final class MoneyService implements AutoCloseable {
                 captureId);
     }
 
+    /**
+     * Idempotent Gladiators placement payout for one team.
+     * External id is {@code sessionId:teamId}. {@code amount == 0} records a no-op settlement.
+     */
+    public synchronized SplitRewardResult processGladiatorPrize(String sessionId, UUID teamId, long amount) {
+        Objects.requireNonNull(sessionId, "sessionId");
+        Objects.requireNonNull(teamId, "teamId");
+        if (sessionId.isBlank()) {
+            return new SplitRewardResult(TransactionStatus.INVALID_REASON, "", 0, null,
+                    List.of(), 0, 0, "sessionId cannot be blank");
+        }
+        if (amount < 0) {
+            return new SplitRewardResult(TransactionStatus.INVALID_AMOUNT, "", amount, null,
+                    List.of(), 0, 0, "Amount cannot be negative");
+        }
+        String externalId = sessionId + ":" + teamId;
+        if (amount == 0) {
+            ensureOpenUnchecked();
+            try {
+                Optional<JdbcMoneyRepository.SettlementRow> existing =
+                        money.findSettlement(EconomyRules.SETTLEMENT_KIND_GLADIATOR, externalId);
+                if (existing.isPresent()) {
+                    return new SplitRewardResult(
+                            TransactionStatus.SUCCESS,
+                            existing.get().outcome(),
+                            0,
+                            existing.get().parentTransactionId(),
+                            List.of(),
+                            0,
+                            money.loadSettings().rewardRotationIndex(),
+                            "");
+                }
+                money.insertSettlementNoOp(
+                        EconomyRules.SETTLEMENT_KIND_GLADIATOR,
+                        externalId,
+                        EconomyRules.OUTCOME_NO_OP,
+                        "Gladiators $0 placement");
+                return new SplitRewardResult(
+                        TransactionStatus.SUCCESS,
+                        EconomyRules.OUTCOME_NO_OP,
+                        0,
+                        null,
+                        List.of(),
+                        0,
+                        money.loadSettings().rewardRotationIndex(),
+                        "");
+            } catch (SQLException exception) {
+                logStorageFailure("processGladiatorPrize " + externalId, exception);
+                return new SplitRewardResult(TransactionStatus.STORAGE_FAILURE, "", 0, null,
+                        List.of(), 0, 0, exception.getMessage());
+            }
+        }
+        return splitReward(
+                teamId,
+                amount,
+                TransactionType.EVENT_REWARD,
+                "Gladiators placement prize",
+                EconomyRules.SETTLEMENT_KIND_GLADIATOR,
+                externalId);
+    }
+
     public synchronized DeathPaymentResult processDeathPayment(DeathPaymentRequest request) {
         ensureOpenUnchecked();
         ensureTeams();

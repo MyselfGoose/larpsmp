@@ -27,9 +27,9 @@ Only items that are **still unresolved**. Settled Karim answers are recorded in 
 
 | Question | Notes |
 |----------|-------|
-| Exact prize amounts / whether $125/$50/$0 is final | Team totals if used |
-| Full kit contents (team fight mini kit + five 1v1 kits) | “Send when needed” |
-| How much automation vs admin/command blocks | Karim: manual is enough |
+| Exact prize amounts / whether $125/$50/$0 is final | Team totals if used; shipped default in `config.yml` until Karim confirms |
+| Full kit contents (team fight mini kit + five 1v1 kits) | “Send when needed”; admins save kits in-game |
+| How much automation vs admin/command blocks | Karim: manual is enough; light automation shipped on `feature/gladiators` |
 
 ## Ace Hunt / map
 

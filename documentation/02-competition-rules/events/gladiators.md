@@ -1,6 +1,6 @@
 # Gladiators
 
-**Status:** Event **Confirmed**. Day 4 format from Karim is the current design source. Most automation **not required** for v1 (admin + chat + command blocks may suffice). Older “one big free-for-all” suggestions are **Superseded** where they conflict with Day 4.
+**Status:** Event **Confirmed**. Day 4 format from Karim is the current design source. Plugin systems **Implemented** on `feature/gladiators` (admin-first). Map build (coliseum / seats / barrier shell) remains ops. Kit item lists and exact prizes stay admin-configured (**Open** with Karim).
 
 ## High-level
 
@@ -14,44 +14,43 @@ Two parts:
 
 ### 1) Team fights (3v3s)
 
-- Each team chooses who fights and who sits out.
-- Every player may fight at most **4** times total across the event (strategy constraint).
-- Each team fights each other team **twice** (e.g. Blue vs Yellow, Blue vs Red, then the pairings repeat).
-- Fighters receive a **mini kit** (kit contents TBD), restored to full hunger and saturation, then fight.
+- Each team chooses who fights and who sits out (`/larp gladiators lineup`).
+- Every player may fight at most **4** times total across the event (strategy constraint; tracked automatically).
+- Each team fights each other team **twice** (generated double round-robin; e.g. six bouts for three teams).
+- Fighters receive a **mini kit** (saved by admin into Postgres; contents still Open with Karim), restored to full hunger and saturation, then fight.
 - Winning team gains **1 point**.
 
 ### 2) 1v1s
 
-- **5 kits** total (specified later).
-- Chosen fighters who still have fights left **ban kits one by one** until one kit remains.
+- **5 kits** total (saved by admin; contents still Open).
+- Admins nominate two fighters after the 3v3 schedule is finished (`/larp gladiators duel`).
+- Chosen fighters who still have fights left **ban kits one by one** (`/gladiator ban` or `/larp gladiators ban`) until one kit remains.
 - That remaining kit is used for the 1v1.
 - Wins also award **1 point**.
 
 ### Placements
 
-Based on points. Exact prize table still **Open**. Earlier suggested **$125 / $50 / $0** as **team totals** (not per player) — **not final** until confirmed. If used, split with the same rotating whole-dollar rules as other team rewards.
+Based on points. Exact prize table still **Open**. Shipped default in `config.yml` is the documented suggestion **$125 / $50 / $0** as **team totals** (not per player). Ties use worse-place ranking (same rule as Ace Hunt). Payout is explicit via `/larp gladiators payout` (idempotent `splitReward` / `EVENT_REWARD`, settlement kind `GLADIATOR`). Stop does **not** auto-pay.
 
-## What needs coding vs manual
+## Implemented admin flow
 
-Karim’s note: most of this can be done with **chat, commands, and an admin**; command blocks help. Automation is nice-to-have if time allows.
+`/larp gladiators …` — `arena`, `spawn`, `barriers`, `kit`, `open`, `stop`, `schedule`, `lineup`, `fight`, `winner`, `duel`, `ban`, `quota`, `points`, `payout`, `status`, `reload`.
 
-Nice-to-have automation ideas:
+Player: `/gladiator` (quota + points); `/gladiator ban <kit>` during kit-ban turns.
 
-- Fight quota tracking (max 4 fights per player)
-- Kit ban UI / commands
-- Point board on screen
-- Teleport / restore settings (kill money off, keep inventory policy as chosen)
-- Idempotent prize payout via economy
+Sitting out uses adventure mode behind the seat region (spectator gamemode would noclip through barriers). Personal bodies are frozen for the session so kits are not autosaved into `account_player_states`.
+
+## Economy / kill money
+
+Kill money is **off** for Gladiators participants via event scope `gladiators` for the live session. Event deaths are marked `event_kill` and stay off `/top kills`. Opening Gladiators is refused while Ace Hunt is live (and the reverse).
+
+## Arena requirements (ops + plugin)
+
+- Coliseum with watching seats (map build)
+- Barriers so spectators cannot walk into the arena (`/larp gladiators barriers fill|clear` for a defined shell, max 16384 blocks)
+- Separate starting positions for teams when a fight starts (`/larp gladiators spawn`)
+- Clear start / end / restore of inventories and locations (frozen body snapshots; restore on `stop`)
 
 ## Older draft notes (partially superseded)
 
 Earlier materials described a single elimination round with all twelve in one arena, last team standing, gear vs kits undecided, and unclear round count. Karim’s “What?” reply to “one round or multiple” was unclear; the **Day 4 write-up** is the clearer current format and should be preferred.
-
-Kill money should be disableable for the event (**Confirmed** capability). Event kills **do not** count on the normal kill leaderboard (**Confirmed**).
-
-## Arena requirements
-
-- Coliseum with watching seats
-- Barriers so spectators cannot walk into the arena
-- Separate starting positions for teams when a fight starts
-- Clear start / end / restore of inventories and locations if the chosen process stores them

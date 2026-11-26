@@ -19,6 +19,40 @@ spawn:
 auction:
   payment-username: akiracreates
 
+# Gladiators (Day 4). Arena / seats / barriers / spawns set in-game via /larp gladiators …
+# Prize table defaults are the documented suggestion ($125/$50/$0 team totals); still Open with Karim.
+# Kits are saved from admin inventory into Postgres (not listed here).
+gladiators:
+  prizes:
+    first: 125
+    second: 50
+    third: 0
+  arena:
+    world: ""
+  seats:
+    world: ""
+  barriers:
+    world: ""
+  team-spawns: {}
+  duel-spawns:
+    a:
+      world: ""
+    b:
+      world: ""
+  seats-spawn:
+    world: ""
+  messages:
+    session-opened: "[LarpSMP] Gladiators is open. Admins will run the fight schedule."
+    session-stopped: "[LarpSMP] Gladiators ended. Bodies restored."
+    fight-started: "[LarpSMP] Fight started: {teamA} vs {teamB}."
+    fight-won: "[LarpSMP] {team} wins the fight! (+1 point)"
+    fight-draw: "[LarpSMP] Fight ended in a draw — no points awarded."
+    fight-skipped: "[LarpSMP] Schedule bout skipped."
+    duel-nominated: "[LarpSMP] 1v1 nominated: {a} vs {b}. Ban kits until one remains."
+    kit-banned: "[LarpSMP] {player} banned kit {kit}. Remaining: {remaining}"
+    duel-started: "[LarpSMP] 1v1 started with kit {kit}: {a} vs {b}."
+    payout-done: "[LarpSMP] Gladiators prizes paid."
+
 # Ace Hunt (Day 3). Territories / lockup set in-game via /larp acehunt define|spawn|y|lockup.
 # Point table defaults match Karim's 2+2=4 example (1st/2nd/3rd → 2/1/0).
 ace-hunt:
