@@ -1,6 +1,6 @@
 # Integration contracts
 
-**Status:** Working agreement for Amira (economy) ↔ Azeem (complex systems). Auth + teams + wallets + death settlement + kill attribution + capture payouts + auction payment proof realized; Ace Hunt / Gladiators engines do not yet call economy.
+**Status:** Working agreement for Amira (economy) ↔ Azeem (complex systems). Auth + teams + wallets + death settlement + kill attribution + capture payouts + auction payment proof realized; Ace Hunt uses kill-money event scope (no dollar prize payout in v1). Gladiators engines do not yet call economy.
 
 ## 1. Account integration
 

@@ -19,6 +19,40 @@ spawn:
 auction:
   payment-username: akiracreates
 
+# Ace Hunt (Day 3). Territories / lockup set in-game via /larp acehunt define|spawn|y|lockup.
+# Point table defaults match Karim's 2+2=4 example (1st/2nd/3rd → 2/1/0).
+ace-hunt:
+  hunt-seconds: 1080
+  surface-warning-seconds: 60
+  respawn-lock-seconds: 180
+  underground-damage-per-second: 4.0
+  points:
+    hunt:
+      first: 2
+      second: 1
+      third: 0
+    survival:
+      first: 2
+      second: 1
+      third: 0
+  territories: []
+  lockup:
+    world: ""
+    spawn:
+      world: ""
+  messages:
+    prep-started: "[LarpSMP] Ace Hunt prep: aces teleported to their territories."
+    hunt-started: "[LarpSMP] Ace Hunt has begun! Hunt your assigned ace."
+    surface-warning: "[LarpSMP] Surface now — underground will be banned in {seconds}s."
+    underground-ban: "[LarpSMP] Underground is banned. Get to the surface!"
+    ace-died: "[LarpSMP] {ace} ({team}) has fallen!"
+    hunt-scored: "[LarpSMP] {hunter} scored the hunt on {ace}!"
+    hunt-missed: "[LarpSMP] {ace} died, but not to their assigned hunters."
+    event-ended: "[LarpSMP] Ace Hunt ended. Final points are on the boss bar."
+    lockup-enter: "[LarpSMP] You are locked for {seconds}s."
+    lockup-release: "[LarpSMP] Respawn lock ended. Hunt continues!"
+
+
 # Capture points (regions set in-game via /larp capture define <id> pos1|pos2).
 capture:
   tick-seconds: 1

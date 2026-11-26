@@ -10,8 +10,8 @@ Only items that are **still unresolved**. Settled Karim answers are recorded in 
 | Auction item delivery: manual or plugin-controlled? | **v1: manual** (`/larp auction delivered` tracks handoff only) |
 | Individual kill-money override: applies to victim, killer, or both? | Suggestion: victim authoritative |
 | Final sidebar / player-list density (balances, captain markers, tiers) | Sidebar + team/tier tab grouping shipped; balances/captain markers in list still open |
-| Exact Ace Hunt point values (hunt placements + survival placements) | Structure Confirmed; numbers Open |
-| Does Ace Hunt use normal death money, or kill money off + points only? | Not explicitly answered |
+| Exact Ace Hunt point values (hunt placements + survival placements) | **Resolved for v1:** `2 / 1 / 0` (config.yml); matches 2+2=4 example |
+| Does Ace Hunt use normal death money, or kill money off + points only? | **Resolved for v1:** kill money off for participants (`ace-hunt` event scope); points only |
 
 ## Capture
 
@@ -35,9 +35,9 @@ Only items that are **still unresolved**. Settled Karim answers are recorded in 
 
 | Question | Notes |
 |----------|-------|
-| How ace territories exist with world border | Expand + bedrock walls vs alternatives |
-| Hunt duration (15–20 minutes suggested) | |
-| Exact “underground banned” enforcement | |
+| How ace territories exist with world border | **Resolved for v1:** per-player world borders + cuboid confinement (islands may sit outside main border) |
+| Hunt duration (15–20 minutes suggested) | **Resolved for v1:** default 18 minutes (`ace-hunt.hunt-seconds`) |
+| Exact “underground banned” enforcement | **Resolved for v1:** after surface warning, cancel break/place below `surface-y` + periodic damage |
 
 ## Roster / schedule / ops
 

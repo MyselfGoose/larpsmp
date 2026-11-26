@@ -13,6 +13,7 @@ LarpSMP/
     MoneyEventPlugin.java
     auth/
     auction/                # Mystery shulker auctions (/bid, /auction pay, reps, lot lifecycle)
+    acehunt/                # Day 3 Ace Hunt (prep/hunt, scoring, lockup, borders, boss bar)
     capture/                # Capture points (progress, boss bar, temp blocks → capture reward)
     combat/                 # Kill attribution (60s last-attacker → death settlement)
     spawn/                  # Respawn-only spawn protection + unbreakable spawn blocks
@@ -28,7 +29,7 @@ LarpSMP/
   src/main/resources/
     plugin.yml
     config.yml
-    db/migrations/          # V001–V011
+    db/migrations/          # V001–V013
   src/test/java/…           # JUnit 5 tests
   docker/
     docker-compose.yml      # Postgres + pgAdmin

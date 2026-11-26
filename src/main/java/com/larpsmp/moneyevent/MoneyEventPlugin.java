@@ -1,5 +1,14 @@
 package com.larpsmp.moneyevent;
 
+import com.larpsmp.moneyevent.acehunt.AceHuntBossBar;
+import com.larpsmp.moneyevent.acehunt.AceHuntCommandController;
+import com.larpsmp.moneyevent.acehunt.AceHuntConfig;
+import com.larpsmp.moneyevent.acehunt.AceHuntConfigWriter;
+import com.larpsmp.moneyevent.acehunt.AceHuntListener;
+import com.larpsmp.moneyevent.acehunt.AceHuntService;
+import com.larpsmp.moneyevent.acehunt.AceHuntTickTask;
+import com.larpsmp.moneyevent.acehunt.BukkitAceHuntWorldActions;
+import com.larpsmp.moneyevent.acehunt.JdbcAceHuntRepository;
 import com.larpsmp.moneyevent.auction.AuctionCommandController;
 import com.larpsmp.moneyevent.auction.AuctionConfig;
 import com.larpsmp.moneyevent.auction.AuctionConfigWriter;
@@ -34,10 +43,10 @@ import com.larpsmp.moneyevent.capture.CaptureTempBlockTracker;
 import com.larpsmp.moneyevent.capture.CaptureTickTask;
 import com.larpsmp.moneyevent.capture.JdbcCaptureRepository;
 import com.larpsmp.moneyevent.combat.AttackMemory;
+import com.larpsmp.moneyevent.combat.AttributionOutcome;
 import com.larpsmp.moneyevent.combat.BlockOwnershipListener;
 import com.larpsmp.moneyevent.combat.BlockOwnershipTracker;
 import com.larpsmp.moneyevent.combat.CombatDamageListener;
-import com.larpsmp.moneyevent.combat.EventCombatScope;
 import com.larpsmp.moneyevent.combat.JdbcCombatKillRepository;
 import com.larpsmp.moneyevent.combat.KillAttributionService;
 import com.larpsmp.moneyevent.combat.KillDeathListener;
@@ -101,6 +110,8 @@ public final class MoneyEventPlugin extends JavaPlugin {
     private TeamService teamService;
     private CaptureService captureService;
     private CaptureBossBarPresenter captureBossBar;
+    private AceHuntService aceHuntService;
+    private AceHuntBossBar aceHuntBossBar;
     private BalanceDisplayControl balanceDisplay;
     private AuthSessionManager authSessionManager;
     private AccountSessionManager accountSessionManager;
@@ -110,6 +121,7 @@ public final class MoneyEventPlugin extends JavaPlugin {
     private ScheduledExecutorService rateLimitCleanupExecutor;
     private BukkitTask autosaveTask;
     private CaptureTickTask captureTickTask;
+    private AceHuntTickTask aceHuntTickTask;
     private boolean databaseReady;
 
     @Override
@@ -470,6 +482,48 @@ public final class MoneyEventPlugin extends JavaPlugin {
                     moneyService,
                     message -> getLogger().severe(message));
 
+            AceHuntConfig aceHuntConfig = AceHuntConfig.from(getConfig());
+            java.util.Map<String, java.util.UUID> slugToTeamId = new java.util.HashMap<>();
+            for (com.larpsmp.moneyevent.team.Team team : teamService.listTeams()) {
+                slugToTeamId.put(team.slug(), team.id());
+            }
+            aceHuntConfig = aceHuntConfig.rebindTeamIds(slugToTeamId);
+            JdbcAceHuntRepository aceHuntRepository = new JdbcAceHuntRepository(dataSource);
+            aceHuntService = new AceHuntService(
+                    aceHuntConfig,
+                    aceHuntRepository,
+                    moneyService,
+                    teamService,
+                    message -> getLogger().severe(message));
+            AceHuntConfigWriter.write(this, aceHuntService.config());
+            AccountPlayerStateRepository aceHuntStateRepository = new AccountPlayerStateRepository(dataSource);
+            aceHuntService.setWorldActions(new BukkitAceHuntWorldActions(
+                    this,
+                    accountSessionManager,
+                    aceHuntStateRepository,
+                    message -> getLogger().severe(message)));
+            AceHuntCommandController aceHuntCommands = new AceHuntCommandController(
+                    aceHuntService,
+                    teamService,
+                    moneyService,
+                    walletLookup,
+                    updated -> AceHuntConfigWriter.write(this, updated),
+                    () -> {
+                        reloadConfig();
+                        AceHuntConfig reloaded = AceHuntConfig.from(getConfig());
+                        java.util.Map<String, java.util.UUID> rebound = new java.util.HashMap<>();
+                        for (com.larpsmp.moneyevent.team.Team team : teamService.listTeams()) {
+                            rebound.put(team.slug(), team.id());
+                        }
+                        AceHuntConfig withIds = reloaded.rebindTeamIds(rebound);
+                        aceHuntService.replaceConfig(withIds);
+                    });
+            AceHuntBossBar aceBossBar = new AceHuntBossBar(aceHuntService, teamService);
+            aceHuntBossBar = aceBossBar;
+            AceHuntListener aceHuntListener = new AceHuntListener(
+                    aceHuntService, accountSessionManager, this);
+            aceHuntService.restoreFromDatabase();
+
             MoneyCommandController controller = new MoneyCommandController(
                     moneyService,
                     walletLookup,
@@ -484,6 +538,7 @@ public final class MoneyEventPlugin extends JavaPlugin {
                     captureCommands,
                     spawnCommands,
                     auctionCommands,
+                    aceHuntCommands,
                     killRepository,
                     moneyAccounts);
             TeamInfoCommandController teamInfoCommands = new TeamInfoCommandController(
@@ -516,14 +571,30 @@ public final class MoneyEventPlugin extends JavaPlugin {
                     teamService,
                     moneyService,
                     killRepository,
-                    EventCombatScope.NEVER,
+                    aceHuntService::isEventCombat,
                     message -> getLogger().severe(message)
             );
             getServer().getPluginManager().registerEvents(new BlockOwnershipListener(blockOwnership), this);
             getServer().getPluginManager().registerEvents(
                     new CombatDamageListener(attackMemory, blockOwnership), this);
             getServer().getPluginManager().registerEvents(
-                    new KillDeathListener(killAttribution, moneyAccounts, onlinePlayers, getLogger()), this);
+                    new KillDeathListener(
+                            killAttribution,
+                            moneyAccounts,
+                            onlinePlayers,
+                            getLogger(),
+                            (victimMinecraftUuid, outcome) -> {
+                                java.util.UUID killerAccountId = null;
+                                String deathId = outcome.deathId();
+                                if (outcome.kind() == AttributionOutcome.Kind.ATTRIBUTED
+                                        && outcome.killRecord() != null) {
+                                    killerAccountId = outcome.killRecord().killerAccountId();
+                                    deathId = outcome.killRecord().deathId();
+                                }
+                                aceHuntListener.onCombatDeathOutcome(
+                                        victimMinecraftUuid, deathId, killerAccountId);
+                            }),
+                    this);
 
             getServer().getPluginManager().registerEvents(
                     new CaptureBlockListener(captureService, tempBlocks), this);
@@ -533,10 +604,15 @@ public final class MoneyEventPlugin extends JavaPlugin {
                         @org.bukkit.event.EventHandler
                         public void onJoin(org.bukkit.event.player.PlayerJoinEvent event) {
                             bossBar.showTo(event.getPlayer());
+                            aceBossBar.showTo(event.getPlayer());
                         }
                     }, this);
             captureTickTask = new CaptureTickTask(captureService, occupancy, bossBar, tempBlocks);
             captureTickTask.start(this);
+
+            getServer().getPluginManager().registerEvents(aceHuntListener, this);
+            aceHuntTickTask = new AceHuntTickTask(aceHuntService, aceBossBar, accountSessionManager);
+            aceHuntTickTask.start(this);
 
             getServer().getPluginManager().registerEvents(new SpawnProtectionListener(spawnService), this);
             getServer().getPluginManager().registerEvents(new SpawnBlockListener(spawnService), this);
@@ -549,6 +625,7 @@ public final class MoneyEventPlugin extends JavaPlugin {
             getLogger().info("Capture points ready (/larp capture start|pause|resume|stop|define).");
             getLogger().info("Auctions ready (/larp auction …, /bid, /auction pay; settlements to "
                     + auctionService.config().paymentUsername() + ").");
+            getLogger().info("Ace Hunt ready (/larp acehunt …; prep → begin → surface → ban).");
             getLogger().info("Spawn protection ready (/larp spawn define|status|reload; "
                     + spawnService.config().protectionSeconds() + "s after respawn in region).");
             getLogger().info("Teams administration ready (dialog UI + /larp team|captain|tier|teams).");
@@ -574,6 +651,10 @@ public final class MoneyEventPlugin extends JavaPlugin {
             captureTickTask.cancel();
             captureTickTask = null;
         }
+        if (aceHuntTickTask != null) {
+            aceHuntTickTask.cancel();
+            aceHuntTickTask = null;
+        }
         if (captureService != null) {
             captureService.flush();
             captureService = null;
@@ -582,6 +663,11 @@ public final class MoneyEventPlugin extends JavaPlugin {
             captureBossBar.clear();
             captureBossBar = null;
         }
+        if (aceHuntBossBar != null) {
+            aceHuntBossBar.clear();
+            aceHuntBossBar = null;
+        }
+        aceHuntService = null;
 
         if (playerStateService != null && accountSessionManager != null) {
             for (Player player : getServer().getOnlinePlayers()) {

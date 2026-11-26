@@ -31,6 +31,12 @@ public final class PlayerHelpCommandController {
                         "representatives use /bid; winners settle with /auction pay (not /pay).",
                         NamedTextColor.WHITE))
                 .build());
+        source.send(Component.text()
+                .append(Component.text("Ace Hunt: ", NamedTextColor.GRAY))
+                .append(Component.text(
+                        "watch the boss bar for hunt and survival points while the event is live.",
+                        NamedTextColor.WHITE))
+                .build());
     }
 
     private static Component line(String command, String description) {
