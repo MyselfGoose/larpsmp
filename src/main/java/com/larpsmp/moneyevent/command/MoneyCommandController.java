@@ -7,6 +7,7 @@ import com.larpsmp.moneyevent.auth.Account;
 import com.larpsmp.moneyevent.auth.AccountAdminRepository;
 import com.larpsmp.moneyevent.auth.AccountAdminService;
 import com.larpsmp.moneyevent.auth.AccountRepository;
+import com.larpsmp.moneyevent.auth.AccountServerOperatorRepository;
 import com.larpsmp.moneyevent.auth.MoneyAdminAction;
 import com.larpsmp.moneyevent.auth.MoneyAdminAuthorizer;
 import com.larpsmp.moneyevent.capture.CaptureCommandController;
@@ -376,7 +377,7 @@ public final class MoneyCommandController {
         }
         if (arguments.length < 1) {
             source.send(
-                    "Usage: /larp <money|killmoney|killreward|visibility|op|deop|ops|capture|spawn|auction|acehunt|gladiators|teams|team|captain|tier> ...",
+                    "Usage: /larp <money|killmoney|killreward|visibility|op|deop|ops|serverop|serverdeop|serverops|capture|spawn|auction|acehunt|gladiators|teams|team|captain|tier|role> ...",
                     MessageKind.ERROR);
             return;
         }
@@ -389,8 +390,11 @@ public final class MoneyCommandController {
             case "op" -> larpOp(source, arguments);
             case "deop" -> larpDeop(source, arguments);
             case "ops" -> larpOps(source);
+            case "serverop" -> larpServerOp(source, arguments);
+            case "serverdeop" -> larpServerDeop(source, arguments);
+            case "serverops" -> larpServerOps(source);
             default -> source.send(
-                    "Usage: /larp <money|killmoney|killreward|visibility|op|deop|ops|capture|spawn|auction|acehunt|gladiators|teams|team|captain|tier> ...",
+                    "Usage: /larp <money|killmoney|killreward|visibility|op|deop|ops|serverop|serverdeop|serverops|capture|spawn|auction|acehunt|gladiators|teams|team|captain|tier|role> ...",
                     MessageKind.ERROR);
         }
     }
@@ -404,13 +408,11 @@ public final class MoneyCommandController {
             return;
         }
         String username = arguments[1].trim();
-        AccountAdminService.GrantResult result = accountAdmins.grant(username, source.name());
+        AccountAdminService.GrantResult result = accountAdmins.grantPluginAdmin(username, source.name());
         switch (result) {
-            case AccountAdminService.GrantResult.Granted granted -> {
-                syncOnlineOp(granted.account().id());
-                source.send("Granted plugin admin to account '" + granted.account().username() + "'.",
-                        MessageKind.SUCCESS);
-            }
+            case AccountAdminService.GrantResult.Granted granted ->
+                    source.send("Granted plugin admin to account '" + granted.account().username() + "'.",
+                            MessageKind.SUCCESS);
             case AccountAdminService.GrantResult.Already already ->
                     source.send("Account '" + already.account().username() + "' is already a plugin admin.",
                             MessageKind.INFO);
@@ -431,13 +433,15 @@ public final class MoneyCommandController {
             return;
         }
         String username = arguments[1].trim();
-        AccountAdminService.GrantResult result = accountAdmins.revoke(username);
+        AccountAdminService.GrantResult result = accountAdmins.revokePluginAdmin(username);
         switch (result) {
-            case AccountAdminService.GrantResult.Revoked revoked -> {
-                syncOnlineOp(revoked.account().id());
-                source.send("Removed plugin admin from account '" + revoked.account().username() + "'.",
-                        MessageKind.SUCCESS);
-            }
+            case AccountAdminService.GrantResult.Revoked revoked ->
+                    source.send("Removed plugin admin from account '" + revoked.account().username() + "'.",
+                            MessageKind.SUCCESS);
+            case AccountAdminService.GrantResult.StillServerOperator still ->
+                    source.send("Account '" + still.account().username()
+                                    + "' is a server operator. Use /larp serverdeop first.",
+                            MessageKind.ERROR);
             case AccountAdminService.GrantResult.NotAdmin notAdmin ->
                     source.send("Account '" + notAdmin.account().username() + "' is not a plugin admin.",
                             MessageKind.INFO);
@@ -464,6 +468,76 @@ public final class MoneyCommandController {
         }
     }
 
+    private void larpServerOp(CommandSource source, String[] arguments) {
+        if (!requireAccountAdminService(source) || !allowedServerOperatorManage(source)) {
+            return;
+        }
+        if (arguments.length < 2) {
+            source.send("Usage: /larp serverop <larpsmp-username>", MessageKind.ERROR);
+            return;
+        }
+        String username = arguments[1].trim();
+        AccountAdminService.GrantResult result = accountAdmins.grantServerOperator(username, source.name());
+        switch (result) {
+            case AccountAdminService.GrantResult.Granted granted -> {
+                syncOnlineOp(granted.account().id());
+                source.send("Granted server operator to account '" + granted.account().username() + "'.",
+                        MessageKind.SUCCESS);
+            }
+            case AccountAdminService.GrantResult.Already already ->
+                    source.send("Account '" + already.account().username() + "' is already a server operator.",
+                            MessageKind.INFO);
+            case AccountAdminService.GrantResult.NotFound ignored ->
+                    source.send("No LarpSMP account named '" + username + "'.", MessageKind.ERROR);
+            case AccountAdminService.GrantResult.Failed failed ->
+                    source.send("Could not grant server operator: " + failed.message(), MessageKind.ERROR);
+            default -> source.send("Could not grant server operator.", MessageKind.ERROR);
+        }
+    }
+
+    private void larpServerDeop(CommandSource source, String[] arguments) {
+        if (!requireAccountAdminService(source) || !allowedServerOperatorManage(source)) {
+            return;
+        }
+        if (arguments.length < 2) {
+            source.send("Usage: /larp serverdeop <larpsmp-username>", MessageKind.ERROR);
+            return;
+        }
+        String username = arguments[1].trim();
+        AccountAdminService.GrantResult result = accountAdmins.revokeServerOperator(username);
+        switch (result) {
+            case AccountAdminService.GrantResult.Revoked revoked -> {
+                syncOnlineOp(revoked.account().id());
+                source.send("Removed server operator from account '" + revoked.account().username() + "'.",
+                        MessageKind.SUCCESS);
+            }
+            case AccountAdminService.GrantResult.NotAdmin notAdmin ->
+                    source.send("Account '" + notAdmin.account().username() + "' is not a server operator.",
+                            MessageKind.INFO);
+            case AccountAdminService.GrantResult.NotFound ignored ->
+                    source.send("No LarpSMP account named '" + username + "'.", MessageKind.ERROR);
+            case AccountAdminService.GrantResult.Failed failed ->
+                    source.send("Could not revoke server operator: " + failed.message(), MessageKind.ERROR);
+            default -> source.send("Could not revoke server operator.", MessageKind.ERROR);
+        }
+    }
+
+    private void larpServerOps(CommandSource source) {
+        if (!requireAccountAdminService(source) || !allowedServerOperatorManage(source)) {
+            return;
+        }
+        List<AccountServerOperatorRepository.OperatorRow> operators = accountAdmins.listServerOperators();
+        if (operators.isEmpty()) {
+            source.send("No server operators yet. From console: /larp serverop <larpsmp-username>",
+                    MessageKind.INFO);
+            return;
+        }
+        source.send("— Server operators (LarpSMP accounts) —", MessageKind.INFO);
+        for (AccountServerOperatorRepository.OperatorRow row : operators) {
+            source.send("- " + row.username(), MessageKind.INFO);
+        }
+    }
+
     private boolean requireAccountAdminService(CommandSource source) {
         if (accountAdmins != null) {
             return true;
@@ -473,11 +547,18 @@ public final class MoneyCommandController {
     }
 
     private boolean allowedPluginAdminManage(CommandSource source) {
-        // Console always; in-game only existing account admins.
-        if (source.isConsole() || source.isOperator()) {
+        if (source.isConsole() || source.isPluginAdmin() || source.isServerOperator()) {
             return true;
         }
         source.send("You are not authorized to perform that action.", MessageKind.ERROR);
+        return false;
+    }
+
+    private boolean allowedServerOperatorManage(CommandSource source) {
+        if (source.isConsole() || source.isServerOperator()) {
+            return true;
+        }
+        source.send("You are not authorized to manage server operators.", MessageKind.ERROR);
         return false;
     }
 
@@ -865,7 +946,7 @@ public final class MoneyCommandController {
                 if (authorizer.isAllowed(source, MoneyAdminAction.VISIBILITY)) {
                     candidates.add("visibility");
                 }
-                if (source.isConsole() || source.isOperator()) {
+                if (source.isConsole() || source.isPluginAdmin() || source.isServerOperator()) {
                     candidates.add("op");
                     candidates.add("deop");
                     candidates.add("ops");
@@ -874,6 +955,11 @@ public final class MoneyCommandController {
                     candidates.add("auction");
                     candidates.add("acehunt");
                     candidates.add("gladiators");
+                }
+                if (source.isConsole() || source.isServerOperator()) {
+                    candidates.add("serverop");
+                    candidates.add("serverdeop");
+                    candidates.add("serverops");
                 }
                 if (teamCommands != null) {
                     candidates.addAll(teamCommands.tabComplete(source, arguments));
@@ -888,7 +974,10 @@ public final class MoneyCommandController {
                 return aceHuntCommands.tabComplete(source, arguments);
             } else if (arguments[0].equalsIgnoreCase("gladiators") && gladiatorCommands != null) {
                 return gladiatorCommands.tabComplete(source, arguments);
-            } else if (arguments[0].equalsIgnoreCase("op") || arguments[0].equalsIgnoreCase("deop")) {
+            } else if (arguments[0].equalsIgnoreCase("op")
+                    || arguments[0].equalsIgnoreCase("deop")
+                    || arguments[0].equalsIgnoreCase("serverop")
+                    || arguments[0].equalsIgnoreCase("serverdeop")) {
                 if (arguments.length == 2) {
                     candidates = lookup.suggestions();
                 } else {

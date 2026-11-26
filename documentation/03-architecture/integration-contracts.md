@@ -27,8 +27,9 @@ Economy queries teams for:
 - Current team of a player
 - All members of a team (four, including offline)
 - Player tier
-- Whether someone is a competitor (**Deferred** flag)
-- Whether someone is admin/spectator (**Deferred** flag)
+- Whether someone is a competitor (`TeamService.isCompetitor` / `competitorsOf`)
+- Whether someone is a spectator (`TeamService.isSpectator`)
+- Whether someone is a plugin admin (`AccountAdminService.isPluginAdminAccount`)
 
 Teams remains source of truth; economy does not copy the roster into a second membership table.
 

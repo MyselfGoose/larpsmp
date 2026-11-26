@@ -12,22 +12,27 @@ import org.bukkit.entity.Player;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Account-scoped plugin admin grants. Minecraft client UUID / launcher name are irrelevant;
- * only the LarpSMP account username matters.
+ * Account-scoped plugin admin and server-operator grants. Minecraft client UUID / launcher name
+ * are irrelevant; only the LarpSMP account username matters.
+ *
+ * <p>Server operator implies plugin admin. Bukkit {@code setOp} follows the server-operator table only.
  */
 public final class AccountAdminService {
 
-    private final AccountAdminRepository repository;
+    private final AccountAdminRepository pluginAdmins;
+    private final AccountServerOperatorRepository serverOperators;
     private final AccountRepository accounts;
     private final AccountSessionManager sessions;
     private final Consumer<String> errorLogger;
 
     public AccountAdminService(
-            AccountAdminRepository repository,
+            AccountAdminRepository pluginAdmins,
+            AccountServerOperatorRepository serverOperators,
             AccountRepository accounts,
             AccountSessionManager sessions,
             Consumer<String> errorLogger) {
-        this.repository = Objects.requireNonNull(repository, "repository");
+        this.pluginAdmins = Objects.requireNonNull(pluginAdmins, "pluginAdmins");
+        this.serverOperators = Objects.requireNonNull(serverOperators, "serverOperators");
         this.accounts = Objects.requireNonNull(accounts, "accounts");
         this.sessions = Objects.requireNonNull(sessions, "sessions");
         this.errorLogger = Objects.requireNonNull(errorLogger, "errorLogger");
@@ -36,15 +41,40 @@ public final class AccountAdminService {
     public boolean isAdminMinecraftUuid(UUID minecraftUuid) {
         return sessions.findByMinecraftUuid(minecraftUuid)
                 .map(AccountSession::accountId)
-                .map(this::isAdminAccount)
+                .map(this::isPluginAdminAccount)
                 .orElse(false);
     }
 
-    public boolean isAdminAccount(UUID accountId) {
+    public boolean isServerOperatorMinecraftUuid(UUID minecraftUuid) {
+        return sessions.findByMinecraftUuid(minecraftUuid)
+                .map(AccountSession::accountId)
+                .map(this::isServerOperatorAccount)
+                .orElse(false);
+    }
+
+    /**
+     * True when the account holds plugin admin and/or server operator (server op implies plugin admin).
+     */
+    public boolean isPluginAdminAccount(UUID accountId) {
         try {
-            return repository.isAdmin(accountId);
+            return pluginAdmins.isAdmin(accountId) || serverOperators.isServerOperator(accountId);
         } catch (SQLException exception) {
             errorLogger.accept("Failed to check plugin admin for " + accountId + ": " + exception.getMessage());
+            return false;
+        }
+    }
+
+    /** @deprecated Prefer {@link #isPluginAdminAccount(UUID)}. */
+    @Deprecated
+    public boolean isAdminAccount(UUID accountId) {
+        return isPluginAdminAccount(accountId);
+    }
+
+    public boolean isServerOperatorAccount(UUID accountId) {
+        try {
+            return serverOperators.isServerOperator(accountId);
+        } catch (SQLException exception) {
+            errorLogger.accept("Failed to check server operator for " + accountId + ": " + exception.getMessage());
             return false;
         }
     }
@@ -58,13 +88,13 @@ public final class AccountAdminService {
         }
     }
 
-    public GrantResult grant(String username, String grantedBy) {
+    public GrantResult grantPluginAdmin(String username, String grantedBy) {
         Optional<Account> account = findAccount(username);
         if (account.isEmpty()) {
             return GrantResult.notFound(username);
         }
         try {
-            boolean created = repository.grant(account.get().id(), grantedBy);
+            boolean created = pluginAdmins.grant(account.get().id(), grantedBy);
             return created
                     ? GrantResult.granted(account.get())
                     : GrantResult.already(account.get());
@@ -74,13 +104,22 @@ public final class AccountAdminService {
         }
     }
 
-    public GrantResult revoke(String username) {
+    /** @deprecated Prefer {@link #grantPluginAdmin(String, String)}. */
+    @Deprecated
+    public GrantResult grant(String username, String grantedBy) {
+        return grantPluginAdmin(username, grantedBy);
+    }
+
+    public GrantResult revokePluginAdmin(String username) {
         Optional<Account> account = findAccount(username);
         if (account.isEmpty()) {
             return GrantResult.notFound(username);
         }
         try {
-            boolean removed = repository.revoke(account.get().id());
+            if (serverOperators.isServerOperator(account.get().id())) {
+                return GrantResult.stillServerOperator(account.get());
+            }
+            boolean removed = pluginAdmins.revoke(account.get().id());
             return removed
                     ? GrantResult.revoked(account.get())
                     : GrantResult.notAdmin(account.get());
@@ -90,23 +129,72 @@ public final class AccountAdminService {
         }
     }
 
+    /** @deprecated Prefer {@link #revokePluginAdmin(String)}. */
+    @Deprecated
+    public GrantResult revoke(String username) {
+        return revokePluginAdmin(username);
+    }
+
+    public GrantResult grantServerOperator(String username, String grantedBy) {
+        Optional<Account> account = findAccount(username);
+        if (account.isEmpty()) {
+            return GrantResult.notFound(username);
+        }
+        try {
+            pluginAdmins.grant(account.get().id(), grantedBy);
+            boolean created = serverOperators.grant(account.get().id(), grantedBy);
+            return created
+                    ? GrantResult.granted(account.get())
+                    : GrantResult.already(account.get());
+        } catch (SQLException exception) {
+            errorLogger.accept("Failed to grant server operator to '" + username + "': " + exception.getMessage());
+            return GrantResult.failed(exception.getMessage());
+        }
+    }
+
+    public GrantResult revokeServerOperator(String username) {
+        Optional<Account> account = findAccount(username);
+        if (account.isEmpty()) {
+            return GrantResult.notFound(username);
+        }
+        try {
+            boolean removed = serverOperators.revoke(account.get().id());
+            return removed
+                    ? GrantResult.revoked(account.get())
+                    : GrantResult.notAdmin(account.get());
+        } catch (SQLException exception) {
+            errorLogger.accept("Failed to revoke server operator from '" + username + "': "
+                    + exception.getMessage());
+            return GrantResult.failed(exception.getMessage());
+        }
+    }
+
     public List<AccountAdminRepository.AdminRow> listAdmins() {
         try {
-            return repository.listAdmins();
+            return pluginAdmins.listAdmins();
         } catch (SQLException exception) {
             errorLogger.accept("Failed to list plugin admins: " + exception.getMessage());
             return List.of();
         }
     }
 
+    public List<AccountServerOperatorRepository.OperatorRow> listServerOperators() {
+        try {
+            return serverOperators.listOperators();
+        } catch (SQLException exception) {
+            errorLogger.accept("Failed to list server operators: " + exception.getMessage());
+            return List.of();
+        }
+    }
+
     /**
-     * Aligns Paper's vanilla op flag with account admin status for this online player.
+     * Aligns Paper's vanilla op flag with account server-operator status for this online player.
      * Call on join after the account session exists.
      */
     public void syncBukkitOperator(Player player) {
-        boolean admin = isAdminMinecraftUuid(player.getUniqueId());
-        if (player.isOp() != admin) {
-            player.setOp(admin);
+        boolean serverOp = isServerOperatorMinecraftUuid(player.getUniqueId());
+        if (player.isOp() != serverOp) {
+            player.setOp(serverOp);
         }
     }
 
@@ -137,6 +225,9 @@ public final class AccountAdminService {
         record NotAdmin(Account account) implements GrantResult {
         }
 
+        record StillServerOperator(Account account) implements GrantResult {
+        }
+
         record NotFound(String username) implements GrantResult {
         }
 
@@ -157,6 +248,10 @@ public final class AccountAdminService {
 
         static GrantResult notAdmin(Account account) {
             return new NotAdmin(account);
+        }
+
+        static GrantResult stillServerOperator(Account account) {
+            return new StillServerOperator(account);
         }
 
         static GrantResult notFound(String username) {

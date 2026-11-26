@@ -49,15 +49,21 @@ Wait until the script says the server is ready and the console shows auth/Postgr
 
 Offline mode is on — different client nicknames are fine. After signup/login, in-game identity is the **LarpSMP username**, not the launcher nickname. Vanilla commands must also accept that username (e.g. client nick `Yamite` logged in as account `secondgoose` → `/gamemode survival secondgoose` works; `/gamemode survival yamite` should not be required).
 
-**Op Client A** (needed for `/larp …`):
+**Grant Client A admin** (needed for `/larp …`):
 
-In the Paper console:
+After Client A has signed up / logged in, in the Paper console:
 
 ```text
-op <ClientA_MinecraftName>
+larp op <LarpSMPUsername>
 ```
 
-Use the name the server sees on join (before/at connection). If unsure, check console join lines. After auth, tab list shows the LarpSMP username — ops are tied to the Minecraft profile UUID.
+For vanilla `/gamemode` / `/give` / `/tp` as well:
+
+```text
+larp serverop <LarpSMPUsername>
+```
+
+Use the **LarpSMP account username** (tab list name after auth), not the launcher nickname. Plugin admin and server operator are account-keyed; vanilla `ops.json` is not authoritative.
 
 ### Stop
 

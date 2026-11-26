@@ -575,10 +575,10 @@ public final class MoneyService implements AutoCloseable {
                 }
             }
 
-            List<TeamMember> members = teams.membersOf(teamId);
+            List<TeamMember> members = teams.competitorsOf(teamId);
             if (members.isEmpty()) {
                 return new SplitRewardResult(TransactionStatus.WALLET_NOT_FOUND, "", amount, null,
-                        List.of(), 0, 0, "Team has no members");
+                        List.of(), 0, 0, "Team has no competitors");
             }
             int rotationBefore = money.loadSettings().rewardRotationIndex();
             Map<UUID, Long> shares = computeRotatingShares(members, amount, rotationBefore);
@@ -757,6 +757,19 @@ public final class MoneyService implements AutoCloseable {
                         0, 0, false, null, null, List.of(), "Kill money disabled");
             }
 
+            if (!teams.isCompetitor(request.victimAccountId())
+                    || !teams.isCompetitor(request.killerAccountId())) {
+                money.insertSettlementNoOp(
+                        EconomyRules.SETTLEMENT_KIND_DEATH,
+                        request.deathId(),
+                        EconomyRules.OUTCOME_SKIPPED_NOT_COMPETITOR,
+                        "Victim or killer is not a competitor");
+                return new DeathPaymentResult(
+                        request.deathId(),
+                        EconomyRules.OUTCOME_SKIPPED_NOT_COMPETITOR,
+                        0, 0, false, null, null, List.of(), "Victim or killer is not a competitor");
+            }
+
             boolean friendly = request.friendlyFire();
             if (!friendly) {
                 Optional<Team> victimTeam = teams.teamOf(request.victimAccountId());
@@ -801,7 +814,7 @@ public final class MoneyService implements AutoCloseable {
                 rescueParentId = rescue.parentTransactionId();
             }
 
-            List<TeamMember> roster = teams.membersOf(victimTeam.id());
+            List<TeamMember> roster = teams.competitorsOf(victimTeam.id());
             Map<UUID, JdbcMoneyRepository.WalletRow> wallets = new HashMap<>();
             for (TeamMember member : roster) {
                 JdbcMoneyRepository.WalletRow wallet =
@@ -978,7 +991,7 @@ public final class MoneyService implements AutoCloseable {
                 EconomyRules.SETTLEMENT_KIND_RESCUE, deathId));
 
         for (Team team : allTeams) {
-            List<TeamMember> members = teams.membersOf(team.id());
+            List<TeamMember> members = teams.competitorsOf(team.id());
             for (TeamMember member : members) {
                 JdbcMoneyRepository.WalletRow wallet =
                         money.findWalletByAccountId(member.accountId()).orElse(null);

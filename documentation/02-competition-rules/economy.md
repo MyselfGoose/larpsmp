@@ -11,7 +11,7 @@
 | Whole dollars only (no cents) | Confirmed · Implemented (`long` amounts) |
 | Money is a plugin number, not a physical item | Confirmed |
 | Persist against permanent account ID, not display name | Confirmed · Implemented |
-| Rejoining must never grant a second starting payment | Confirmed · **Gap:** every auth signup currently gets $200 — see [known gaps](../05-status/known-gaps-and-debt.md) |
+| Rejoining must never grant a second starting payment | Confirmed · Implemented (competitor flag + `starting_balance_granted`) |
 | No team wallet | Confirmed |
 
 Team wealth example: wallets $250 + $180 + $300 + $70 → team total **$800**. An internal `/pay` does not change that total.

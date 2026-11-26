@@ -35,7 +35,8 @@ import com.larpsmp.moneyevent.auth.AuthDialogFactory;
 import com.larpsmp.moneyevent.auth.AuthRateLimiter;
 import com.larpsmp.moneyevent.auth.AuthService;
 import com.larpsmp.moneyevent.auth.AuthSessionManager;
-import com.larpsmp.moneyevent.auth.DevelopmentConsoleOpAuthorizer;
+import com.larpsmp.moneyevent.auth.AccountPermissionAuthorizer;
+import com.larpsmp.moneyevent.auth.AccountServerOperatorRepository;
 import com.larpsmp.moneyevent.auth.EmailChallengeRepository;
 import com.larpsmp.moneyevent.auth.EmailChallengeService;
 import com.larpsmp.moneyevent.auth.PasswordHasher;
@@ -328,6 +329,7 @@ public final class MoneyEventPlugin extends JavaPlugin {
             });
             AccountAdminService accountAdmins = new AccountAdminService(
                     new AccountAdminRepository(dataSource),
+                    new AccountServerOperatorRepository(dataSource),
                     moneyAccounts,
                     accountSessionManager,
                     message -> getLogger().severe(message));
@@ -335,7 +337,7 @@ public final class MoneyEventPlugin extends JavaPlugin {
             playerStateService.setCaptureExcludedItem(teamAdminTool::isTool);
             TeamAdminSession teamAdminSessions = new TeamAdminSession();
             TeamAdminDialogFactory teamDialogs = new TeamAdminDialogFactory(teamService);
-            DevelopmentConsoleOpAuthorizer adminAuthorizer = new DevelopmentConsoleOpAuthorizer();
+            AccountPermissionAuthorizer adminAuthorizer = new AccountPermissionAuthorizer();
             TeamAdminListener teamAdminListener = new TeamAdminListener(
                     this,
                     teamService,
@@ -407,7 +409,6 @@ public final class MoneyEventPlugin extends JavaPlugin {
                     accountSessionManager,
                     moneyAccounts,
                     teamService,
-                    accountAdmins::isAdminMinecraftUuid,
                     message -> getLogger().severe(message));
             CaptureCommandController captureCommands = new CaptureCommandController(
                     captureService,
@@ -624,6 +625,7 @@ public final class MoneyEventPlugin extends JavaPlugin {
             getServer().getPluginManager().registerEvents(
                     new MoneyJoinListener(
                             moneyService,
+                            teamService,
                             notifications,
                             message -> getLogger().severe(message),
                             balanceDisplay,
@@ -694,6 +696,7 @@ public final class MoneyEventPlugin extends JavaPlugin {
             getServer().getPluginManager().registerEvents(new SpawnBlockListener(spawnService), this);
 
             getLogger().info("Plugin admins are LarpSMP-account based. Grant with: /larp op <username>");
+            getLogger().info("Server operators (Bukkit op) are separate. Grant with: /larp serverop <username>");
             getLogger().info("Account-linked wallets ready (competitor starting balance $"
                     + MoneyService.STARTING_BALANCE + " on first team assignment).");
             getLogger().info("Economy settlement APIs ready (split/death/rescue/kill-money).");

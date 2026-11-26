@@ -20,7 +20,9 @@ Amira and Azeem work on the project together. **Do not count either developer as
 | **Captain** | One per team. Nominates the auction representative; useful admin contact. Does **not** control teammates’ wallets or get admin money commands. |
 | **Auction representative** | One per team for an auction session; cannot change between lots once set. Bids from their personal wallet. |
 | **Admin** | Server / plugin privileges for money corrections, roster edits, event controls. |
-| **Spectator** | Watches without counting on capture points or competing wealth (**Planned** role model; not fully implemented as a first-class account flag). |
+| **Spectator** | Watches without counting on capture points or competing wealth (`/larp role set <user> spectator`). |
+| **Plugin admin** | Runs `/larp` money, teams, events (`/larp op`). Does not grant Bukkit op. |
+| **Server operator** | Full vanilla op (`/larp serverop`); implies plugin admin. Synced to Bukkit `setOp` on join. |
 
 ## Team colors
 

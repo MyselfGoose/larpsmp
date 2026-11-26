@@ -118,8 +118,10 @@ public final class TeamAdminDialogFactory {
                 boolean isCaptain = team.captainAccountId() != null
                         && team.captainAccountId().equals(member.accountId());
                 Optional<PlayerTier> tier = member.playerTier();
+                String roleSuffix = participationLabel(member.accountId());
                 String label = (isCaptain ? "★ " : "") + member.username()
-                        + " · " + tier.map(PlayerTier::shortLabel).orElse("no tier");
+                        + " · " + tier.map(PlayerTier::shortLabel).orElse("no tier")
+                        + roleSuffix;
                 TextColor color = tier.map(value -> TextColor.color(value.rgb()))
                         .orElse(NamedTextColor.DARK_GRAY);
                 body.add(plain(label, color));
@@ -603,6 +605,16 @@ public final class TeamAdminDialogFactory {
                             NamedTextColor.YELLOW);
                 })
                 .orElse(new AssignLabel(username, NamedTextColor.WHITE));
+    }
+
+    private String participationLabel(UUID accountId) {
+        if (teams.isSpectator(accountId)) {
+            return " · spectator";
+        }
+        if (!teams.isCompetitor(accountId)) {
+            return " · not competing";
+        }
+        return "";
     }
 
     private static DialogBase base(String title, TextColor color, List<DialogBody> body) {

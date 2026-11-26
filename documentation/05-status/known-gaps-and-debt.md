@@ -4,7 +4,7 @@
 
 | Gap | Rules | Code today | Risk |
 |-----|-------|------------|------|
-| Competitor role flag | Needed by contracts | Deferred — roster + `starting_balance_granted` used as proxy | Hard to exclude non-competitors systematically once roles land |
+| Competitor role flag | Needed by contracts | Done (`account_participation`) | — |
 | Kill attribution → death API | Attribution must call `processDeathPayment` | Done (`KillAttributionService` + combat listeners) | — |
 | Capture → split API | Capture must call `processCaptureReward` | Done (`CaptureService` → `processCaptureReward`) | — |
 | Spawn protection | Confirmed respawn-only | Done (`spawn/` + `/larp spawn define`) | — |
@@ -14,7 +14,7 @@
 
 | Item | Detail |
 |------|--------|
-| `DevelopmentConsoleOpAuthorizer` | Temporary ops/console gate; replace with production adapter (“Azeem’s adapter” noted in planning) |
+| `DevelopmentConsoleOpAuthorizer` | Replaced by `AccountPermissionAuthorizer` (deprecated shim remains for older tests) |
 | Stale dialog copy risk | Some `config.yml` strings may still imply hard UUID bind; behavior is portable rebind — review message keys when editing auth UX |
 | AUTH doc schema age | Old doc said migrations 001–004; code has 001–006 — fixed in new [schema doc](../03-architecture/persistence-and-schema.md) |
 | README lag | Root README omitted teams until this documentation pass |

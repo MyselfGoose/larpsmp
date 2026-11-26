@@ -1,6 +1,6 @@
 # Teams and tiers
 
-**Status:** Competition model **Confirmed**. Admin CRUD, captains, tiers, and team-wealth HUD **Implemented** on `feature/teams`. Competitor/admin/spectator first-class roles still **Deferred**.
+**Status:** Competition model **Confirmed**. Admin CRUD, captains, tiers, team-wealth HUD, and competitor/spectator participation **Implemented**.
 
 ## Competition shape
 

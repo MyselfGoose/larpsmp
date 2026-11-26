@@ -8,6 +8,9 @@ import org.jetbrains.annotations.Nullable;
 
 /**
  * Who counts toward capture advantage.
+ *
+ * <p>Only living, non-teleporting competitors with a team count. Vanilla spectator gamemode never
+ * counts. Plugin admin status does not exclude a competitor (e.g. Karim).
  */
 public final class CaptureEligibility {
 
@@ -18,26 +21,41 @@ public final class CaptureEligibility {
 
     public static boolean counts(
             Player player,
-            Predicate<UUID> isPluginAdmin,
+            @Nullable Predicate<UUID> isCompetitor,
             @Nullable Predicate<UUID> hasTeam) {
         if (player == null || !player.isOnline()) {
             return false;
         }
-        if (player.isDead()) {
+        boolean competitor = isCompetitor == null || isCompetitor.test(player.getUniqueId());
+        boolean team = hasTeam == null || hasTeam.test(player.getUniqueId());
+        return countsState(
+                true,
+                player.isDead(),
+                player.getGameMode(),
+                player.hasMetadata(TELEPORTING_METADATA),
+                competitor,
+                team);
+    }
+
+    /**
+     * Pure eligibility decision for tests and scanners.
+     */
+    public static boolean countsState(
+            boolean online,
+            boolean dead,
+            @Nullable GameMode gameMode,
+            boolean teleporting,
+            boolean competitor,
+            boolean hasTeam) {
+        if (!online || dead) {
             return false;
         }
-        if (player.getGameMode() == GameMode.SPECTATOR) {
+        if (gameMode == GameMode.SPECTATOR) {
             return false;
         }
-        if (isPluginAdmin != null && isPluginAdmin.test(player.getUniqueId())) {
+        if (teleporting) {
             return false;
         }
-        if (player.hasMetadata(TELEPORTING_METADATA)) {
-            return false;
-        }
-        if (hasTeam != null && !hasTeam.test(player.getUniqueId())) {
-            return false;
-        }
-        return true;
+        return competitor && hasTeam;
     }
 }

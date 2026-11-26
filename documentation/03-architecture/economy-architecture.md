@@ -65,7 +65,7 @@ Sidebar: [`BukkitBalanceSidebar`](../../src/main/java/com/larpsmp/moneyevent/dis
 ## Integration expectations
 
 - **Auth** supplies permanent account ID, username, auth completion, offline lookup by username.
-- **Teams** supplies team membership, roster of four, tier, (eventually) competitor vs admin/spectator.
+- **Teams** supplies team membership, roster of four, tier, and competitor/spectator participation.
 - **Kills / captures / auctions** supply stable IDs so payouts are idempotent across retries and restarts.
 
 See [Integration contracts](integration-contracts.md).

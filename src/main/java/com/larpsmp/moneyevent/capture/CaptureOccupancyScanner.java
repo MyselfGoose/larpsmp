@@ -13,34 +13,29 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Consumer;
-import java.util.function.Predicate;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.World;
 import org.bukkit.entity.Player;
-import org.jetbrains.annotations.Nullable;
 
 /**
- * Counts rostered, eligible players inside the active capture volume.
+ * Counts rostered competitors inside the active capture volume.
  */
 public final class CaptureOccupancyScanner {
 
     private final AccountSessionManager sessions;
     private final AccountRepository accounts;
     private final TeamService teams;
-    private final Predicate<UUID> isPluginAdmin;
     private final Consumer<String> errorLogger;
 
     public CaptureOccupancyScanner(
             AccountSessionManager sessions,
             AccountRepository accounts,
             TeamService teams,
-            Predicate<UUID> isPluginAdmin,
             Consumer<String> errorLogger) {
         this.sessions = Objects.requireNonNull(sessions, "sessions");
         this.accounts = Objects.requireNonNull(accounts, "accounts");
         this.teams = Objects.requireNonNull(teams, "teams");
-        this.isPluginAdmin = Objects.requireNonNull(isPluginAdmin, "isPluginAdmin");
         this.errorLogger = Objects.requireNonNull(errorLogger, "errorLogger");
     }
 
@@ -56,7 +51,7 @@ public final class CaptureOccupancyScanner {
 
         Map<UUID, Integer> headcounts = new HashMap<>();
         for (Player player : world.getPlayers()) {
-            if (!CaptureEligibility.counts(player, isPluginAdmin, this::hasTeam)) {
+            if (!CaptureEligibility.counts(player, this::isCompetitor, this::hasTeam)) {
                 continue;
             }
             Location location = player.getLocation();
@@ -70,6 +65,11 @@ public final class CaptureOccupancyScanner {
             headcounts.merge(teamId.get(), 1, Integer::sum);
         }
         return CaptureAdvantage.fromHeadcounts(headcounts);
+    }
+
+    private boolean isCompetitor(UUID minecraftUuid) {
+        Optional<UUID> accountId = resolveAccountId(minecraftUuid);
+        return accountId.filter(teams::isCompetitor).isPresent();
     }
 
     private boolean hasTeam(UUID minecraftUuid) {

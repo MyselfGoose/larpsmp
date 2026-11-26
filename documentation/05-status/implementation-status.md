@@ -13,7 +13,7 @@ For ordered “what to build next,” see [roadmap.md](roadmap.md). Labels: **Do
 | Account-keyed player bodies | Done | `playerstate` package, `V004` |
 | Portable UUID rebind | Done | AuthService login/signup |
 | Universal account identity (display + vanilla commands) | Done | `AccountIdentityBinder` + `ServerCommandNameIndex` (`playersByName` rebind) |
-| Production admin authz | Partial | `DevelopmentConsoleOpAuthorizer` only |
+| Production admin authz | Done | `AccountPermissionAuthorizer` + `/larp op` / `/larp serverop` |
 | Remote object storage | Not started | `LARPSMP_STORAGE_*` placeholders |
 
 ## Economy
@@ -44,7 +44,7 @@ For ordered “what to build next,” see [roadmap.md](roadmap.md). Labels: **Do
 | Tiers 1–4 | Done | `V006`, `/larp tier` |
 | Soft roster warnings | Done | `TeamService` |
 | Dialog admin UI + Nether Star | Done | `TeamAdmin*` |
-| Competitor/admin/spectator roles | Not started | Deferred |
+| Competitor/admin/spectator roles | Done | `account_participation` + `account_plugin_admins` + `account_server_operators` |
 | Colored nametags / tab grouping | Done | `TeamPresenceDisplay` on owned scoreboards |
 | `/top kills` | Done | `MoneyCommandController.top` + `normalKillLeaderboard` |
 | Player `/team`, `/help` | Done | `TeamInfoCommandController`, `PlayerHelpCommandController` |
