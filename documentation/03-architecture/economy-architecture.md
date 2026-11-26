@@ -16,7 +16,7 @@
 | `add` / `remove` / `set` | Admin-style single-wallet mutations |
 | `transfer` | Player `/pay` and similar |
 | `grantCompetitorStartingBalanceIfNeeded` | One-time `$200` on first team assignment |
-| `splitReward` / `processCaptureReward` | Rotating whole-dollar team credits; idempotent external ids |
+| `splitReward` / `processCaptureReward` / `processGladiatorPrize` | Rotating whole-dollar team credits; idempotent external ids (`CAPTURE`, `GLADIATOR`) |
 | `processDeathPayment` | Victim + teammate cover + killer payout; rescue; idempotent `deathId` |
 | Kill-money / killreward / visibility setters | Admin scopes and death prices |
 | `transaction` / `allTransactions` | Ledger reads |

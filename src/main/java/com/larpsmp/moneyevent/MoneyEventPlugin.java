@@ -9,6 +9,16 @@ import com.larpsmp.moneyevent.acehunt.AceHuntService;
 import com.larpsmp.moneyevent.acehunt.AceHuntTickTask;
 import com.larpsmp.moneyevent.acehunt.BukkitAceHuntWorldActions;
 import com.larpsmp.moneyevent.acehunt.JdbcAceHuntRepository;
+import com.larpsmp.moneyevent.gladiator.BukkitGladiatorWorldActions;
+import com.larpsmp.moneyevent.gladiator.GladiatorBossBar;
+import com.larpsmp.moneyevent.gladiator.GladiatorCommandController;
+import com.larpsmp.moneyevent.gladiator.GladiatorConfig;
+import com.larpsmp.moneyevent.gladiator.GladiatorConfigWriter;
+import com.larpsmp.moneyevent.gladiator.GladiatorListener;
+import com.larpsmp.moneyevent.gladiator.GladiatorPlayerCommandController;
+import com.larpsmp.moneyevent.gladiator.GladiatorService;
+import com.larpsmp.moneyevent.gladiator.GladiatorTickTask;
+import com.larpsmp.moneyevent.gladiator.JdbcGladiatorRepository;
 import com.larpsmp.moneyevent.auction.AuctionCommandController;
 import com.larpsmp.moneyevent.auction.AuctionConfig;
 import com.larpsmp.moneyevent.auction.AuctionConfigWriter;
@@ -112,6 +122,8 @@ public final class MoneyEventPlugin extends JavaPlugin {
     private CaptureBossBarPresenter captureBossBar;
     private AceHuntService aceHuntService;
     private AceHuntBossBar aceHuntBossBar;
+    private GladiatorService gladiatorService;
+    private GladiatorBossBar gladiatorBossBar;
     private BalanceDisplayControl balanceDisplay;
     private AuthSessionManager authSessionManager;
     private AccountSessionManager accountSessionManager;
@@ -122,6 +134,7 @@ public final class MoneyEventPlugin extends JavaPlugin {
     private BukkitTask autosaveTask;
     private CaptureTickTask captureTickTask;
     private AceHuntTickTask aceHuntTickTask;
+    private GladiatorTickTask gladiatorTickTask;
     private boolean databaseReady;
 
     @Override
@@ -524,6 +537,54 @@ public final class MoneyEventPlugin extends JavaPlugin {
                     aceHuntService, accountSessionManager, this);
             aceHuntService.restoreFromDatabase();
 
+            GladiatorConfig gladiatorConfig = GladiatorConfig.from(getConfig());
+            JdbcGladiatorRepository gladiatorRepository = new JdbcGladiatorRepository(dataSource);
+            gladiatorService = new GladiatorService(
+                    gladiatorConfig,
+                    gladiatorRepository,
+                    moneyService,
+                    teamService,
+                    message -> getLogger().severe(message));
+            GladiatorConfigWriter.write(this, gladiatorService.config());
+            gladiatorService.setWorldActions(new BukkitGladiatorWorldActions(
+                    this,
+                    accountSessionManager,
+                    teamService,
+                    message -> getLogger().severe(message)));
+            aceHuntService.setOtherEventLiveGuard(gladiatorService::isLive);
+            gladiatorService.setOtherEventLiveGuard(aceHuntService::isLive);
+            playerStateService.setFrozenBodySource(accountId -> {
+                GladiatorService service = gladiatorService;
+                if (service == null) {
+                    return java.util.Optional.empty();
+                }
+                return service.frozenBody(accountId)
+                        .map(BukkitGladiatorWorldActions::toAccountState);
+            });
+            teamService.addRosterChangeListener((teamIds, accountIds) -> {
+                GladiatorService service = gladiatorService;
+                if (service != null) {
+                    service.onRosterChanged();
+                }
+            });
+            GladiatorCommandController gladiatorCommands = new GladiatorCommandController(
+                    gladiatorService,
+                    teamService,
+                    moneyService,
+                    walletLookup,
+                    updated -> GladiatorConfigWriter.write(this, updated),
+                    () -> {
+                        reloadConfig();
+                        gladiatorService.replaceConfig(GladiatorConfig.from(getConfig()));
+                    });
+            GladiatorBossBar gladBossBar = new GladiatorBossBar(gladiatorService, teamService);
+            gladiatorBossBar = gladBossBar;
+            GladiatorListener gladiatorListener = new GladiatorListener(
+                    gladiatorService, accountSessionManager, accountAdmins, this);
+            GladiatorPlayerCommandController gladiatorPlayerCommands = new GladiatorPlayerCommandController(
+                    gladiatorService, teamService, accountSessionManager);
+            gladiatorService.restoreFromDatabase();
+
             MoneyCommandController controller = new MoneyCommandController(
                     moneyService,
                     walletLookup,
@@ -539,15 +600,22 @@ public final class MoneyEventPlugin extends JavaPlugin {
                     spawnCommands,
                     auctionCommands,
                     aceHuntCommands,
+                    gladiatorCommands,
                     killRepository,
                     moneyAccounts);
             TeamInfoCommandController teamInfoCommands = new TeamInfoCommandController(
                     moneyService, teamService, message -> getLogger().severe(message));
             PlayerHelpCommandController playerHelp = new PlayerHelpCommandController();
             BukkitMoneyCommands commands = new BukkitMoneyCommands(
-                    controller, teamInfoCommands, playerHelp, accountAdmins, bidCommands, auctionPayCommands);
+                    controller,
+                    teamInfoCommands,
+                    playerHelp,
+                    accountAdmins,
+                    bidCommands,
+                    auctionPayCommands,
+                    gladiatorPlayerCommands);
             for (String commandName : new String[] {
-                    "balance", "pay", "top", "team", "help", "bid", "auction", "larp"}) {
+                    "balance", "pay", "top", "team", "help", "bid", "auction", "gladiator", "larp"}) {
                 var command = Objects.requireNonNull(getCommand(commandName),
                         "Command missing from plugin.yml: " + commandName);
                 command.setExecutor(commands);
@@ -571,7 +639,9 @@ public final class MoneyEventPlugin extends JavaPlugin {
                     teamService,
                     moneyService,
                     killRepository,
-                    aceHuntService::isEventCombat,
+                    (victimAccountId, killerAccountId) ->
+                            aceHuntService.isEventCombat(victimAccountId, killerAccountId)
+                                    || gladiatorService.isEventCombat(victimAccountId, killerAccountId),
                     message -> getLogger().severe(message)
             );
             getServer().getPluginManager().registerEvents(new BlockOwnershipListener(blockOwnership), this);
@@ -593,6 +663,7 @@ public final class MoneyEventPlugin extends JavaPlugin {
                                 }
                                 aceHuntListener.onCombatDeathOutcome(
                                         victimMinecraftUuid, deathId, killerAccountId);
+                                // Gladiators scoring uses PlayerDeathEvent; attribution still marks event_kill.
                             }),
                     this);
 
@@ -605,6 +676,7 @@ public final class MoneyEventPlugin extends JavaPlugin {
                         public void onJoin(org.bukkit.event.player.PlayerJoinEvent event) {
                             bossBar.showTo(event.getPlayer());
                             aceBossBar.showTo(event.getPlayer());
+                            gladBossBar.showTo(event.getPlayer());
                         }
                     }, this);
             captureTickTask = new CaptureTickTask(captureService, occupancy, bossBar, tempBlocks);
@@ -613,6 +685,10 @@ public final class MoneyEventPlugin extends JavaPlugin {
             getServer().getPluginManager().registerEvents(aceHuntListener, this);
             aceHuntTickTask = new AceHuntTickTask(aceHuntService, aceBossBar, accountSessionManager);
             aceHuntTickTask.start(this);
+
+            getServer().getPluginManager().registerEvents(gladiatorListener, this);
+            gladiatorTickTask = new GladiatorTickTask(gladiatorService, gladBossBar);
+            gladiatorTickTask.start(this);
 
             getServer().getPluginManager().registerEvents(new SpawnProtectionListener(spawnService), this);
             getServer().getPluginManager().registerEvents(new SpawnBlockListener(spawnService), this);
@@ -626,6 +702,7 @@ public final class MoneyEventPlugin extends JavaPlugin {
             getLogger().info("Auctions ready (/larp auction …, /bid, /auction pay; settlements to "
                     + auctionService.config().paymentUsername() + ").");
             getLogger().info("Ace Hunt ready (/larp acehunt …; prep → begin → surface → ban).");
+            getLogger().info("Gladiators ready (/larp gladiators …, /gladiator; admin-first Day 4).");
             getLogger().info("Spawn protection ready (/larp spawn define|status|reload; "
                     + spawnService.config().protectionSeconds() + "s after respawn in region).");
             getLogger().info("Teams administration ready (dialog UI + /larp team|captain|tier|teams).");
@@ -655,6 +732,10 @@ public final class MoneyEventPlugin extends JavaPlugin {
             aceHuntTickTask.cancel();
             aceHuntTickTask = null;
         }
+        if (gladiatorTickTask != null) {
+            gladiatorTickTask.cancel();
+            gladiatorTickTask = null;
+        }
         if (captureService != null) {
             captureService.flush();
             captureService = null;
@@ -667,7 +748,12 @@ public final class MoneyEventPlugin extends JavaPlugin {
             aceHuntBossBar.clear();
             aceHuntBossBar = null;
         }
+        if (gladiatorBossBar != null) {
+            gladiatorBossBar.clear();
+            gladiatorBossBar = null;
+        }
         aceHuntService = null;
+        gladiatorService = null;
 
         if (playerStateService != null && accountSessionManager != null) {
             for (Player player : getServer().getOnlinePlayers()) {

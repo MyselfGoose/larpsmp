@@ -37,6 +37,13 @@ public final class PlayerHelpCommandController {
                         "watch the boss bar for hunt and survival points while the event is live.",
                         NamedTextColor.WHITE))
                 .build());
+        source.send(line("/gladiator", "Fight quota and Gladiators points"));
+        source.send(Component.text()
+                .append(Component.text("Gladiators: ", NamedTextColor.GRAY))
+                .append(Component.text(
+                        "watch the boss bar for team points; use /gladiator ban during 1v1 kit bans.",
+                        NamedTextColor.WHITE))
+                .build());
     }
 
     private static Component line(String command, String description) {

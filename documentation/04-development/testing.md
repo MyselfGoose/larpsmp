@@ -21,10 +21,11 @@ JUnit 5 tests under `src/test/java/com/larpsmp/moneyevent/`. Many integration te
 | Capture | Advantage math, progress engine, session payout/idempotency/restart, temp-block rows, config load |
 | Auction | Session/reps lock, bid rejects, `/auction pay` settlement idempotency, previous-bidder forfeit, runtime restore |
 | Ace Hunt | Placement scoring (2/1/0, worse-place ties), prep non-scoring, hunt kill once, restart resume, phase timers, stop clears session |
+| Gladiators | Double round-robin shape, kit-ban turns, 3v3/1v1 scoring, skip quota, payout idempotency ($0 place), kill money off/on, restart mid-session |
 
 ### Gaps
 
-No automated tests yet for Bukkit sidebar UI, live in-world Paper damage/occupancy events, or Resend HTTP client live calls.
+No automated tests yet for Bukkit sidebar UI, live in-world Paper damage/occupancy/barrier meshes, boss-bar pixels, or Resend HTTP client live calls.
 
 ## Manual / local Paper
 

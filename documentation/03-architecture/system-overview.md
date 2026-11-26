@@ -27,6 +27,7 @@ Root: `src/main/java/com/larpsmp/moneyevent/`
 | `(root)` `MoneyEventPlugin` | Lifecycle, wiring, autosave task |
 | `auth` | Pre-join dialogs, accounts, UUID binding, rate limits, admin authorizers |
 | `acehunt` | Day 3 Ace Hunt (prep/hunt phases, scoring, lockup, borders, boss bar) |
+| `gladiator` | Day 4 Gladiators (arena fights, kits, quota, kit bans, boss bar, payout) |
 | `auction` | Mystery shulker auctions (/bid, /auction pay, reps, lot lifecycle) |
 | `capture` | Capture points (occupancy, progress, temp blocks, boss bar) → capture reward |
 | `combat` | Kill attribution (60s last-attacker, traps/hazards) → death settlement |
@@ -74,7 +75,8 @@ From [`plugin.yml`](../../src/main/resources/plugin.yml):
 |---------|------|
 | `/balance [player]` | Public balances |
 | `/pay <player> <amount>` | Transfers |
-| `/larp …` | Admin money + capture + spawn + auction + ace hunt + teams (`money`, `capture`, `spawn`, `auction`, `acehunt`, `teams`, `team`, `captain`, `tier`) |
+| `/larp …` | Admin money + capture + spawn + auction + ace hunt + gladiators + teams (`money`, `capture`, `spawn`, `auction`, `acehunt`, `gladiators`, `teams`, `team`, `captain`, `tier`) |
+| `/gladiator` | Gladiators quota / points; kit ban during 1v1s |
 
 ## Cross-cutting principles
 
@@ -85,6 +87,6 @@ From [`plugin.yml`](../../src/main/resources/plugin.yml):
 
 ## Intentionally not in this codebase yet
 
-Gladiators automation, competitor role flags, production permission model.
+Competitor role flags, production permission model.
 
-Auctions automation is Implemented (`auction/` package). Ace Hunt is Implemented (`acehunt/` package).
+Auctions automation is Implemented (`auction/` package). Ace Hunt is Implemented (`acehunt/` package). Gladiators is Implemented (`gladiator/` package).

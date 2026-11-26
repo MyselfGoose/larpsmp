@@ -1,6 +1,6 @@
 # Persistence and schema
 
-**Status:** Migrations **V001–V013 Implemented** (`V013` on `feature/ace-hunt`).
+**Status:** Migrations **V001–V014 Implemented** (`V014` on `feature/gladiators`).
 
 Migrations live under `src/main/resources/db/migrations/` and run via `MigrationRunner` on plugin enable when auth/DB is available.
 
@@ -21,6 +21,7 @@ Migrations live under `src/main/resources/db/migrations/` and run via `Migration
 | 011 | `V011__auctions.sql` | auction sessions, representatives, lots, bids, runtime pointer |
 | 012 | `V012__auction_payment_username.sql` | durable `auction_runtime.payment_username` for `/larp auction payee` |
 | 013 | `V013__ace_hunt.sql` | Ace Hunt sessions, aces, assignments, scored deaths, lockouts, snapshots, spectators, runtime |
+| 014 | `V014__gladiators.sql` | Gladiators sessions, schedule, fights, quota, kits, body snapshots, barriers, runtime |
 
 Also: `schema_migrations` tracks applied versions.
 
@@ -61,6 +62,16 @@ Also: `schema_migrations` tracks applied versions.
 | `ace_hunt_snapshots` | Pre-event location restore points |
 | `ace_hunt_spectators` | Dead aces / successful hunters |
 | `ace_hunt_runtime` | Singleton active session pointer |
+| `gladiator_sessions` | Gladiators phase lifecycle |
+| `gladiator_schedule` | Double round-robin 3v3 pairings |
+| `gladiator_fights` / `gladiator_fighters` | Active and completed bouts |
+| `gladiator_lineups` | Pending 3v3 lineups |
+| `gladiator_quota` | Fights used per account |
+| `gladiator_kit_bans` / `gladiator_duel_pending` | 1v1 kit-ban state |
+| `gladiator_body_snapshots` | Frozen personal bodies for the session |
+| `gladiator_kits` | Saved team + duel kit bytes |
+| `gladiator_barrier_blocks` | Barrier fill undo rows |
+| `gladiator_runtime` | Singleton active/ended session pointer |
 | `schema_migrations` | Applied versions |
 
 ## Economy persistence notes

@@ -2,6 +2,7 @@ package com.larpsmp.moneyevent.command;
 
 import com.larpsmp.moneyevent.acehunt.AceHuntCommandController;
 import com.larpsmp.moneyevent.auction.AuctionCommandController;
+import com.larpsmp.moneyevent.gladiator.GladiatorCommandController;
 import com.larpsmp.moneyevent.auth.Account;
 import com.larpsmp.moneyevent.auth.AccountAdminRepository;
 import com.larpsmp.moneyevent.auth.AccountAdminService;
@@ -50,6 +51,7 @@ public final class MoneyCommandController {
     private final @Nullable SpawnCommandController spawnCommands;
     private final @Nullable AuctionCommandController auctionCommands;
     private final @Nullable AceHuntCommandController aceHuntCommands;
+    private final @Nullable GladiatorCommandController gladiatorCommands;
     private final @Nullable JdbcCombatKillRepository killRepository;
     private final @Nullable AccountRepository accounts;
 
@@ -61,7 +63,7 @@ public final class MoneyCommandController {
             Consumer<String> errorLogger,
             MoneyAdminAuthorizer authorizer) {
         this(money, lookup, onlinePlayers, notifications, errorLogger, authorizer, null, null, null, null, null, null,
-                null, null, null, null);
+                null, null, null, null, null);
     }
 
     public MoneyCommandController(
@@ -73,7 +75,7 @@ public final class MoneyCommandController {
             MoneyAdminAuthorizer authorizer,
             @Nullable TeamCommandController teamCommands) {
         this(money, lookup, onlinePlayers, notifications, errorLogger, authorizer, teamCommands, null, null, null,
-                null, null, null, null, null, null);
+                null, null, null, null, null, null, null);
     }
 
     public MoneyCommandController(
@@ -87,7 +89,7 @@ public final class MoneyCommandController {
             @Nullable TeamService teams,
             @Nullable BalanceDisplayControl balanceDisplay) {
         this(money, lookup, onlinePlayers, notifications, errorLogger, authorizer, teamCommands, teams,
-                balanceDisplay, null, null, null, null, null, null, null);
+                balanceDisplay, null, null, null, null, null, null, null, null);
     }
 
     public MoneyCommandController(
@@ -102,7 +104,7 @@ public final class MoneyCommandController {
             @Nullable BalanceDisplayControl balanceDisplay,
             @Nullable AccountAdminService accountAdmins) {
         this(money, lookup, onlinePlayers, notifications, errorLogger, authorizer, teamCommands, teams,
-                balanceDisplay, accountAdmins, null, null, null, null, null, null);
+                balanceDisplay, accountAdmins, null, null, null, null, null, null, null);
     }
 
     public MoneyCommandController(
@@ -118,7 +120,7 @@ public final class MoneyCommandController {
             @Nullable AccountAdminService accountAdmins,
             @Nullable CaptureCommandController captureCommands) {
         this(money, lookup, onlinePlayers, notifications, errorLogger, authorizer, teamCommands, teams,
-                balanceDisplay, accountAdmins, captureCommands, null, null, null, null, null);
+                balanceDisplay, accountAdmins, captureCommands, null, null, null, null, null, null);
     }
 
     public MoneyCommandController(
@@ -135,7 +137,7 @@ public final class MoneyCommandController {
             @Nullable CaptureCommandController captureCommands,
             @Nullable SpawnCommandController spawnCommands) {
         this(money, lookup, onlinePlayers, notifications, errorLogger, authorizer, teamCommands, teams,
-                balanceDisplay, accountAdmins, captureCommands, spawnCommands, null, null, null, null);
+                balanceDisplay, accountAdmins, captureCommands, spawnCommands, null, null, null, null, null);
     }
 
     public MoneyCommandController(
@@ -154,7 +156,8 @@ public final class MoneyCommandController {
             @Nullable JdbcCombatKillRepository killRepository,
             @Nullable AccountRepository accounts) {
         this(money, lookup, onlinePlayers, notifications, errorLogger, authorizer, teamCommands, teams,
-                balanceDisplay, accountAdmins, captureCommands, spawnCommands, null, null, killRepository, accounts);
+                balanceDisplay, accountAdmins, captureCommands, spawnCommands, null, null, null,
+                killRepository, accounts);
     }
 
     public MoneyCommandController(
@@ -174,7 +177,7 @@ public final class MoneyCommandController {
             @Nullable JdbcCombatKillRepository killRepository,
             @Nullable AccountRepository accounts) {
         this(money, lookup, onlinePlayers, notifications, errorLogger, authorizer, teamCommands, teams,
-                balanceDisplay, accountAdmins, captureCommands, spawnCommands, auctionCommands, null,
+                balanceDisplay, accountAdmins, captureCommands, spawnCommands, auctionCommands, null, null,
                 killRepository, accounts);
     }
 
@@ -195,6 +198,29 @@ public final class MoneyCommandController {
             @Nullable AceHuntCommandController aceHuntCommands,
             @Nullable JdbcCombatKillRepository killRepository,
             @Nullable AccountRepository accounts) {
+        this(money, lookup, onlinePlayers, notifications, errorLogger, authorizer, teamCommands, teams,
+                balanceDisplay, accountAdmins, captureCommands, spawnCommands, auctionCommands, aceHuntCommands,
+                null, killRepository, accounts);
+    }
+
+    public MoneyCommandController(
+            MoneyService money,
+            PlayerLookup lookup,
+            OnlinePlayerAccess onlinePlayers,
+            PaymentNotificationStore notifications,
+            Consumer<String> errorLogger,
+            MoneyAdminAuthorizer authorizer,
+            @Nullable TeamCommandController teamCommands,
+            @Nullable TeamService teams,
+            @Nullable BalanceDisplayControl balanceDisplay,
+            @Nullable AccountAdminService accountAdmins,
+            @Nullable CaptureCommandController captureCommands,
+            @Nullable SpawnCommandController spawnCommands,
+            @Nullable AuctionCommandController auctionCommands,
+            @Nullable AceHuntCommandController aceHuntCommands,
+            @Nullable GladiatorCommandController gladiatorCommands,
+            @Nullable JdbcCombatKillRepository killRepository,
+            @Nullable AccountRepository accounts) {
         this.money = money;
         this.lookup = lookup;
         this.onlinePlayers = onlinePlayers;
@@ -209,6 +235,7 @@ public final class MoneyCommandController {
         this.spawnCommands = spawnCommands;
         this.auctionCommands = auctionCommands;
         this.aceHuntCommands = aceHuntCommands;
+        this.gladiatorCommands = gladiatorCommands;
         this.killRepository = killRepository;
         this.accounts = accounts;
     }
@@ -341,12 +368,15 @@ public final class MoneyCommandController {
         if (arguments.length >= 1 && aceHuntCommands != null && aceHuntCommands.handle(source, arguments)) {
             return;
         }
+        if (arguments.length >= 1 && gladiatorCommands != null && gladiatorCommands.handle(source, arguments)) {
+            return;
+        }
         if (arguments.length >= 1 && teamCommands != null && teamCommands.handle(source, arguments)) {
             return;
         }
         if (arguments.length < 1) {
             source.send(
-                    "Usage: /larp <money|killmoney|killreward|visibility|op|deop|ops|capture|spawn|auction|acehunt|teams|team|captain|tier> ...",
+                    "Usage: /larp <money|killmoney|killreward|visibility|op|deop|ops|capture|spawn|auction|acehunt|gladiators|teams|team|captain|tier> ...",
                     MessageKind.ERROR);
             return;
         }
@@ -360,7 +390,7 @@ public final class MoneyCommandController {
             case "deop" -> larpDeop(source, arguments);
             case "ops" -> larpOps(source);
             default -> source.send(
-                    "Usage: /larp <money|killmoney|killreward|visibility|op|deop|ops|capture|spawn|auction|acehunt|teams|team|captain|tier> ...",
+                    "Usage: /larp <money|killmoney|killreward|visibility|op|deop|ops|capture|spawn|auction|acehunt|gladiators|teams|team|captain|tier> ...",
                     MessageKind.ERROR);
         }
     }
@@ -843,6 +873,7 @@ public final class MoneyCommandController {
                     candidates.add("spawn");
                     candidates.add("auction");
                     candidates.add("acehunt");
+                    candidates.add("gladiators");
                 }
                 if (teamCommands != null) {
                     candidates.addAll(teamCommands.tabComplete(source, arguments));
@@ -855,6 +886,8 @@ public final class MoneyCommandController {
                 return auctionCommands.tabComplete(source, arguments);
             } else if (arguments[0].equalsIgnoreCase("acehunt") && aceHuntCommands != null) {
                 return aceHuntCommands.tabComplete(source, arguments);
+            } else if (arguments[0].equalsIgnoreCase("gladiators") && gladiatorCommands != null) {
+                return gladiatorCommands.tabComplete(source, arguments);
             } else if (arguments[0].equalsIgnoreCase("op") || arguments[0].equalsIgnoreCase("deop")) {
                 if (arguments.length == 2) {
                     candidates = lookup.suggestions();

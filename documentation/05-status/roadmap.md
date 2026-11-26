@@ -1,7 +1,7 @@
 # Development roadmap (by branch)
 
-You are here: **`feature/ace-hunt`** (Day 3 Ace Hunt engine).  
-**After this lands:** [`feature/gladiators`](#12-featuregladiators--queued-day-4-admin-first).
+You are here: **`feature/gladiators`** (Day 4 Gladiators engine).  
+**After this lands:** [`feature/roles-and-authz`](#13-featureroles-and-authz--queued).
 
 Status key on this page:
 
@@ -32,8 +32,8 @@ DONE     feature/capture-points
 DONE     feature/spawn-protection
 DONE     feature/display-and-leaderboards
 DONE     feature/auctions
-NEXT     feature/ace-hunt
-QUEUED   feature/gladiators          (light automation; admin-first OK)
+DONE     feature/ace-hunt
+NEXT     feature/gladiators          (light automation; admin-first OK)
 QUEUED   feature/roles-and-authz
 OPS      roster, calendar, map, hosting, playtest
 ```
@@ -230,37 +230,24 @@ Full automation shipped on this branch. Item delivery stays manual; mid-bid team
 
 ---
 
-## 11. `feature/ace-hunt` — NEXT (Day 3)
+## 11. `feature/ace-hunt` — DONE (Day 3)
 
-**Depends on:** event apply/restore helpers (keep inventory, spectator, maybe kill-money off), map territories.
-
-| #   | Work item                                                                         |
-| --- | --------------------------------------------------------------------------------- |
-| 1   | Ace nomination / teleport to prep territories (2–3 h prep window is ops/schedule) |
-| 2   | Points: hunt placement + ace survival placement; on-screen counter                |
-| 3   | Non-ace 3-minute bedrock-box respawn; keep inventory on                           |
-| 4   | Dead ace → spectator; successful hunters → spectator                              |
-| 5   | No skybase rule (enforce as designed)                                             |
-| 6   | Surface minute / underground ban near end                                         |
-| 7   | Territory vs world border: **Resolved** — per-player borders + cuboid confinement |
-| 8   | Exact point table: **Resolved for v1** — `2 / 1 / 0` (config.yml)                 |
-
-**Resolved decisions on this branch:** kill money off for participants (`ace-hunt` scope); default hunt 18 minutes then 60s surface then underground ban.
+**Merged into `main`.** Prep/hunt/surface/ban, scoring boss bar, lockup, borders, `/larp acehunt`.
 
 ---
 
-## 12. `feature/gladiators` — QUEUED (Day 4, admin-first)
+## 12. `feature/gladiators` — NEXT (Day 4, admin-first)
 
-Karim: **chat + admin + command blocks may be enough**.
+Karim: **chat + admin + command blocks may be enough**. This branch ships light automation so ops do not need command blocks for the core loop.
 
-| # | Work item | Priority |
-|---|-----------|----------|
-| 1 | Arena TP + spectator barriers (map + admin) | Ops / map |
-| 2 | Kits (team mini-kit + 5 banable 1v1 kits) | Content from Karim |
-| 3 | Fight quota (max 4 fights / player) | Automate if time |
-| 4 | 3v3 schedule + 1v1 kit-ban flow | Automate if time |
-| 5 | Points board + placement payout via economy `splitReward` | When prizes confirmed |
-| 6 | Kill money off for event | Uses kill-money scopes |
+| # | Work item | Status |
+|---|-----------|--------|
+| 1 | Arena TP + spectator barriers (map + admin) | Done (plugin geometry/TP/fill; coliseum map is ops) |
+| 2 | Kits (team mini-kit + 5 banable 1v1 kits) | Done (admin save from inventory; item lists still Open) |
+| 3 | Fight quota (max 4 fights / player) | Done |
+| 4 | 3v3 schedule + 1v1 kit-ban flow | Done (double round-robin + admin-nominated duels) |
+| 5 | Points board + placement payout via economy `splitReward` | Done (boss bar; `/larp gladiators payout`; default $125/$50/$0 still Open) |
+| 6 | Kill money off for event | Done (`gladiators` event scope) |
 
 Do **not** block the roadmap on full automation.
 
@@ -297,9 +284,9 @@ Not branches, but blockers for “event ready”:
 
 ## Recommended working order (what you do next)
 
-1. Economy settlement, kill attribution, capture, spawn protection, display/leaderboards, auctions — **Done**.  
-2. **Current:** `feature/ace-hunt`.  
-3. **Next after merge:** `feature/gladiators` (or roles).  
+1. Economy settlement, kill attribution, capture, spawn protection, display/leaderboards, auctions, Ace Hunt — **Done**.  
+2. **Current:** `feature/gladiators`.  
+3. **Next after merge:** `feature/roles-and-authz`.  
 4. **Throughout:** chase Karim on [open questions](open-questions.md).
 
 ---
@@ -309,12 +296,12 @@ Not branches, but blockers for “event ready”:
 ```bash
 git checkout main
 git pull origin main
-git checkout -b feature/ace-hunt
+git checkout -b feature/roles-and-authz
 ```
 
 Read before coding:
 
-- [Roadmap §11](#11-featureace-hunt--queued-day-3)
+- [Roadmap §13](#13-featureroles-and-authz--queued)
 - [Known gaps](known-gaps-and-debt.md)
 
 When the branch is merge-ready: PR → `main` → delete the feature branch → pick the next **QUEUED** item.
