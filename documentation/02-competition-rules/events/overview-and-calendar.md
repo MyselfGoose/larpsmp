@@ -6,10 +6,10 @@
 
 | Event | Status |
 |-------|--------|
-| Daily capture points | Confirmed (Karim definite) |
+| Daily capture points | Confirmed |
 | Gladiators | Confirmed; Day 4 format detailed — see [Gladiators](gladiators.md) |
 | Mystery shulker auctions | Confirmed — see [Auctions](auctions.md) |
-| Ace Hunt | Confirmed as Day 3 design from Karim — see [Ace Hunt](ace-hunt.md) |
+| Ace Hunt | Confirmed as Day 3 design — see [Ace Hunt](ace-hunt.md) |
 | Natural disasters | Maybe only — **not confirmed** |
 | Egg hunt / VIP protection | **Rejected** |
 | “Objective finale” | Not understood/approved — **do not** treat as promised |
@@ -28,12 +28,12 @@ Repeating the strongest activities across five days is preferred over inventing 
 | 4 | Daily captures, **Gladiators** | Structured arena day |
 | 5 | Final captures, agreed final activity if any, wealth count | Clear finish |
 
-Earlier draft put gladiators on day 3 and auctions on day 4 as flexible; Karim’s later notes place **Ace Hunt on Day 3** and **Gladiators on Day 4**. Treat those as the current design unless Karim revises the calendar.
+Earlier drafts swapped Gladiators and Ace Hunt days; the current design places **Ace Hunt on Day 3** and **Gladiators on Day 4**.
 
 ## Scheduling principles
 
 - Exact dates, start times, timezone, and final wealth cutoff: **Open**.
-- Players are responsible for showing up; events do not wait until everyone is online (**Confirmed** direction from Karim).
+- Players are responsible for showing up; events do not wait until everyone is online (**Confirmed**).
 - Admins may delay when something goes wrong.
 - **Suggestion:** announce the five-day calendar before open; show “next event” somewhere checkable.
 

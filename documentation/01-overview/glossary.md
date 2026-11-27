@@ -15,7 +15,7 @@
 | **Kill money** | Whether death payments and killer payouts are active (global / event / player override scopes — **Confirmed** rules, not fully **Implemented**). |
 | **Capture point** | Contested platform that fills a progress bar; winning team gets **$50** split across roster members. |
 | **Advantage** | Leading team’s player count minus the second-largest team on the point. |
-| **Auction** | Mystery shulker lots hosted by Amira; representatives bid; payment goes to `akiracreates`. |
+| **Auction** | Mystery shulker lots hosted by an admin; representatives bid; payment goes to the configured auction payee. |
 | **Ace** | Day 3 Ace Hunt: one nominated player per team sent to a separated territory to prepare, then hunted. |
 | **Gladiators** | Structured arena combat event (Day 4 design: team fights + 1v1s with kits). |
 | **Keep inventory** | Vanilla setting used for specific events (e.g. Ace Hunt); must be restored afterward. |

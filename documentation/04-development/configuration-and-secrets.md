@@ -26,7 +26,7 @@ From [`.env.example`](../../.env.example):
 - Run **one** Paper process against the event database. Multi-node Paper sharing one Postgres is unsupported (in-memory sessions, rate limits, and `MoneyService` synchronization).
 - Override JDBC credentials via `.env` / process environment; do not rely on `config.yml` local defaults.
 
-`.env` is gitignored. Share filled values privately with coworkers.
+`.env` is gitignored. Keep filled values private.
 
 ### Resend notes
 

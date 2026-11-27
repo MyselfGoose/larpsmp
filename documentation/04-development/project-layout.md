@@ -2,41 +2,41 @@
 
 ```text
 LarpSMP/
-  README.md                 # Short onboarding hub
-  documentation/            # Canonical docs (this tree)
-  docs/                     # Redirect stubs to documentation/
-  build.gradle.kts
-  settings.gradle.kts
-  gradle.properties
-  .env.example              # Secrets template
-  src/main/java/com/larpsmp/moneyevent/
-    MoneyEventPlugin.java
-    auth/
-    auction/                # Mystery shulker auctions (/bid, /auction pay, reps, lot lifecycle)
-    acehunt/                # Day 3 Ace Hunt (prep/hunt, scoring, lockup, borders, boss bar)
-    gladiator/              # Day 4 Gladiators (arena, kits, quota, kit bans, boss bar, payout)
-    capture/                # Capture points (progress, boss bar, temp blocks → capture reward)
-    combat/                 # Kill attribution (60s last-attacker → death settlement)
-    spawn/                  # Respawn-only spawn protection + unbreakable spawn blocks
-    command/
-    config/
-    db/
-    display/
-    email/
-    notification/
-    playerstate/            # Bodies + AccountIdentityBinder / command-name index
-    team/
-    wallet/
-  src/main/resources/
-    plugin.yml
-    config.yml
-    db/migrations/          # V001–V015
-  src/test/java/…           # JUnit 5 tests
-  docker/
-    docker-compose.yml      # Postgres + pgAdmin
-    pgadmin/
-  scripts/dev-server.sh     # Bootstrap
-  dev-server/               # Local Paper runtime (mostly gitignored)
+ README.md # Short onboarding hub
+ documentation/ # Canonical docs (this tree)
+ docs/ # Redirect stubs to documentation/
+ build.gradle.kts
+ settings.gradle.kts
+ gradle.properties
+ .env.example # Secrets template
+ src/main/java/com/larpsmp/moneyevent/
+ MoneyEventPlugin.java
+ auth/
+ auction/ # Mystery shulker auctions (/bid, /auction pay, reps, lot lifecycle)
+ acehunt/ # Day 3 Ace Hunt (prep/hunt, scoring, lockup, borders, boss bar)
+ gladiator/ # Day 4 Gladiators (arena, kits, quota, kit bans, boss bar, payout)
+ capture/ # Capture points (progress, boss bar, temp blocks → capture reward)
+ combat/ # Kill attribution (60s last-attacker → death settlement)
+ spawn/ # Respawn-only spawn protection + unbreakable spawn blocks
+ command/
+ config/
+ db/
+ display/
+ email/
+ notification/
+ playerstate/ # Bodies + AccountIdentityBinder / command-name index
+ team/
+ wallet/
+ src/main/resources/
+ plugin.yml
+ config.yml
+ db/migrations/ # V001–V015
+ src/test/java/… # JUnit 5 tests
+ docker/
+ docker-compose.yml # Postgres + pgAdmin
+ pgadmin/
+ scripts/dev-server.sh # Bootstrap
+ dev-server/ # Local Paper runtime (mostly gitignored)
 ```
 
 ## Important paths

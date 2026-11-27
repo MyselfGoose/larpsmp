@@ -10,7 +10,7 @@ import org.jetbrains.annotations.Nullable;
  * Who counts toward capture advantage.
  *
  * <p>Only living, non-teleporting competitors with a team count. Vanilla spectator gamemode never
- * counts. Plugin admin status does not exclude a competitor (e.g. Karim).
+ * counts. Plugin admin status does not exclude a competitor.
  */
 public final class CaptureEligibility {
 

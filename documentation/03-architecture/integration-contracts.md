@@ -1,6 +1,6 @@
 # Integration contracts
 
-**Status:** Working agreement for Amira (economy) ↔ Azeem (complex systems). Auth + teams + wallets + death settlement + kill attribution + capture payouts + auction payment proof realized; Ace Hunt uses kill-money event scope (no dollar prize payout in v1). Gladiators uses kill-money event scope `gladiators` and idempotent placement payouts via `processGladiatorPrize` (`EVENT_REWARD` / settlement kind `GLADIATOR`).
+**Status:** Cross-system contracts for economy, auth, teams, and events. Auth + teams + wallets + death settlement + kill attribution + capture payouts + auction payment proof realized; Ace Hunt uses kill-money event scope (no dollar prize payout in v1). Gladiators uses kill-money event scope `gladiators` and idempotent placement payouts via `processGladiatorPrize` (`EVENT_REWARD` / settlement kind `GLADIATOR`).
 
 ## 1. Account integration
 
@@ -55,9 +55,9 @@ Capture system sends `captureId`, point id, winning team, amount, time. Economy 
 
 ### Auction → economy
 
-**Implemented:** available balance check and bid validation in `AuctionService`; winner settles via `/auction pay` (exact owed amount to configured host, default `akiracreates`, changeable via `/larp auction payee`); ledger type `AUCTION_PAYMENT` plus idempotent `economy_settlements` kind `AUCTION` + `lotId`. Peer `/pay` does not settle lots. Payee is durable in `auction_runtime.payment_username` (mirrored to `config.yml`). No escrow. Item delivery stays outside economy (manual handoff; optional `/larp auction delivered` tracking).
+**Implemented:** available balance check and bid validation in `AuctionService`; winner settles via `/auction pay` (exact owed amount to configured host, default `auctionhost`, changeable via `/larp auction payee`); ledger type `AUCTION_PAYMENT` plus idempotent `economy_settlements` kind `AUCTION` + `lotId`. Peer `/pay` does not settle lots. Payee is durable in `auction_runtime.payment_username` (mirrored to `config.yml`). No escrow. Item delivery stays outside economy (manual handoff; optional `/larp auction delivered` tracking).
 
-## 4. Shared file ownership
+## 4. Shared wiring
 
 Coordinate edits to:
 
@@ -67,12 +67,10 @@ Coordinate edits to:
 - Configuration / permissions
 - Sidebar / player-list controllers (scoreboards overwrite each other if two systems fight)
 
-## 5. Code ownership reminder
+## 5. System ownership
 
-| System | Primary |
-|--------|---------|
-| Wallets, `/pay`, admin money, logs, splits, death settlement, rescue, money UI | Economy owner (Amira) |
-| Auth (done), kill attribution, capture detection, event state | Azeem |
-| Teams admin CRUD | Landed on `feature/teams`; treat as shared platform |
-
-Finished when both sides keep this note updated as APIs land.
+| System | Primary package |
+|--------|-----------------|
+| Wallets, `/pay`, admin money, logs, splits, death settlement, rescue, money UI | `wallet/` |
+| Auth, kill attribution, capture detection, event state | `auth/`, `combat/`, `capture/`, event packages |
+| Teams admin CRUD | `team/` |

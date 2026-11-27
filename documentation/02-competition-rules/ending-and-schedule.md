@@ -29,6 +29,6 @@
 
 ## Player responsibility
 
-Players must show up at scheduled times. Karim did not ask for events to wait until everyone is online.
+Players must show up at scheduled times. Events do not wait until everyone is online.
 
 **Suggestion:** publish the calendar before the server opens and expose “next event” in a place players can re-check.

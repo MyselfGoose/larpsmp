@@ -60,7 +60,7 @@ class AuctionServiceTest {
     }
 
     @Test
-    void paymentToAmiraMarksLotPaidIdempotentlyAndForfeitFallsBack() throws Exception {
+    void paymentToHostMarksLotPaidIdempotentlyAndForfeitFallsBack() throws Exception {
         try (AuctionFixture fixture = open()) {
             Team blue = fixture.createTeam("PayBlue", TeamColor.BLUE);
             Team red = fixture.createTeam("PayRed", TeamColor.RED);
@@ -68,9 +68,9 @@ class AuctionServiceTest {
             var blueRep = fixture.addMember(blue, "PayB");
             var redRep = fixture.addMember(red, "PayR");
             var yellowRep = fixture.addMember(yellow, "PayY");
-            var amira = fixture.registerAmira();
+            var host = fixture.registerHost();
             assertInstanceOf(AuctionService.PayeeResult.Changed.class,
-                    fixture.service().setPaymentRecipient(amira.username(), "admin", "console"));
+                    fixture.service().setPaymentRecipient(host.username(), "admin", "console"));
 
             fixture.service().startSession();
             fixture.service().registerRepresentative(fixture.accountId(blueRep));
@@ -93,7 +93,7 @@ class AuctionServiceTest {
 
             // /pay never settles the lot — winner is told to use /auction pay.
             TransactionResult mistakenPay = fixture.money().transfer(
-                    redRep.minecraftUuid(), amira.minecraftUuid(), 25, "mistaken pay", redRep.minecraftUuid());
+                    redRep.minecraftUuid(), host.minecraftUuid(), 25, "mistaken pay", redRep.minecraftUuid());
             assertTrue(mistakenPay.successful());
             assertEquals(AuctionLotStatus.AWAITING_PAYMENT, fixture.service().activeLot().orElseThrow().status());
             assertEquals(2, privateNotices.size());
@@ -124,8 +124,8 @@ class AuctionServiceTest {
             var blueRep = fixture.addMember(blue, "AtmB");
             var redRep = fixture.addMember(red, "AtmR");
             var yellowRep = fixture.addMember(yellow, "AtmY");
-            var amira = fixture.registerAmira();
-            fixture.service().setPaymentRecipient(amira.username(), "admin", "console");
+            var host = fixture.registerHost();
+            fixture.service().setPaymentRecipient(host.username(), "admin", "console");
 
             fixture.service().startSession();
             fixture.service().registerRepresentative(fixture.accountId(blueRep));
@@ -163,8 +163,8 @@ class AuctionServiceTest {
             var blueRep = fixture.addMember(blue, "FbB");
             var redRep = fixture.addMember(red, "FbR");
             var yellowRep = fixture.addMember(yellow, "FbY");
-            var amira = fixture.registerAmira();
-            fixture.service().setPaymentRecipient(amira.username(), "admin", "console");
+            var host = fixture.registerHost();
+            fixture.service().setPaymentRecipient(host.username(), "admin", "console");
 
             fixture.service().startSession();
             fixture.service().registerRepresentative(fixture.accountId(blueRep));
@@ -197,7 +197,7 @@ class AuctionServiceTest {
             var blueRep = fixture.addMember(blue, "PayeeB");
             var redRep = fixture.addMember(red, "PayeeR");
             var yellowRep = fixture.addMember(yellow, "PayeeY");
-            var hostA = fixture.registerAmira();
+            var hostA = fixture.registerHost();
             var hostB = fixture.registerExtraPayee(
                     "hostb_" + Integer.toHexString(UUID.randomUUID().hashCode()));
 
@@ -286,7 +286,7 @@ class AuctionServiceTest {
         private final List<Component> broadcasts = new ArrayList<>();
         private final List<String> extraPayees = new ArrayList<>();
         private AuctionService service;
-        private final String amiraUsername = AuctionConfig.DEFAULT_PAYMENT_USERNAME
+        private final String hostUsername = AuctionConfig.DEFAULT_PAYMENT_USERNAME
                 + "_"
                 + Integer.toHexString(UUID.randomUUID().hashCode());
 
@@ -355,14 +355,14 @@ class AuctionServiceTest {
             return player;
         }
 
-        TestDatabaseSupport.RegisteredPlayer registerAmira() throws Exception {
-            return registerExtraPayee(amiraUsername);
+        TestDatabaseSupport.RegisteredPlayer registerHost() throws Exception {
+            return registerExtraPayee(hostUsername);
         }
 
         TestDatabaseSupport.RegisteredPlayer registerExtraPayee(String username) throws Exception {
             UUID minecraftUuid = UUID.randomUUID();
             String unique = username.toLowerCase(java.util.Locale.ROOT);
-            if (!unique.equals(amiraUsername) && !extraPayees.contains(unique)) {
+            if (!unique.equals(hostUsername) && !extraPayees.contains(unique)) {
                 extraPayees.add(unique);
             }
             fixture.accounts().createAccountWithIdentity(
@@ -384,7 +384,7 @@ class AuctionServiceTest {
                 statement.executeUpdate("DELETE FROM auction_bids");
                 statement.executeUpdate(
                         "UPDATE auction_runtime SET active_session_id = NULL, active_lot_id = NULL, "
-                                + "payment_username = 'akiracreates'");
+                                + "payment_username = '" + AuctionConfig.DEFAULT_PAYMENT_USERNAME + "'");
                 statement.executeUpdate("DELETE FROM auction_lots");
                 statement.executeUpdate("DELETE FROM auction_representatives");
                 statement.executeUpdate("DELETE FROM auction_sessions");
@@ -413,7 +413,7 @@ class AuctionServiceTest {
             scrubAllMemberships();
             // Clean ephemeral payee accounts created for auction payment tests.
             List<String> payees = new ArrayList<>(extraPayees);
-            payees.add(amiraUsername);
+            payees.add(hostUsername);
             try (var connection = fixture.dataSource().getConnection()) {
                 for (String username : payees) {
                     try (var deleteTx = connection.prepareStatement(

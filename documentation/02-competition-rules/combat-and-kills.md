@@ -13,7 +13,7 @@
 
 **Confirmed:** The last player who attacked the victim receives credit if the victim dies **within 60 seconds** of that attack. This covers indirect deaths (knock into lava, fall after a hit, etc.).
 
-**Confirmed:** Karim’s rule that the last hit gets the money, with the 60-second window for remembering the last attacker.
+**Confirmed:** the last hit gets the money, with a 60-second window for remembering the last attacker.
 
 ## What should count as player-caused
 
@@ -54,7 +54,7 @@ Every toggle change should log admin, scope, old/new value, optional reason, and
 
 ## Leaderboard interaction
 
-**Confirmed (Karim):** Event kills **do not** count on the normal `/top kills` leaderboard.
+**Confirmed:** Event kills **do not** count on the normal `/top kills` leaderboard.
 
 ## Rules handled by admins (not automatic plugin shields)
 

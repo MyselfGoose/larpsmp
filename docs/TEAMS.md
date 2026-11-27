@@ -9,5 +9,4 @@ This page has been merged into the canonical documentation tree.
 Also see:
 
 - [Economy rules](../documentation/02-competition-rules/economy.md)
-- [Implementation status](../documentation/05-status/implementation-status.md)
 - [Documentation index](../documentation/README.md)

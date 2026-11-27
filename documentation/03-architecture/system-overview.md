@@ -46,23 +46,23 @@ Root: `src/main/java/com/larpsmp/moneyevent/`
 
 ```mermaid
 flowchart TD
-  enable[MoneyEventPlugin.onEnable]
-  env[Load EnvSettings + config]
-  authCfg[AuthConfig / PlayerStateConfig]
-  db{auth.enabled and DB up?}
-  migrate[Run migrations V001-V015]
-  authSvc[AuthService + listeners]
-  money[MoneyService + TeamService]
-  combat[Kill attribution listeners]
-  capture[Capture service + tick]
-  spawn[Spawn protection listeners]
-  cmds[Register balance pay larp]
-  sidebar[Balance sidebar]
-  fail[Auth fails closed - no world join]
+ enable[MoneyEventPlugin.onEnable]
+ env[Load EnvSettings + config]
+ authCfg[AuthConfig / PlayerStateConfig]
+ db{auth.enabled and DB up?}
+ migrate[Run migrations V001-V015]
+ authSvc[AuthService + listeners]
+ money[MoneyService + TeamService]
+ combat[Kill attribution listeners]
+ capture[Capture service + tick]
+ spawn[Spawn protection listeners]
+ cmds[Register balance pay larp]
+ sidebar[Balance sidebar]
+ fail[Auth fails closed - no world join]
 
-  enable --> env --> authCfg --> db
-  db -->|yes| migrate --> authSvc --> money --> combat --> capture --> spawn --> cmds --> sidebar
-  db -->|no| fail
+ enable --> env --> authCfg --> db
+ db -->|yes| migrate --> authSvc --> money --> combat --> capture --> spawn --> cmds --> sidebar
+ db -->|no| fail
 ```
 
 Authoritative wiring lives in [`MoneyEventPlugin.java`](../../src/main/java/com/larpsmp/moneyevent/MoneyEventPlugin.java).

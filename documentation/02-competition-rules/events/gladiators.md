@@ -1,14 +1,14 @@
 # Gladiators
 
-**Status:** Event **Confirmed**. Day 4 format from Karim is the current design source. Plugin systems **Implemented** on `feature/gladiators` (admin-first). Map build (coliseum / seats / barrier shell) remains ops. Kit item lists and exact prizes stay admin-configured (**Open** with Karim).
+**Status:** Event **Confirmed**. Day 4 format is the current design source. Plugin systems **Implemented** (admin-first). Map build (coliseum / seats / barrier shell) remains ops. Kit item lists and exact prizes stay admin-configured (**Open**).
 
 ## High-level
 
 Team-versus-team-versus-team combat in a defined **coliseum-style arena** with spectator seats. Barrier blocks separate spectators from the arena; fighters are **teleported** in.
 
-**Confirmed (Karim):** fighters **receive kits** (not personal survival gear).
+**Confirmed:** fighters **receive kits** (not personal survival gear).
 
-## Day 4 format (Karim)
+## Day 4 format
 
 Two parts:
 
@@ -17,7 +17,7 @@ Two parts:
 - Each team chooses who fights and who sits out (`/larp gladiators lineup`).
 - Every player may fight at most **4** times total across the event (strategy constraint; tracked automatically).
 - Each team fights each other team **twice** (generated double round-robin; e.g. six bouts for three teams).
-- Fighters receive a **mini kit** (saved by admin into Postgres; contents still Open with Karim), restored to full hunger and saturation, then fight.
+- Fighters receive a **mini kit** (saved by admin into Postgres; contents still Open), restored to full hunger and saturation, then fight.
 - Winning team gains **1 point**.
 
 ### 2) 1v1s
@@ -53,4 +53,4 @@ Kill money is **off** for Gladiators participants via event scope `gladiators` f
 
 ## Older draft notes (partially superseded)
 
-Earlier materials described a single elimination round with all twelve in one arena, last team standing, gear vs kits undecided, and unclear round count. Karim’s “What?” reply to “one round or multiple” was unclear; the **Day 4 write-up** is the clearer current format and should be preferred.
+Earlier materials described a single elimination round with all twelve in one arena, last team standing, gear vs kits undecided, and unclear round count. The **Day 4 write-up** above is the current format and should be preferred.

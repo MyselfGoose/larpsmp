@@ -8,7 +8,7 @@ import org.bukkit.configuration.file.FileConfiguration;
  */
 public final class AuctionConfig {
 
-    public static final String DEFAULT_PAYMENT_USERNAME = "akiracreates";
+    public static final String DEFAULT_PAYMENT_USERNAME = "auctionhost";
 
     private final String paymentUsername;
 

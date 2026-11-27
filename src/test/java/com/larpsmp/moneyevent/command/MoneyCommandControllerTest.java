@@ -44,7 +44,7 @@ class MoneyCommandControllerTest {
             context.controller().balance(missing, new String[0]);
             assertTrue(missing.lastMessage().contains("do not have a wallet"));
 
-            FakeSource player = registered(context, "Amira");
+            FakeSource player = registered(context, "PlayerOne");
             context.controller().balance(player, new String[0]);
             assertEquals("Your balance: $200", player.lastMessage());
         }

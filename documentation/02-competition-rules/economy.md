@@ -24,7 +24,7 @@ Team wealth example: wallets $250 + $180 + $300 + $70 → team total **$800**. A
 | Killing an opponent | Moves money victim/team → killer | Transfers existing | Confirmed (settlement not coded) |
 | Capturing a point | $50 to winning team, split | Creates money | Confirmed (payout not coded) |
 | Event prizes | Admin-chosen amount | Creates money | Confirmed (via admin give today) |
-| `/pay` | Player → player (or Amira) | Transfers existing | Confirmed · Implemented |
+| `/pay` | Player → player (or an admin) | Transfers existing | Confirmed · Implemented |
 | Tasks | Admin-checked rewards | Creates money | Planned / Suggestion |
 | Rescue | $100 per team ($25 each) | Creates money | Confirmed (not coded) |
 
@@ -46,7 +46,7 @@ Suggested feedback (Implemented in spirit via command controller messages):
 - Sender and recipient both informed of the new balances
 - Clear “need $X more” style errors
 
-Auction winners pay **Amira** (`akiracreates`) through **`/auction pay`** (not `/pay`). That money leaves competing team wealth because Amira is not on a competing roster.
+Auction winners pay **the configured auction host** (`auctionhost`) through **`/auction pay`** (not `/pay`). That money leaves competing team wealth because the auction host is typically not on a competing roster.
 
 ### Admin money
 
@@ -124,7 +124,7 @@ Full combat attribution rules: [Combat and kills](combat-and-kills.md).
 | `/balance` | Own balance | Implemented |
 | `/balance <player>` | Public personal balance | Implemented |
 
-**Confirmed (Karim):** Event kills **do not** count toward the normal kill leaderboard.
+**Confirmed:** Event kills **do not** count toward the normal kill leaderboard.
 
 ## Logging requirements
 

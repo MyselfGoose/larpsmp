@@ -1,6 +1,6 @@
 # Ace Hunt (Day 3)
 
-**Status:** Event design **Confirmed** from Karim’s Day 3 notes. Plugin systems **Implemented** on `feature/ace-hunt`. Map build (territories / bedrock lockup) remains ops.
+**Status:** Event design **Confirmed**. Plugin systems **Implemented**. Map build (territories / bedrock lockup) remains ops.
 
 ## Timeline
 
@@ -15,9 +15,9 @@
 - Each team hunts **another team’s ace** (`/larp acehunt hunt` or `/larp acehunt cycle`).
 - After a timed hunt window (default **18 minutes**, configurable; suggestion range 15–20), aces get **1 minute to surface**, then underground becomes banned.
 - Points for:
-  - Your hunt of an ace (placement-based: first / second / third kill)
-  - Your ace’s survival (placement-based: died first / second / last)
-- **Point table (shipped default):** `2 / 1 / 0` for both hunt and survival placements. Matches Karim’s example: first hunt kill + longest survival → **2 + 2 = 4**. Values live in `config.yml` under `ace-hunt.points`.
+ - Your hunt of an ace (placement-based: first / second / third kill)
+ - Your ace’s survival (placement-based: died first / second / last)
+- **Point table (shipped default):** `2 / 1 / 0` for both hunt and survival placements. Example: first hunt kill + longest survival → **2 + 2 = 4**. Values live in `config.yml` under `ace-hunt.points`.
 - Placements from points; on a tie, both teams get the award for the **worse** (lower) placement.
 - On-screen counter: **boss bar** (sidebar is already full).
 

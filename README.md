@@ -1,6 +1,6 @@
 # LarpSMP Money Event
 
-Private Minecraft Java Edition competition project: a five-day event for twelve friends, powered by the **MoneyEvent** Paper plugin.
+Minecraft Java Edition competition project: a five-day event for twelve players, powered by the **MoneyEvent** Paper plugin.
 
 This repository contains the **Paper plugin + local development server** with:
 
@@ -8,8 +8,9 @@ This repository contains the **Paper plugin + local development server** with:
 - **Account-linked wallets** (starting balance, `/balance`, `/pay`, admin money commands, Wallet HUD)
 - **Account-keyed player bodies** (inventory/location/vitals persist per LarpSMP account)
 - **Teams administration** (Blue/Red/Yellow seed, captains, tiers 1–4, team wealth on the sidebar)
+- **Events** — capture points, auctions, Ace Hunt, Gladiators
 
-Full product rules, architecture, status, and recovery notes live in **[documentation/](documentation/README.md)**.
+Full product rules and architecture live in **[documentation/](documentation/README.md)**.
 
 ## One-command setup (CachyOS / Arch)
 
@@ -29,7 +30,7 @@ That script:
 6. Runs `./gradlew build` (compile + tests)
 7. Downloads Paper 1.21.11 if needed and starts the server on `localhost:25565`
 
-**Secrets:** put DB passwords, Resend keys, storage URLs, etc. in `.env` (gitignored). Share that file with coworkers, or start from the committed template:
+**Secrets:** put DB passwords, Resend keys, storage URLs, etc. in `.env` (gitignored). Start from the committed template:
 
 ```bash
 cp .env.example .env
@@ -49,10 +50,9 @@ Stop Paper by typing `stop` in the server console. Docker Postgres + pgAdmin kee
 
 | Doc | Contents |
 |-----|----------|
-| [documentation/README.md](documentation/README.md) | Index, status legend, full map |
+| [documentation/README.md](documentation/README.md) | Index and full map |
 | [Getting started](documentation/04-development/getting-started.md) | Bootstrap and versions |
 | [Auth and identity](documentation/03-architecture/auth-and-identity.md) | Signup, Postgres, pgAdmin |
-| [Implementation status](documentation/05-status/implementation-status.md) | What is coded vs planned |
 | [Competition economy rules](documentation/02-competition-rules/economy.md) | Confirmed money rules |
 
 Legacy paths under [`docs/`](docs/) redirect into `documentation/`.

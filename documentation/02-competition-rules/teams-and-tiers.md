@@ -6,7 +6,7 @@
 
 | Thing | Plan | Status |
 |-------|------|--------|
-| Competitors | 12 (including Karim) | Confirmed |
+| Competitors | 12 (total) | Confirmed |
 | Teams | 3 × 4 | Confirmed |
 | Colors | Blue, Red, Yellow | Confirmed likely; seeded + editable in plugin |
 | Captains | One per team | Confirmed · assign/clear Implemented |
@@ -25,7 +25,7 @@ Final usernames, assignments, captains, tiers, and exact display names beyond co
 - Each team has **one captain** who must be a member.
 - **No team wallet.** Team wealth = sum of personal wallets.
 - Offline members still count for wealth, death shortfalls, and team rewards.
-- Amira and Azeem do **not** appear in competing wealth unless rostered.
+- Admins and developers do **not** appear in competing wealth unless rostered as competitors.
 
 ## Captains
 
@@ -110,7 +110,7 @@ No private team chat in this plugin.
 | Red | To choose | To choose | To choose | To choose | To choose |
 | Yellow | To choose | To choose | To choose | To choose | To choose |
 
-Fill when Karim confirms the twelve competitors.
+Fill when the twelve competitors are confirmed.
 
 ## Implementation details
 

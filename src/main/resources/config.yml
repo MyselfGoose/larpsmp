@@ -15,13 +15,13 @@ spawn:
     max-y: 0
     max-z: 0
 
-# Mystery shulker auctions. Winners pay this LarpSMP username via /pay.
+# Mystery shulker auctions. Winners pay this LarpSMP username via /auction pay.
+# Change at runtime with /larp auction payee <username> (persisted in Postgres).
 auction:
-  payment-username: akiracreates
+  payment-username: auctionhost
 
 # Gladiators (Day 4). Arena / seats / barriers / spawns set in-game via /larp gladiators …
-# Prize table defaults are the documented suggestion ($125/$50/$0 team totals); still Open with Karim.
-# Kits are saved from admin inventory into Postgres (not listed here).
+# Prize table defaults ($125/$50/$0 team totals); kits saved from admin inventory into Postgres.
 gladiators:
   prizes:
     first: 125
@@ -54,7 +54,7 @@ gladiators:
     payout-done: "[LarpSMP] Gladiators prizes paid."
 
 # Ace Hunt (Day 3). Territories / lockup set in-game via /larp acehunt define|spawn|y|lockup.
-# Point table defaults match Karim's 2+2=4 example (1st/2nd/3rd → 2/1/0).
+# Point table defaults: 1st/2nd/3rd → 2/1/0 for hunt and survival.
 ace-hunt:
   hunt-seconds: 1080
   surface-warning-seconds: 60

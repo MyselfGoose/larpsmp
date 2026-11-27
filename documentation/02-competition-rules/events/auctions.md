@@ -1,12 +1,12 @@
 # Mystery shulker auctions
 
-**Status:** Event **Confirmed**. Economy payment rules **Confirmed**. Auction automation **Implemented** on `feature/auctions` (`/bid`, `/auction pay`, fixed reps, lot lifecycle, previous-bidder fallback). Item delivery remains **manual** for v1.
+**Status:** Event **Confirmed**. Economy payment rules **Confirmed**. Auction automation **Implemented** (`/bid`, `/auction pay`, fixed reps, lot lifecycle, previous-bidder fallback). Item delivery remains **manual** for v1.
 
 ## Idea
 
-Amira hosts. Three representatives (one per team), nominated by captains, bid on **mystery shulkers**. Contents stay hidden; bidders get a short **theme or category** hint.
+An admin hosts. Three representatives (one per team), nominated by captains, bid on **mystery shulkers**. Contents stay hidden; bidders get a short **theme or category** hint.
 
-Organizer contact email from draft: `amiraarts8@gmail.com`. In-game payment recipient defaults to **`akiracreates`**. Change at runtime with `/larp auction payee <player>` (persisted in Postgres; mirrored to `auction.payment-username` in `config.yml`).
+In-game payment recipient defaults to **`auctionhost`**. Change at runtime with `/larp auction payee <player>` (persisted in Postgres; mirrored to `auction.payment-username` in `config.yml`).
 
 ## Money rules
 
@@ -14,11 +14,11 @@ Organizer contact email from draft: `amiraarts8@gmail.com`. In-game payment reci
 |------|--------|
 | Bid from personal wallet only | Confirmed · Implemented |
 | Teammates may `/pay` the representative to fund | Confirmed |
-| Whether teammates may `/pay` **during** live bidding | **v1: allowed** (no plugin restriction; revisable if Karim decides otherwise) |
+| Whether teammates may `/pay` **during** live bidding | **v1: allowed** (no plugin restriction; revisable later) |
 | Bids above current wallet **rejected** | Confirmed · Implemented |
 | Payment required **immediately** after win | Confirmed · Implemented (awaiting-payment state; admin forfeit) |
 | If winner cannot pay → offer to **previous bidder** | Confirmed · Implemented (`/larp auction forfeit`) |
-| Payment to Amira; leaves competing wealth | Confirmed · Implemented via `/auction pay` |
+| Payment to the auction host; leaves competing wealth | Confirmed · Implemented via `/auction pay` |
 | Representatives **cannot** change between lots | Confirmed · Implemented (locked after first lot opens) |
 | No escrow while bidding (winner pays afterward) | Confirmed · Implemented |
 | New bids **not** accepted during final countdown | Confirmed · Implemented (`/larp auction countdown`) |
@@ -26,13 +26,13 @@ Organizer contact email from draft: `amiraarts8@gmail.com`. In-game payment reci
 
 ## Lot workflow (practical)
 
-1. Amira chooses shulker and public theme/name.
+1. An admin chooses shulker and public theme/name.
 2. Representatives brought to spawn; cannot hit one another.
 3. Admin: `/larp auction session start`, register reps, `/larp auction open <theme> <startingBid>`.
 4. Representatives bid with `/bid <amount>`.
 5. Admin: `/larp auction countdown` then `/larp auction close` (or close directly).
-6. Winner runs **`/auction pay`** — plugin transfers the exact owed amount to the current payee (`/larp auction payee` / default `akiracreates`) and marks the lot paid. Peer `/pay` never settles auction wins (winner is warned if they try).
-7. After payment, Amira delivers the shulker manually, then **`/larp auction delivered`** — that clears the lot from status so the next `/larp auction open` is unambiguous. (`/larp auction close` only ends bidding; a paid lot stays listed until delivered.)
+6. Winner runs **`/auction pay`** — plugin transfers the exact owed amount to the current payee (`/larp auction payee` / default `auctionhost`) and marks the lot paid. Peer `/pay` never settles auction wins (winner is warned if they try).
+7. After payment, an admin delivers the shulker manually, then **`/larp auction delivered`** — that clears the lot from status so the next `/larp auction open` is unambiguous. (`/larp auction close` only ends bidding; a paid lot stays listed until delivered.)
 
 ## Plugin commands (Implemented)
 
@@ -72,4 +72,4 @@ Themes and item pools are design work, not promised catalogs.
 - Outsider access to auction area
 - Teammate advice / communication rules
 - Return after teleport
-- Whether Karim wants mid-bid `/pay` blocked later
+- Whether mid-bid `/pay` should be blocked later

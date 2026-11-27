@@ -2,7 +2,7 @@
 
 Merged from the former `docs/TEAMS.md` implementation sections.
 
-**Status:** Admin teams/tiers/captains **Implemented**. Competitor/spectator participation **Implemented** on `feature/roles-and-authz`.
+**Status:** Admin teams/tiers/captains **Implemented**. Competitor/spectator participation **Implemented**.
 
 ## Package
 
@@ -71,19 +71,19 @@ Console, plugin admin, or server operator via `AccountPermissionAuthorizer`. `/l
 Single Minecraft sidebar panel (right side only — client limit); personal balances on top, rankings below:
 
 ```text
-Team Money          ← objective title (heading)
+Team Money ← objective title (heading)
 $2,601
 ··········
 Wallet
 $250
 ··········
 TOP TEAMS
-1. Blue          $2,601
-2. Red           $2,100
-3. Yellow        $1,800
+1. Blue $2,601
+2. Red $2,100
+3. Yellow $1,800
 ··········
 TOP PLAYERS
-1. alice         $850
+1. alice $850
 ```
 
 Hierarchy: white bold headings → gray names → gold amounts → dark-gray ranks/dividers (no per-team name colors). Ranking amounts sit in the scoreboard suffix. Empty player ranks omitted. Unused scoreboard rows are reset so the board does not pad with blank space. When team totals are hidden, Team Money + TOP TEAMS omit; Wallet + TOP PLAYERS remain.

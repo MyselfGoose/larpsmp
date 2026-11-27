@@ -1,14 +1,14 @@
 # Purpose and vision
 
-**Status:** Confirmed (product intent) · Plugin foundation **Implemented** on `feature/teams`
+**Status:** Confirmed (product intent) · Plugin foundation **Implemented**
 
 ## What LarpSMP is
 
-LarpSMP is a **five-day Minecraft Java competition for twelve friends**. It is one large event with smaller organized activities on different days, on a shared survival world that stays open **24/7**.
+LarpSMP is a **five-day Minecraft Java competition for twelve players**. It is one large event with smaller organized activities on different days, on a shared survival world that stays open **24/7**.
 
-Between scheduled events, players build bases, gather resources, fight, and prepare. At scheduled times everyone comes together for activities such as **capture points**, **gladiators**, **mystery shulker auctions**, and (planned) **Ace Hunt**.
+Between scheduled events, players build bases, gather resources, fight, and prepare. At scheduled times everyone comes together for activities such as **capture points**, **gladiators**, **mystery shulker auctions**, and **Ace Hunt**.
 
-The comparison used in the working notes: like a Fortnite season with things happening throughout — except this is a private Minecraft world, private teams, and a private money system.
+The working comparison: like a Fortnite season with things happening throughout — except this is a private Minecraft world, private teams, and a private money system.
 
 ## Win condition
 
@@ -31,27 +31,27 @@ Money is a **whole-dollar integer** stored by the plugin. There is no physical c
 
 | Thing | Plan | Status |
 |-------|------|--------|
-| Players | 12 competitors (including Karim) | Confirmed |
+| Players | 12 competitors | Confirmed |
 | Teams | 3 teams of 4 | Confirmed |
 | Team balance | One tier 1, one tier 2, one tier 3, one tier 4 per team | Confirmed (roster design) |
-| Starting money | $200 per competitor (once) | Confirmed; see [known gaps](../05-status/known-gaps-and-debt.md) for current signup behavior |
+| Starting money | $200 per competitor (once, on first team assignment) | Confirmed · Implemented |
 | Wallets | Personal wallets only | Confirmed |
 | Winner | Highest team wealth at cutoff | Confirmed |
 | Length | 5 days; dates still to choose | Confirmed length; dates Open |
 | Server | Minecraft Java 1.21.11; Paper plugin | Confirmed / Implemented |
 | Availability | Open 24/7; events at scheduled times | Confirmed |
 | Language | English | Confirmed |
-| Main activities | Daily captures, gladiators, mystery auctions; Ace Hunt on Day 3 (design) | See [events overview](../02-competition-rules/events/overview-and-calendar.md) |
+| Main activities | Daily captures, gladiators, mystery auctions; Ace Hunt on Day 3 | See [events overview](../02-competition-rules/events/overview-and-calendar.md) |
 
 ## Who it is for
 
-- **Competitors:** twelve friends on the roster
-- **Admins / hosts:** run the server, auctions, and event logistics (Amira is admin and auction host; not a competitor by default)
-- **Developers:** Amira and Azeem build the plugin; neither is an extra competitor unless they hold a roster slot
+- **Competitors:** twelve players on the roster
+- **Admins / hosts:** run the server, auctions, and event logistics (not competitors by default unless rostered)
+- **Developers:** build the plugin; not extra competitors unless they hold a roster slot
 
 ## What this repository is
 
-The repository is the **Paper plugin + local development stack** for that competition: authentication, wallets, teams administration, account-keyed player bodies, and (planned) event systems.
+The repository is the **Paper plugin + local development stack** for that competition: authentication, wallets, teams administration, account-keyed player bodies, and event systems.
 
 Plugin artifact name: **MoneyEvent**. Product / event name: **LarpSMP**.
 

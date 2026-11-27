@@ -10,7 +10,7 @@ JUnit 5 tests under `src/test/java/com/larpsmp/moneyevent/`. Many integration te
 
 GitHub Actions (`.github/workflows/ci.yml`) runs `cleanTest test` plus a JAR build against a Postgres 16 service on PRs and pushes to `main`.
 
-### Coverage areas (existing)
+### Coverage areas
 
 | Area | Examples |
 |------|----------|
@@ -32,17 +32,13 @@ No automated tests yet for Bukkit sidebar UI, live in-world Paper damage/occupan
 
 ## Manual / local Paper
 
-Full two-client refresher (boot steps + every Implemented feature):  
-**[Manual testing refresher](manual-testing-refresher.md)**.
-
 Quick smoke after `./scripts/dev-server.sh`:
 
-1. Sign up + email verify + wallet $200
-2. Reconnect + log in (no second grant of a *new* wallet row — balance preserved)
-3. `/pay` online and offline
-4. `/larp money give|take|set`
-5. `/larp teams` dialog: assign team, captain, tier
-6. Sidebar Team Money updates when roster or balances change
-7. Restart Paper; confirm wallets, teams, tiers, bodies persist
-
-Full multiplayer economy scenarios for death/rescue/captures belong in the [roadmap](../05-status/roadmap.md) once those features exist.
+1. Sign up + email verify (wallet starts at $0)
+2. Reconnect + log in (balance preserved; no second wallet row)
+3. Assign to a team → `$200` competitor starting balance once
+4. `/pay` online and offline
+5. `/larp money give|take|set`
+6. `/larp teams` dialog: assign team, captain, tier
+7. Sidebar Team Money updates when roster or balances change
+8. Restart Paper; confirm wallets, teams, tiers, bodies persist

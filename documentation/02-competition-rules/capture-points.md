@@ -38,7 +38,7 @@
 
 - If Blue has 60% and Red takes the lead, Red must **neutralize** Blue’s progress to 0 before building Red’s own bar. Red does **not** inherit 60%.
 - If the original team retakes the lead before progress hits zero, it **resumes from remaining progress** (**Confirmed**).
-- Empty point: progress **decays**. Karim: decide with testing; should be **pretty quick**. Exact speed **Open** (Suggestion: decay at twice the one-player capture speed).
+- Empty point: progress **decays**. Note: decide with testing; should be **pretty quick**. Exact speed **Open** (Suggestion: decay at twice the one-player capture speed).
 - Enemy neutralization speed: still awaiting exact answer (**Open**).
 - Contested duration hard timeout: initially **none**; admins pause/reset (**Suggestion**).
 
@@ -61,7 +61,7 @@
 - Players may place **temporary** blocks; they disappear after **30 seconds**.
 - Other players **may destroy** temporary blocks.
 - Plugin must remember placed blocks and restore previous state; survive restart cleanup.
-- **Liquids (Karim):** water and lava **are allowed** and “aren’t an issue” — not blocked by the capture rules. They are simply not used by the capture progress system. (**Confirmed**; supersedes “won’t do anything / maybe block” ambiguity.)
+- **Liquids:** water and lava **are allowed** — not blocked by the capture rules. They are simply not used by the capture progress system. (**Confirmed**.)
 
 Explosions, pistons, fire, and temporary cover interactions still need careful protection design when implementing (**Planned**).
 

@@ -37,7 +37,7 @@ CREATE INDEX wallet_transactions_destination_created_idx
 CREATE INDEX wallet_transactions_created_idx
     ON wallet_transactions (created_at DESC);
 
--- Existing accounts (including myselfgoose) receive the standard starting wallet.
+-- Existing accounts receive the standard starting wallet.
 INSERT INTO wallets (account_id, balance, created_at, updated_at)
 SELECT a.id, 200, NOW(), NOW()
 FROM accounts a

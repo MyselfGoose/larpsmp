@@ -4,7 +4,7 @@
 
 ## Spawn protection
 
-**Confirmed (Karim) — supersedes “fully safe spawn for everyone” draft:**
+**Confirmed — supersedes “fully safe spawn for everyone” draft:**
 
 - Spawn is **not** permanently safe for every visitor.
 - Protection applies to players who have **newly respawned** there.
@@ -52,4 +52,4 @@ Needed for the event (design / build; not all plugin work):
 
 ## Hosting context
 
-Europe preference, ~8 GB RAM idea, ~6,000 RUB budget mentioned in planning — see [People and roles](../01-overview/people-and-roles.md). Provider not chosen.
+Hosting provider, region, RAM, and budget are ops decisions outside this repository.
