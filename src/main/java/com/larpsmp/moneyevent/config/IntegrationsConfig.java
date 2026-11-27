@@ -30,17 +30,32 @@ public record IntegrationsConfig(
         return !storageBaseUrl.isBlank() && !storageApiKey.isBlank();
     }
 
+    public static final String DEV_EMAIL_CODE_PEPPER = "larpsmp-dev-email-code-pepper";
+
     /**
-     * Pepper used when hashing email verification codes. Falls back to a stable
-     * value derived from the Resend key when present, otherwise a local-dev default.
+     * Pepper used when hashing email verification codes. Falls back to a local-dev default when
+     * neither {@code LARPSMP_EMAIL_CODE_PEPPER} nor Resend is configured.
+     *
+     * <p>When Resend is configured, callers must require an explicit pepper
+     * ({@link #hasExplicitEmailCodePepper()}) instead of deriving one from the API key.
      */
     public String resolveEmailCodePepper() {
         if (!emailCodePepper.isBlank()) {
             return emailCodePepper;
         }
-        if (!resendApiKey.isBlank()) {
-            return "resend:" + resendApiKey;
-        }
-        return "larpsmp-dev-email-code-pepper";
+        return DEV_EMAIL_CODE_PEPPER;
+    }
+
+    /** True when {@code LARPSMP_EMAIL_CODE_PEPPER} is set to a non-blank value. */
+    public boolean hasExplicitEmailCodePepper() {
+        return !emailCodePepper.isBlank();
+    }
+
+    /**
+     * Production-safe: Resend delivery requires an explicit email-code pepper so codes are not
+     * hashed with a public default or a value derived from the API key.
+     */
+    public boolean emailChallengesReady() {
+        return resendConfigured() && hasExplicitEmailCodePepper();
     }
 }

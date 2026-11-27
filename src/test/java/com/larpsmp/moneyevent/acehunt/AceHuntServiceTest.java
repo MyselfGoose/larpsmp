@@ -3,6 +3,7 @@ package com.larpsmp.moneyevent.acehunt;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
@@ -104,6 +105,29 @@ class AceHuntServiceTest {
             assertFalse(death.huntScored());
             assertEquals(0, AceHuntScoreboard.from(fixture.service().activeSession().orElseThrow())
                     .huntPoints().get(setup.blue().id()));
+        }
+    }
+
+    @Test
+    void environmentalAceDeathStillCountsForSurvivalOrdering() throws Exception {
+        try (AceHuntFixture fixture = open()) {
+            TeamSetup setup = fixture.seedThreeTeams();
+            fixture.nominateAndCycle(setup);
+            assertTrue(fixture.service().startPrep().success());
+            assertTrue(fixture.service().beginHunt().success());
+
+            AceHuntService.DeathHandlingResult result = fixture.service().handleDeath(
+                    setup.redAceAccountId(),
+                    null,
+                    null);
+            assertInstanceOf(AceHuntService.DeathHandlingResult.Spectator.class, result);
+
+            AceHuntSession session = fixture.service().activeSession().orElseThrow();
+            assertEquals(1, session.scoredDeaths().size());
+            AceHuntScoredDeath death = session.scoredDeaths().getFirst();
+            assertFalse(death.huntScored());
+            assertEquals(setup.red().id(), death.aceTeamId());
+            assertNull(death.killerAccountId());
         }
     }
 

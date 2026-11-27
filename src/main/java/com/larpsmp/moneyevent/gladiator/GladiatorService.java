@@ -755,13 +755,16 @@ public final class GladiatorService {
 
             Map<UUID, Integer> places = GladiatorPlacements.placesFromPoints(session.pointsByTeam());
             int paidTeams = 0;
+            int totalTeams = places.size();
             for (Map.Entry<UUID, Integer> entry : places.entrySet()) {
                 long amount = config.prizeForPlace(entry.getValue());
                 SplitRewardResult result = money.processGladiatorPrize(
                         session.sessionId().toString(), entry.getKey(), amount);
                 if (result.status() != TransactionStatus.SUCCESS) {
                     return AdminResult.error("Payout failed for team " + teamName(entry.getKey())
-                            + ": " + result.failureReason());
+                            + " after paying " + paidTeams + "/" + totalTeams
+                            + " teams: " + result.failureReason()
+                            + ". Re-run /larp gladiators payout (already-paid teams are idempotent).");
                 }
                 paidTeams++;
             }

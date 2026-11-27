@@ -80,6 +80,10 @@ Do not treat **Confirmed** as **Implemented**. Game rules and code often diverge
 - [Known gaps and debt](05-status/known-gaps-and-debt.md)
 - [Roadmap](05-status/roadmap.md)
 
+### Audits
+
+- [Production readiness audit](audits/production-readiness-audit.md)
+
 ### Assets
 
 - [Ace Hunt timeline](assets/ace-hunt-timeline.png)
@@ -94,6 +98,7 @@ Do not treat **Confirmed** as **Implemented**. Game rules and code often diverge
 | Minecraft / Paper | 1.21.11 |
 | Java | 21+ |
 | Database | PostgreSQL 16+ |
-| Current feature branch | `feature/teams` |
+| Current branch | `main` (feature work through roles/authz merged) |
+| Production audit | [audits/production-readiness-audit.md](audits/production-readiness-audit.md) |
 
 Last knowledge recovery pass: November 2026. Re-verify **Implemented** claims against `src/` before relying on them for release work.

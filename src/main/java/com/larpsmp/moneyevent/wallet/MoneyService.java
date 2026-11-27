@@ -331,8 +331,8 @@ public final class MoneyService implements AutoCloseable {
                     STARTING_BALANCE, STARTING_BALANCE_REASON, null, accountId, null,
                     wallet.balance(), after, null, null, "");
             Map<UUID, Long> balances = Map.of(accountId, after);
-            money.commitSettlement(new JdbcMoneyRepository.SettlementCommit(
-                    balances, List.of(record), null, null, accountId));
+            money.commitSettlement(JdbcMoneyRepository.SettlementCommit.withStartingBalanceGrant(
+                    balances, List.of(record), accountId));
             notifyBalanceChanged(wallet.minecraftUuid(), after);
             return true;
         } catch (SQLException exception) {
@@ -439,7 +439,48 @@ public final class MoneyService implements AutoCloseable {
                 amount,
                 reason,
                 actorMinecraftUuid,
-                false);
+                false,
+                null);
+    }
+
+    /**
+     * Auction lot payment that records the {@code auction} settlement in the same database
+     * transaction as the wallet transfer, so a failed settlement insert cannot leave money
+     * moved without an idempotency key.
+     */
+    public synchronized TransactionResult auctionPaymentWithSettlement(
+            UUID sourceMinecraftUuid,
+            UUID destinationMinecraftUuid,
+            long amount,
+            String reason,
+            UUID actorMinecraftUuid,
+            String lotId) {
+        Objects.requireNonNull(lotId, "lotId");
+        if (lotId.isBlank() || amount <= 0) {
+            return failure(
+                    UUID.randomUUID(),
+                    Instant.now(),
+                    TransactionType.AUCTION_PAYMENT,
+                    amount,
+                    reason,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    TransactionStatus.INVALID_AMOUNT,
+                    "Invalid auction payment settlement request",
+                    MoneyAuditContext.EMPTY);
+        }
+        return twoPartyTransfer(
+                TransactionType.AUCTION_PAYMENT,
+                sourceMinecraftUuid,
+                destinationMinecraftUuid,
+                amount,
+                reason,
+                actorMinecraftUuid,
+                false,
+                lotId);
     }
 
     private TransactionResult twoPartyTransfer(
@@ -450,6 +491,26 @@ public final class MoneyService implements AutoCloseable {
             String reason,
             UUID actorMinecraftUuid,
             boolean notifyPayListeners) {
+        return twoPartyTransfer(
+                type,
+                sourceMinecraftUuid,
+                destinationMinecraftUuid,
+                amount,
+                reason,
+                actorMinecraftUuid,
+                notifyPayListeners,
+                null);
+    }
+
+    private TransactionResult twoPartyTransfer(
+            TransactionType type,
+            UUID sourceMinecraftUuid,
+            UUID destinationMinecraftUuid,
+            long amount,
+            String reason,
+            UUID actorMinecraftUuid,
+            boolean notifyPayListeners,
+            @Nullable String auctionLotId) {
         UUID transactionId = UUID.randomUUID();
         Instant timestamp = Instant.now();
         if (sourceMinecraftUuid.equals(destinationMinecraftUuid)) {
@@ -507,8 +568,49 @@ public final class MoneyService implements AutoCloseable {
                 TransactionStatus.SUCCESS, amount, reason, actorAccountId,
                 source.accountId(), destination.accountId(),
                 sourceBefore, sourceAfter, destinationBefore, destinationAfter, "", MoneyAuditContext.EMPTY);
+        JdbcMoneyRepository.SettlementRow auctionSettlement = null;
+        if (auctionLotId != null && !auctionLotId.isBlank()) {
+            try {
+                Optional<JdbcMoneyRepository.SettlementRow> existing =
+                        money.findSettlement(EconomyRules.SETTLEMENT_KIND_AUCTION, auctionLotId);
+                if (existing.isPresent()) {
+                    return failure(
+                            transactionId,
+                            timestamp,
+                            type,
+                            amount,
+                            reason,
+                            actorAccountId,
+                            source.accountId(),
+                            destination.accountId(),
+                            sourceBefore,
+                            destinationBefore,
+                            TransactionStatus.INVALID_AMOUNT,
+                            "Auction lot already settled",
+                            MoneyAuditContext.EMPTY);
+                }
+            } catch (SQLException exception) {
+                return storageFailure(transactionId, timestamp, type, amount, reason,
+                        actorAccountId, source.accountId(), destination.accountId(),
+                        sourceBefore, destinationBefore, exception, MoneyAuditContext.EMPTY);
+            }
+            auctionSettlement = new JdbcMoneyRepository.SettlementRow(
+                    EconomyRules.SETTLEMENT_KIND_AUCTION,
+                    auctionLotId,
+                    EconomyRules.OUTCOME_APPLIED,
+                    transactionId,
+                    amount,
+                    "{\"paymentTransactionId\":\"" + transactionId + "\"}",
+                    timestamp);
+        }
         try {
-            money.commitTransfer(source.accountId(), sourceAfter, destination.accountId(), destinationAfter, success);
+            money.commitTransfer(
+                    source.accountId(),
+                    sourceAfter,
+                    destination.accountId(),
+                    destinationAfter,
+                    success,
+                    auctionSettlement);
             notifyBalanceChanged(source.minecraftUuid(), sourceAfter);
             notifyBalanceChanged(destination.minecraftUuid(), destinationAfter);
             if (notifyPayListeners) {
@@ -633,8 +735,8 @@ public final class MoneyService implements AutoCloseable {
                         refKind, refId, EconomyRules.OUTCOME_APPLIED, parentId, amount, reason, now);
             }
 
-            money.commitSettlement(new JdbcMoneyRepository.SettlementCommit(
-                    balanceUpdates, ledger, settlement, rotationAfter, null));
+            money.commitSettlement(JdbcMoneyRepository.SettlementCommit.withRotation(
+                    balanceUpdates, ledger, settlement, rotationAfter));
 
             for (SettlementContribution contribution : contributionList) {
                 JdbcMoneyRepository.WalletRow wallet = wallets.get(contribution.accountId());
@@ -807,11 +909,12 @@ public final class MoneyService implements AutoCloseable {
 
             UUID rescueParentId = null;
             boolean rescueActivated = false;
+            RescuePlan rescuePlan = RescuePlan.none();
             long wealth = money.sumBalancesForTeam(victimTeam.id());
             if (wealth - owed < EconomyRules.RESCUE_THRESHOLD) {
-                RescueInternalResult rescue = processRescueInternal(request.deathId(), now);
-                rescueActivated = rescue.activated();
-                rescueParentId = rescue.parentTransactionId();
+                rescuePlan = planRescue(request.deathId(), now);
+                rescueActivated = rescuePlan.activated();
+                rescueParentId = rescuePlan.parentTransactionId();
             }
 
             List<TeamMember> roster = teams.competitorsOf(victimTeam.id());
@@ -831,9 +934,28 @@ public final class MoneyService implements AutoCloseable {
             }
             wallets.put(killerWallet.accountId(), killerWallet);
 
+            // Include every wallet credited by a pending rescue so absolute balance updates
+            // in the combined commit cover non-roster accounts (other teams).
+            for (UUID rescuedAccountId : rescuePlan.balanceUpdates().keySet()) {
+                if (wallets.containsKey(rescuedAccountId)) {
+                    continue;
+                }
+                JdbcMoneyRepository.WalletRow wallet =
+                        money.findWalletByAccountId(rescuedAccountId).orElse(null);
+                if (wallet == null) {
+                    throw new SQLException("Missing wallet for rescued account " + rescuedAccountId);
+                }
+                wallets.put(rescuedAccountId, wallet);
+            }
+
             Map<UUID, Long> workingBalances = new HashMap<>();
             for (Map.Entry<UUID, JdbcMoneyRepository.WalletRow> entry : wallets.entrySet()) {
                 workingBalances.put(entry.getKey(), entry.getValue().balance());
+            }
+            // Apply planned rescue credits in-memory so death math matches post-rescue balances
+            // without a separate database commit.
+            for (Map.Entry<UUID, Long> entry : rescuePlan.balanceUpdates().entrySet()) {
+                workingBalances.put(entry.getKey(), entry.getValue());
             }
 
             long victimBalance = workingBalances.getOrDefault(request.victimAccountId(), 0L);
@@ -874,12 +996,9 @@ public final class MoneyService implements AutoCloseable {
 
             if (victimPays > 0) {
                 JdbcMoneyRepository.WalletRow victim = wallets.get(request.victimAccountId());
-                long before = victim.balance();
-                // Re-read from working: victim balance after pay is already applied in workingBalances
+                // Before death phase = post-rescue working balance + victimPays.
                 long after = workingBalances.get(request.victimAccountId());
-                // Victim's "before" for contribution is original wallet balance before this settlement's death phase.
-                // If rescue credited them, wallet.balance() already includes rescue if rescue was committed separately.
-                long victimBeforeDeath = before;
+                long victimBeforeDeath = after + victimPays;
                 balanceUpdates.put(request.victimAccountId(), after);
                 ledger.add(new TransactionRecord(
                         UUID.randomUUID(), now, TransactionType.DEATH_PAYMENT, TransactionStatus.SUCCESS,
@@ -898,8 +1017,8 @@ public final class MoneyService implements AutoCloseable {
                     continue;
                 }
                 JdbcMoneyRepository.WalletRow payer = wallets.get(entry.getKey());
-                long before = payer.balance();
                 long after = workingBalances.get(entry.getKey());
+                long before = after + paid;
                 balanceUpdates.put(entry.getKey(), after);
                 ledger.add(new TransactionRecord(
                         UUID.randomUUID(), now, TransactionType.DEATH_PAYMENT, TransactionStatus.SUCCESS,
@@ -934,12 +1053,24 @@ public final class MoneyService implements AutoCloseable {
                     "owed=" + owed + ";rescue=" + rescueActivated,
                     now);
 
-            money.commitSettlement(JdbcMoneyRepository.SettlementCommit.of(
-                    balanceUpdates, ledger, settlement));
+            Map<UUID, Long> combinedBalances = new LinkedHashMap<>(rescuePlan.balanceUpdates());
+            combinedBalances.putAll(balanceUpdates);
+            List<TransactionRecord> combinedLedger = new ArrayList<>(rescuePlan.ledger());
+            combinedLedger.addAll(ledger);
+            List<JdbcMoneyRepository.SettlementRow> settlements = new ArrayList<>();
+            if (rescuePlan.settlement() != null) {
+                settlements.add(rescuePlan.settlement());
+            }
+            settlements.add(settlement);
 
-            for (Map.Entry<UUID, Long> entry : balanceUpdates.entrySet()) {
+            money.commitSettlement(JdbcMoneyRepository.SettlementCommit.ofSettlements(
+                    combinedBalances, combinedLedger, settlements));
+
+            for (Map.Entry<UUID, Long> entry : combinedBalances.entrySet()) {
                 JdbcMoneyRepository.WalletRow row = wallets.get(entry.getKey());
-                notifyBalanceChanged(row.minecraftUuid(), entry.getValue());
+                if (row != null) {
+                    notifyBalanceChanged(row.minecraftUuid(), entry.getValue());
+                }
             }
             for (SettlementContribution contribution : contributions) {
                 if (!contribution.credit() && contribution.amount() > 0) {
@@ -969,17 +1100,20 @@ public final class MoneyService implements AutoCloseable {
         }
     }
 
-    private RescueInternalResult processRescueInternal(String deathId, Instant now) throws SQLException {
+    /**
+     * Plans a rescue settlement without committing. The caller merges this plan into the death
+     * settlement transaction so rescue and death cannot diverge.
+     */
+    private RescuePlan planRescue(String deathId, Instant now) throws SQLException {
         Optional<JdbcMoneyRepository.SettlementRow> existing =
                 money.findSettlement(EconomyRules.SETTLEMENT_KIND_RESCUE, deathId);
         if (existing.isPresent()) {
-            return new RescueInternalResult(false, existing.get().parentTransactionId());
+            return RescuePlan.alreadyApplied(existing.get().parentTransactionId());
         }
         ensureTeams();
         List<Team> allTeams = teams.listTeams();
         Map<UUID, Long> balanceUpdates = new LinkedHashMap<>();
         List<TransactionRecord> ledger = new ArrayList<>();
-        List<JdbcMoneyRepository.WalletRow> touched = new ArrayList<>();
         UUID parentId = UUID.randomUUID();
         String reason = "Rescue for death " + deathId;
         long total = 0L;
@@ -999,13 +1133,11 @@ public final class MoneyService implements AutoCloseable {
                     continue;
                 }
                 long before = wallet.balance();
-                // If already updated in this rescue (shouldn't happen), use pending
                 if (balanceUpdates.containsKey(member.accountId())) {
                     before = balanceUpdates.get(member.accountId());
                 }
                 long after = Math.addExact(before, EconomyRules.RESCUE_PER_MEMBER);
                 balanceUpdates.put(member.accountId(), after);
-                touched.add(wallet);
                 total = Math.addExact(total, EconomyRules.RESCUE_PER_MEMBER);
                 ledger.add(new TransactionRecord(
                         UUID.randomUUID(), now, TransactionType.RESCUE_PAYMENT, TransactionStatus.SUCCESS,
@@ -1016,7 +1148,6 @@ public final class MoneyService implements AutoCloseable {
             }
         }
 
-        // Fix parent amount
         ledger.set(0, new TransactionRecord(
                 parentId, now, TransactionType.RESCUE_PAYMENT, TransactionStatus.SUCCESS,
                 total, reason, null, null, null, null, null, null, null, "",
@@ -1032,14 +1163,7 @@ public final class MoneyService implements AutoCloseable {
                 "rescue",
                 now);
 
-        money.commitSettlement(JdbcMoneyRepository.SettlementCommit.of(balanceUpdates, ledger, settlement));
-        for (JdbcMoneyRepository.WalletRow wallet : touched) {
-            Long after = balanceUpdates.get(wallet.accountId());
-            if (after != null) {
-                notifyBalanceChanged(wallet.minecraftUuid(), after);
-            }
-        }
-        return new RescueInternalResult(true, parentId);
+        return new RescuePlan(true, parentId, balanceUpdates, ledger, settlement);
     }
 
     /**
@@ -1470,6 +1594,20 @@ public final class MoneyService implements AutoCloseable {
     }
 
     /**
+     * @return the parent transfer id recorded on an existing auction settlement, if present
+     */
+    public synchronized Optional<UUID> findAuctionPaymentTransactionId(String lotId) {
+        Objects.requireNonNull(lotId, "lotId");
+        try {
+            return money.findSettlement(EconomyRules.SETTLEMENT_KIND_AUCTION, lotId)
+                    .map(JdbcMoneyRepository.SettlementRow::parentTransactionId);
+        } catch (SQLException exception) {
+            logStorageFailure("read auction settlement tx " + lotId, exception);
+            return Optional.empty();
+        }
+    }
+
+    /**
      * Records an admin configuration change in {@code economy_admin_audit}.
      */
     public synchronized void recordAdminAudit(
@@ -1526,7 +1664,25 @@ public final class MoneyService implements AutoCloseable {
             Map<Integer, Long> killPrices) {
     }
 
-    private record RescueInternalResult(boolean activated, @Nullable UUID parentTransactionId) {
+    private record RescuePlan(
+            boolean activated,
+            @Nullable UUID parentTransactionId,
+            Map<UUID, Long> balanceUpdates,
+            List<TransactionRecord> ledger,
+            @Nullable JdbcMoneyRepository.SettlementRow settlement) {
+
+        private RescuePlan {
+            balanceUpdates = balanceUpdates == null ? Map.of() : Map.copyOf(balanceUpdates);
+            ledger = ledger == null ? List.of() : List.copyOf(ledger);
+        }
+
+        static RescuePlan none() {
+            return new RescuePlan(false, null, Map.of(), List.of(), null);
+        }
+
+        static RescuePlan alreadyApplied(@Nullable UUID parentTransactionId) {
+            return new RescuePlan(false, parentTransactionId, Map.of(), List.of(), null);
+        }
     }
 
     @FunctionalInterface

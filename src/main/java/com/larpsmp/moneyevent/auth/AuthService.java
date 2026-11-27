@@ -151,16 +151,17 @@ public final class AuthService {
 
         try {
             Optional<Account> accountOpt = repository.findByUsernameOrEmail(identifier);
-            if (accountOpt.isEmpty()) {
+            // Always run Argon2 so unknown identifiers take similar time to wrong passwords.
+            String hashToVerify = accountOpt
+                    .map(Account::passwordHash)
+                    .orElse(PasswordHasher.dummyEncodedHash());
+            boolean passwordMatches = passwordHasher.verify(password, hashToVerify);
+            if (accountOpt.isEmpty() || !passwordMatches) {
                 rateLimiter.recordFailure(minecraftUuid);
                 return new LoginResult.InvalidCredentials();
             }
 
             Account account = accountOpt.get();
-            if (!passwordHasher.verify(password, account.passwordHash())) {
-                rateLimiter.recordFailure(minecraftUuid);
-                return new LoginResult.InvalidCredentials();
-            }
 
             if (!account.emailVerified()) {
                 EmailChallengeService.IssueResult issue =
@@ -260,8 +261,11 @@ public final class AuthService {
             return switch (issue) {
                 case EmailChallengeService.IssueResult.Sent sent ->
                         new ForgotPasswordResult.Accepted(account.id(), sent.maskedEmail(), true);
-                case EmailChallengeService.IssueResult.Cooldown cooldown ->
-                        new ForgotPasswordResult.Cooldown(cooldown.retryAfterSeconds());
+                // Cooldown must not surface differently from an unknown email (enumeration).
+                // A prior code remains usable; show the same generic Accepted copy.
+                case EmailChallengeService.IssueResult.Cooldown ignored ->
+                        new ForgotPasswordResult.Accepted(
+                                account.id(), EmailTemplates.maskEmail(account.email()), true);
                 case EmailChallengeService.IssueResult.EmailUnavailable ignored ->
                         new ForgotPasswordResult.EmailUnavailable();
                 case EmailChallengeService.IssueResult.InternalError ignored ->

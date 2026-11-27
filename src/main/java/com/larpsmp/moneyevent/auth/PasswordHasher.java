@@ -44,6 +44,19 @@ public final class PasswordHasher {
         this.parallelism = parallelism;
     }
 
+    /**
+     * Fixed Argon2id PHC string for unknown-identifier login timing equalization.
+     * Lazy so class init does not recurse through the static field initializer.
+     */
+    public static String dummyEncodedHash() {
+        return DummyHashHolder.HASH;
+    }
+
+    private static final class DummyHashHolder {
+        private static final String HASH =
+                new PasswordHasher().hash("__larpsmp_dummy_login_probe__");
+    }
+
     public String hash(String password) {
         if (password == null || password.isEmpty()) {
             throw new IllegalArgumentException("password must not be empty");

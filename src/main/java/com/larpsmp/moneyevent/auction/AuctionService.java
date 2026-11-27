@@ -7,6 +7,7 @@ import com.larpsmp.moneyevent.team.TeamService;
 import com.larpsmp.moneyevent.wallet.MoneyService;
 import com.larpsmp.moneyevent.wallet.TransactionResult;
 import com.larpsmp.moneyevent.wallet.TransactionStatus;
+import com.larpsmp.moneyevent.wallet.TransactionType;
 import com.larpsmp.moneyevent.wallet.WalletAccount;
 import java.sql.SQLException;
 import java.time.Clock;
@@ -578,13 +579,49 @@ public final class AuctionService {
                 return PayLotResult.payeeMissing(config.paymentUsername());
             }
 
+            Instant now = clock.instant();
+            String lotId = activeLot.lotId().toString();
+
+            // Recovery: money + settlement already committed, but lot row may still be pending.
+            if (money.hasAuctionPaymentSettlement(lotId)) {
+                UUID priorTx = money.findAuctionPaymentTransactionId(lotId).orElse(null);
+                if (priorTx == null) {
+                    return PayLotResult.failed("Auction settlement exists without a payment transaction id.");
+                }
+                activeLot.markPaid(priorTx, now);
+                try {
+                    repository.upsertLot(activeLot);
+                } catch (SQLException exception) {
+                    errorLogger.accept("Failed to mark lot paid after settlement recovery: "
+                            + exception.getMessage());
+                    return PayLotResult.failed(exception.getMessage());
+                }
+                Optional<Team> recoveredTeam = teams.teamOf(payerAccountId);
+                broadcast(AuctionMessages.broadcastPaymentReceived(
+                        recoveredTeam.map(Team::displayName).orElse(resolveUsername(payerAccountId)),
+                        recoveredTeam.map(Team::color).orElse(null),
+                        amount));
+                TransactionResult recovered = new TransactionResult(
+                        priorTx,
+                        TransactionType.AUCTION_PAYMENT,
+                        TransactionStatus.SUCCESS,
+                        amount,
+                        null,
+                        null,
+                        null,
+                        null,
+                        "");
+                return PayLotResult.paid(activeLot, recovered, config.paymentUsername());
+            }
+
             String reason = "Auction lot " + activeLot.lotNumber() + " \"" + activeLot.theme() + "\"";
-            TransactionResult transfer = money.auctionPayment(
+            TransactionResult transfer = money.auctionPaymentWithSettlement(
                     payerWallet.get().minecraftUuid(),
                     payeeWallet.get().minecraftUuid(),
                     amount,
                     reason,
-                    payerWallet.get().minecraftUuid());
+                    payerWallet.get().minecraftUuid(),
+                    lotId);
             if (!transfer.successful()) {
                 if (transfer.status() == TransactionStatus.INSUFFICIENT_FUNDS) {
                     long balance = transfer.sourceBalanceBefore() == null
@@ -601,17 +638,12 @@ public final class AuctionService {
                 return PayLotResult.failed(detail);
             }
 
-            Instant now = clock.instant();
-            boolean settled = money.ensureAuctionPaymentSettlement(
-                    activeLot.lotId().toString(), transfer.transactionId(), amount);
-            if (!settled) {
-                return PayLotResult.failed("Payment moved but settlement could not be recorded. Contact an admin.");
-            }
             activeLot.markPaid(transfer.transactionId(), now);
             try {
                 repository.upsertLot(activeLot);
             } catch (SQLException exception) {
                 errorLogger.accept("Failed to mark lot paid after /auction pay: " + exception.getMessage());
+                // Settlement + transfer already committed; next /auction pay recovers via settlement row.
                 return PayLotResult.failed(exception.getMessage());
             }
             Optional<Team> payerTeam = teams.teamOf(payerAccountId);

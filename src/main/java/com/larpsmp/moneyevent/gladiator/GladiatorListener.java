@@ -235,7 +235,8 @@ public final class GladiatorListener implements Listener {
                 .map(s -> s.isAliveFighter(accountId)).orElse(false)) {
             return false;
         }
-        return player.isOp() || accountAdmins.isAdminMinecraftUuid(player.getUniqueId());
+        // Account-backed plugin admin or server operator only (not raw Bukkit op).
+        return accountAdmins.isAdminMinecraftUuid(player.getUniqueId());
     }
 
     private @Nullable Location seatsLocation() {

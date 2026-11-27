@@ -171,8 +171,13 @@ public final class MoneyEventPlugin extends JavaPlugin {
                 AuthRateLimiter rateLimiter = new AuthRateLimiter(authConfig.rateLimit());
 
                 EmailSender emailSender = null;
-                boolean emailConfigured = authConfig.integrations().resendConfigured();
-                if (emailConfigured) {
+                boolean resendConfigured = authConfig.integrations().resendConfigured();
+                boolean pepperConfigured = authConfig.integrations().hasExplicitEmailCodePepper();
+                boolean emailConfigured = authConfig.integrations().emailChallengesReady();
+                if (resendConfigured && !pepperConfigured) {
+                    getLogger().severe("Resend is configured but LARPSMP_EMAIL_CODE_PEPPER is missing. "
+                            + "Email verification and recovery are disabled until an explicit pepper is set.");
+                } else if (emailConfigured) {
                     emailSender = new ResendClient(
                             authConfig.integrations().resendApiKey(),
                             authConfig.integrations().resendFromEmail(),
@@ -181,8 +186,9 @@ public final class MoneyEventPlugin extends JavaPlugin {
                     getLogger().info("Resend email delivery configured (from "
                             + authConfig.integrations().resendFromEmail() + ").");
                 } else {
-                    getLogger().warning("Resend is not fully configured (need LARPSMP_RESEND_API_KEY and "
-                            + "LARPSMP_RESEND_FROM_EMAIL). Email verification and recovery will be unavailable.");
+                    getLogger().warning("Resend is not fully configured (need LARPSMP_RESEND_API_KEY, "
+                            + "LARPSMP_RESEND_FROM_EMAIL, and LARPSMP_EMAIL_CODE_PEPPER). "
+                            + "Email verification and recovery will be unavailable.");
                 }
 
                 VerificationCodeHasher codeHasher = new VerificationCodeHasher(
@@ -254,7 +260,8 @@ public final class MoneyEventPlugin extends JavaPlugin {
                 playerStateService = null;
             }
         } else {
-            getLogger().info("Pre-join authentication disabled.");
+            getLogger().severe("Pre-join authentication is DISABLED (auth.enabled=false). "
+                    + "Anyone can join the world without a LarpSMP account. Use only for local development.");
         }
 
         ExecutorService listenerExecutor = authExecutor != null

@@ -40,7 +40,15 @@ final class EnvSettingsTest {
         IntegrationsConfig set = new IntegrationsConfig("re_test", "a@b.co", "pepper", "https://store.example", "key");
         assertTrue(set.resendConfigured());
         assertTrue(set.storageConfigured());
+        assertTrue(set.hasExplicitEmailCodePepper());
+        assertTrue(set.emailChallengesReady());
         assertEquals("pepper", set.resolveEmailCodePepper());
+
+        IntegrationsConfig resendWithoutPepper = new IntegrationsConfig("re_test", "a@b.co", "", "", "");
+        assertTrue(resendWithoutPepper.resendConfigured());
+        assertFalse(resendWithoutPepper.hasExplicitEmailCodePepper());
+        assertFalse(resendWithoutPepper.emailChallengesReady());
+        assertEquals(IntegrationsConfig.DEV_EMAIL_CODE_PEPPER, resendWithoutPepper.resolveEmailCodePepper());
     }
 
     @Test

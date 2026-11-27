@@ -329,16 +329,24 @@ public final class CaptureService {
         }
 
         SplitRewardResult payout = money.processCaptureReward(session.captureId().toString(), winningTeamId);
-        String outcome = payout.successful() ? payout.outcome() : "FAILED:" + payout.status();
         if (!payout.successful()) {
             errorLogger.accept("Capture payout failed for " + session.captureId() + ": "
-                    + payout.status() + " " + payout.failureReason());
-        } else if (!EconomyRules.OUTCOME_APPLIED.equals(payout.outcome())
-                && payout.outcome() != null
-                && !payout.outcome().isBlank()) {
-            // Idempotent replay still counts as settled.
-            outcome = payout.outcome();
+                    + payout.status() + " " + payout.failureReason()
+                    + " — leaving session active for retry under the same captureId");
+            try {
+                persistSession(session);
+                repository.setRuntime(session.captureId(), session.isPaused(), now);
+            } catch (SQLException exception) {
+                errorLogger.accept("Failed to persist capture after payout failure: "
+                        + exception.getMessage());
+            }
+            // Keep progress at 100%; subsequent ticks retry processCaptureReward with the same id.
+            return TickOutcome.progressed(session, null);
         }
+
+        String outcome = payout.outcome() == null || payout.outcome().isBlank()
+                ? EconomyRules.OUTCOME_APPLIED
+                : payout.outcome();
 
         session.complete(winningTeamId, outcome, now);
         try {

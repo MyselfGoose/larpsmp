@@ -88,6 +88,33 @@ class CaptureServiceTest {
     }
 
     @Test
+    void failedPayoutLeavesSessionRetryableWithoutDayCompletion() throws Exception {
+        try (CaptureFixture fixture = open()) {
+            Team empty = fixture.createTeam("EmptyCap", TeamColor.BLUE);
+            // No competitors → processCaptureReward returns WALLET_NOT_FOUND.
+            fixture.service().start("quarry");
+            long full = fixture.config().fullCaptureMillis(1);
+            CaptureService.TickOutcome tick = fixture.service().tick(
+                    CaptureAdvantage.fromHeadcounts(Map.of(empty.id(), 1)),
+                    full + 1);
+            assertEquals(CaptureService.TickOutcome.Kind.PROGRESSED, tick.kind());
+            CaptureSession pending = fixture.service().activeSession().orElseThrow();
+            assertEquals(CaptureSessionStatus.ACTIVE, pending.status());
+            assertTrue(pending.progress().progressMillis() >= pending.progress().referenceFullMillis());
+            assertTrue(fixture.service().completedPointsToday().isEmpty());
+            UUID captureId = pending.captureId();
+
+            fixture.fillTeam(empty, "EmptyCapM", 4);
+            CaptureService.TickOutcome retry = fixture.service().tick(
+                    CaptureAdvantage.fromHeadcounts(Map.of(empty.id(), 1)),
+                    1);
+            assertEquals(CaptureService.TickOutcome.Kind.COMPLETED, retry.kind());
+            assertTrue(fixture.service().completedPointsToday().contains("quarry"));
+            assertTrue(fixture.money().processCaptureReward(captureId.toString(), empty.id()).successful());
+        }
+    }
+
+    @Test
     void dayCompletionPreventsReopeningSamePoint() throws Exception {
         try (CaptureFixture fixture = open()) {
             Team blue = fixture.createTeam("DayBlue", TeamColor.BLUE);

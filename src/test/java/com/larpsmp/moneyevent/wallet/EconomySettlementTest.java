@@ -189,6 +189,14 @@ class EconomySettlementTest {
                     "trap"));
             assertEquals(result.outcome(), replay.outcome());
             assertEquals(killerBalance, fixture.money().balance(killer.minecraftUuid()).balance());
+
+            // Rescue and death share one atomic commit — both settlement rows exist together.
+            assertTrue(fixture.moneyRepository()
+                    .findSettlement(EconomyRules.SETTLEMENT_KIND_RESCUE, "death-rescue-1")
+                    .isPresent());
+            assertTrue(fixture.moneyRepository()
+                    .findSettlement(EconomyRules.SETTLEMENT_KIND_DEATH, "death-rescue-1")
+                    .isPresent());
         }
     }
 

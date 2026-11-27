@@ -8,6 +8,8 @@
 
 JUnit 5 tests under `src/test/java/com/larpsmp/moneyevent/`. Many integration tests need Postgres (`LARPSMP_JDBC_URL`).
 
+GitHub Actions (`.github/workflows/ci.yml`) runs `cleanTest test` plus a JAR build against a Postgres 16 service on PRs and pushes to `main`.
+
 ### Coverage areas (existing)
 
 | Area | Examples |

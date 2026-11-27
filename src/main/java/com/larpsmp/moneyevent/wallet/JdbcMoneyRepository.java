@@ -225,6 +225,21 @@ public final class JdbcMoneyRepository {
             UUID destinationAccountId,
             long destinationAfter,
             TransactionRecord record) throws SQLException {
+        commitTransfer(
+                sourceAccountId, sourceAfter, destinationAccountId, destinationAfter, record, null);
+    }
+
+    /**
+     * Atomically updates two wallets, inserts the transfer ledger row, and optionally records a
+     * settlement in the same database transaction.
+     */
+    public void commitTransfer(
+            UUID sourceAccountId,
+            long sourceAfter,
+            UUID destinationAccountId,
+            long destinationAfter,
+            TransactionRecord record,
+            @Nullable SettlementRow settlement) throws SQLException {
         try (Connection connection = dataSource.getConnection()) {
             boolean previous = connection.getAutoCommit();
             connection.setAutoCommit(false);
@@ -240,6 +255,9 @@ public final class JdbcMoneyRepository {
                 updateBalance(connection, sourceAccountId, sourceAfter);
                 updateBalance(connection, destinationAccountId, destinationAfter);
                 insertTransaction(connection, record);
+                if (settlement != null) {
+                    insertSettlement(connection, settlement);
+                }
                 connection.commit();
             } catch (SQLException exception) {
                 connection.rollback();
@@ -271,8 +289,8 @@ public final class JdbcMoneyRepository {
                 for (TransactionRecord record : commit.transactions()) {
                     insertTransaction(connection, record);
                 }
-                if (commit.settlement() != null) {
-                    insertSettlement(connection, commit.settlement());
+                for (SettlementRow settlement : commit.settlements()) {
+                    insertSettlement(connection, settlement);
                 }
                 if (commit.newRotationIndex() != null) {
                     updateRotationIndex(connection, commit.newRotationIndex());
@@ -902,20 +920,53 @@ public final class JdbcMoneyRepository {
     public record SettlementCommit(
             Map<UUID, Long> balanceUpdates,
             List<TransactionRecord> transactions,
-            @Nullable SettlementRow settlement,
+            List<SettlementRow> settlements,
             @Nullable Integer newRotationIndex,
             @Nullable UUID markStartingBalanceGranted) {
 
         public SettlementCommit {
             balanceUpdates = Map.copyOf(balanceUpdates);
             transactions = List.copyOf(transactions);
+            settlements = settlements == null ? List.of() : List.copyOf(settlements);
         }
 
         public static SettlementCommit of(
                 Map<UUID, Long> balances,
                 Collection<TransactionRecord> transactions,
-                SettlementRow settlement) {
-            return new SettlementCommit(balances, List.copyOf(transactions), settlement, null, null);
+                @Nullable SettlementRow settlement) {
+            return ofSettlements(
+                    balances,
+                    transactions,
+                    settlement == null ? List.of() : List.of(settlement));
+        }
+
+        public static SettlementCommit ofSettlements(
+                Map<UUID, Long> balances,
+                Collection<TransactionRecord> transactions,
+                Collection<SettlementRow> settlements) {
+            return new SettlementCommit(
+                    balances, List.copyOf(transactions), List.copyOf(settlements), null, null);
+        }
+
+        public static SettlementCommit withRotation(
+                Map<UUID, Long> balances,
+                Collection<TransactionRecord> transactions,
+                @Nullable SettlementRow settlement,
+                @Nullable Integer newRotationIndex) {
+            return new SettlementCommit(
+                    balances,
+                    List.copyOf(transactions),
+                    settlement == null ? List.of() : List.of(settlement),
+                    newRotationIndex,
+                    null);
+        }
+
+        public static SettlementCommit withStartingBalanceGrant(
+                Map<UUID, Long> balances,
+                Collection<TransactionRecord> transactions,
+                UUID accountId) {
+            return new SettlementCommit(
+                    balances, List.copyOf(transactions), List.of(), null, accountId);
         }
     }
 }

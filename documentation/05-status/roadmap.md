@@ -1,6 +1,6 @@
 # Development roadmap (by branch)
 
-You are here: **`feature/roles-and-authz`** (competitor/spectator flags + production authz).
+You are here: **OPS / NON-CODE** (hosting, roster, map, playtest). All feature branches through roles/authz are merged into **`main`**.
 
 Status key on this page:
 
@@ -33,7 +33,7 @@ DONE     feature/display-and-leaderboards
 DONE     feature/auctions
 DONE     feature/ace-hunt
 DONE     feature/gladiators
-NEXT     feature/roles-and-authz
+DONE     feature/roles-and-authz
 OPS      roster, calendar, map, hosting, playtest
 ```
 
@@ -252,14 +252,16 @@ Do **not** block the roadmap on full automation.
 
 ---
 
-## 13. `feature/roles-and-authz` — NEXT
+## 13. `feature/roles-and-authz` — DONE
+
+**Merged into `main`.** Competitor/spectator participation, standings filters, and `AccountPermissionAuthorizer` with `/larp op` vs `/larp serverop`.
 
 | # | Work item | Status |
 |---|-----------|--------|
-| 1 | Competitor / admin / spectator flags on accounts | Competitor + spectator on `account_participation`; admin stays `account_plugin_admins` |
-| 2 | Exclude non-competitors from standings / capture advantage / starting money | Standings, team wealth, capture, splits, death, `/top kills` |
-| 3 | Replace `DevelopmentConsoleOpAuthorizer` with production permissions | `AccountPermissionAuthorizer` |
-| 4 | Who gets full server ops vs plugin admin | Mechanism: `/larp op` vs `/larp serverop` (split). Named recipients still **Open** |
+| 1 | Competitor / admin / spectator flags on accounts | DONE (`account_participation` + plugin admins + server operators) |
+| 2 | Exclude non-competitors from standings / capture advantage / starting money | DONE |
+| 3 | Replace `DevelopmentConsoleOpAuthorizer` with production permissions | DONE (`AccountPermissionAuthorizer`) |
+| 4 | Who gets full server ops vs plugin admin | Mechanism DONE; named recipients still **Open** |
 
 ---
 
@@ -281,8 +283,9 @@ Not branches, but blockers for “event ready”:
 
 ## Recommended working order (what you do next)
 
-1. Economy settlement through Gladiators — **Done**.  
-2. **Current:** `feature/roles-and-authz`.  
-3. **Throughout:** chase Karim on [open questions](open-questions.md).
+1. Feature branches through roles/authz — **Done** (on `main`).  
+2. **Current:** OPS — hosting, backups, roster, map, playtest battery.  
+3. **Throughout:** chase Karim on [open questions](open-questions.md).  
+4. See [production readiness audit](../audits/production-readiness-audit.md) for deploy conditions.
 
-When the branch is merge-ready: PR → `main` → delete the feature branch → pick the next **QUEUED**/OPS item.
+When an ops checklist item is cleared, record it in status docs rather than opening a feature branch.

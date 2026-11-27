@@ -49,7 +49,7 @@ cp .env.example .env
 
 Priority: process environment → `.env` → `config.yml` fallbacks. See [Configuration and secrets](configuration-and-secrets.md).
 
-Set `LARPSMP_RESEND_API_KEY` and `LARPSMP_RESEND_FROM_EMAIL` so verification email works.
+Set `LARPSMP_RESEND_API_KEY`, `LARPSMP_RESEND_FROM_EMAIL`, and `LARPSMP_EMAIL_CODE_PEPPER` so verification email works.
 
 ## Manual pieces
 
@@ -83,7 +83,7 @@ Any Java **21+** is accepted.
 2. Client 1.21.11 → Multiplayer → `localhost`.
 3. **Sign up**, enter email verification code, later **Log in** on reconnect.
 
-New accounts currently receive a **$200** wallet automatically.
+New accounts get an empty **$0** wallet. The **$200** competitor starting balance is granted once on first team assignment.
 
 ## Local server files
 

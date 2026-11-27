@@ -116,6 +116,45 @@ class AuctionServiceTest {
     }
 
     @Test
+    void auctionPayRecordsSettlementAtomicallyAndRecoversLotMark() throws Exception {
+        try (AuctionFixture fixture = open()) {
+            Team blue = fixture.createTeam("AtmBlue", TeamColor.BLUE);
+            Team red = fixture.createTeam("AtmRed", TeamColor.RED);
+            Team yellow = fixture.createTeam("AtmYellow", TeamColor.YELLOW);
+            var blueRep = fixture.addMember(blue, "AtmB");
+            var redRep = fixture.addMember(red, "AtmR");
+            var yellowRep = fixture.addMember(yellow, "AtmY");
+            var amira = fixture.registerAmira();
+            fixture.service().setPaymentRecipient(amira.username(), "admin", "console");
+
+            fixture.service().startSession();
+            fixture.service().registerRepresentative(fixture.accountId(blueRep));
+            fixture.service().registerRepresentative(fixture.accountId(redRep));
+            fixture.service().registerRepresentative(fixture.accountId(yellowRep));
+            fixture.service().openLot("Atomic Lot", 10);
+            fixture.service().bid(fixture.accountId(redRep), 30);
+            fixture.service().closeLot();
+
+            long redBefore = fixture.money().account(redRep.minecraftUuid()).orElseThrow().balance();
+            assertInstanceOf(AuctionService.PayLotResult.Paid.class,
+                    fixture.service().payOutstanding(fixture.accountId(redRep)));
+            AuctionLot paid = fixture.service().activeLot().orElseThrow();
+            assertEquals(AuctionLotStatus.PAID, paid.status());
+            assertTrue(fixture.money().hasAuctionPaymentSettlement(paid.lotId().toString()));
+            assertEquals(
+                    redBefore - 30L,
+                    fixture.money().account(redRep.minecraftUuid()).orElseThrow().balance());
+
+            // Second pay is nothing-due (lot already PAID); settlement prevents double charge.
+            assertInstanceOf(AuctionService.PayLotResult.NothingDue.class,
+                    fixture.service().payOutstanding(fixture.accountId(redRep)));
+            assertEquals(
+                    redBefore - 30L,
+                    fixture.money().account(redRep.minecraftUuid()).orElseThrow().balance());
+        }
+    }
+
+    @Test
     void forfeitOffersPreviousBidderWhoCanStillAfford() throws Exception {
         try (AuctionFixture fixture = open()) {
             Team blue = fixture.createTeam("FbBlue", TeamColor.BLUE);

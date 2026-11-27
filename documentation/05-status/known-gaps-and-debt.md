@@ -26,7 +26,8 @@ Minecraft allows **one** sidebar per player (always right — no native left pan
 ## Persistence / ops
 
 - Offline pay notifications are filesystem-based under the plugin data folder (not Postgres).
-- No in-repo production deploy/runbook beyond remote JDBC notes.
+- Single Paper process only — multi-node against one Postgres is unsupported (see [configuration-and-secrets](../04-development/configuration-and-secrets.md) and [production readiness audit](../audits/production-readiness-audit.md)).
+- Production deploy still needs hosting, backups, roster, and map ops (Open).
 - `LARPSMP_STORAGE_*` unused.
 
 ## Superseded design traps (do not reintroduce)

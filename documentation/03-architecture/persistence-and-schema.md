@@ -1,6 +1,6 @@
 # Persistence and schema
 
-**Status:** Migrations **V001–V015 Implemented** (`V015` on `feature/roles-and-authz`).
+**Status:** Migrations **V001–V015 Implemented** on `main`.
 
 Migrations live under `src/main/resources/db/migrations/` and run via `MigrationRunner` on plugin enable when auth/DB is available.
 

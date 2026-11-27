@@ -35,7 +35,7 @@ That script:
 cp .env.example .env
 ```
 
-When it finishes the readiness report, join Minecraft and use **Sign up**. New accounts automatically receive a **$200** wallet. Set `LARPSMP_RESEND_API_KEY` and `LARPSMP_RESEND_FROM_EMAIL` in `.env` so the verification email can be delivered.
+When it finishes the readiness report, join Minecraft and use **Sign up**. Wallets start at **$0**; the **$200** competitor starting balance is granted once on first team assignment. Set `LARPSMP_RESEND_API_KEY`, `LARPSMP_RESEND_FROM_EMAIL`, and `LARPSMP_EMAIL_CODE_PEPPER` in `.env` so verification email can be delivered.
 
 | Service | Address | Credentials (from `.env` defaults) |
 |---------|---------|-------------|

@@ -16,8 +16,15 @@ From [`.env.example`](../../.env.example):
 | `LARPSMP_JDBC_URL` / `LARPSMP_DB_*` | Plugin JDBC |
 | `LARPSMP_PGADMIN_*` | pgAdmin UI |
 | `LARPSMP_RESEND_API_KEY` / `LARPSMP_RESEND_FROM_EMAIL` | Email verify + recovery |
-| `LARPSMP_EMAIL_CODE_PEPPER` | Optional code hashing pepper |
+| `LARPSMP_EMAIL_CODE_PEPPER` | **Required** whenever Resend is configured; hashes email verification/recovery codes |
 | `LARPSMP_STORAGE_*` | Future remote storage (unused) |
+
+### Production requirements
+
+- Keep `auth.enabled: true` in `config.yml` (disabling it allows unauthenticated world join).
+- Set `LARPSMP_EMAIL_CODE_PEPPER` to a long random secret when using Resend. Without it, email challenges stay disabled even if Resend keys are present.
+- Run **one** Paper process against the event database. Multi-node Paper sharing one Postgres is unsupported (in-memory sessions, rate limits, and `MoneyService` synchronization).
+- Override JDBC credentials via `.env` / process environment; do not rely on `config.yml` local defaults.
 
 `.env` is gitignored. Share filled values privately with coworkers.
 

@@ -683,10 +683,9 @@ public final class AuthConnectionListener implements Listener {
                     audience.showDialog(dialogFactory.forgotEmailDialog(config.messages().loginRateLimited()));
             case ForgotPasswordResult.EmailUnavailable ignored ->
                     audience.showDialog(dialogFactory.forgotEmailDialog(config.messages().forgotEmailUnavailable()));
-            case ForgotPasswordResult.Cooldown cooldown ->
-                    audience.showDialog(dialogFactory.forgotEmailDialog(
-                            config.messages().verifyCooldown()
-                                    .replace("{seconds}", Long.toString(cooldown.retryAfterSeconds()))));
+            case ForgotPasswordResult.Cooldown ignored ->
+                    // beginRecovery maps cooldown to Accepted; keep a safe fallback.
+                    audience.showDialog(dialogFactory.forgotEmailDialog(config.messages().forgotEmailSent()));
             case ForgotPasswordResult.InternalError ignored ->
                     audience.showDialog(dialogFactory.forgotEmailDialog(config.messages().forgotEmailInternalError()));
         }

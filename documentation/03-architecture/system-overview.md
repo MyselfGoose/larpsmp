@@ -1,6 +1,6 @@
 # System overview
 
-**Status:** Describes **Implemented** architecture on `feature/teams` unless marked Planned.
+**Status:** Describes **Implemented** architecture on `main` unless marked Planned.
 
 ## Stack
 
@@ -50,7 +50,7 @@ flowchart TD
   env[Load EnvSettings + config]
   authCfg[AuthConfig / PlayerStateConfig]
   db{auth.enabled and DB up?}
-  migrate[Run migrations V001-V010]
+  migrate[Run migrations V001-V015]
   authSvc[AuthService + listeners]
   money[MoneyService + TeamService]
   combat[Kill attribution listeners]
